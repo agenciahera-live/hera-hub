@@ -1,0 +1,115 @@
+# CLAUDE.md — Hera Creator Hub
+
+App web (PWA) para os streamers de TikTok LIVE da Agência Hera + painel de gestão. Django 5 + HTMX + Alpine + PostgreSQL com RLS. Tudo em português do Brasil.
+
+**A especificação do produto é `docs/hera-app-visao.md`** (versão final, com as decisões da Mariana de 11, 12 e 14/11/2026). O estado atual e o plano de trabalho estão em `docs/STATUS_E_PROXIMOS_PASSOS.md`. **Leia os dois antes de qualquer tarefa grande.**
+
+Quando dois textos divergirem, vale esta ordem:
+
+1. **"Regras que nunca podem ser quebradas"** (abaixo): segurança, isolamento de dados e integridade dos números.
+2. **`docs/hera-app-visao.md`**: o que o produto faz, as telas, as regras de contato e o tom.
+3. **"Regras da visão"** (abaixo): resumo da visão para o código. Se divergir da visão, corrija este resumo.
+4. **`docs/PRODUTO.md`**: especificação do MVP de 29/09. Vale só onde a visão não fala.
+
+Versões antigas da visão ficam em `docs/arquivo/` e **não valem mais**. A pasta `HERA\_arquivo\` (fora do repositório) guarda a cópia antiga do projeto de 30/09; não trabalhe nela.
+
+## Regras da visão (resumo de `docs/hera-app-visao.md`)
+
+1. **Não reescrever o app do zero.** Melhorar o que existe, uma etapa por vez, na ordem da seção "A ordem de construção" da visão, com aprovação da Mariana antes de cada etapa.
+2. **Nenhuma mensagem é enviada automaticamente e não há API do WhatsApp** (decisão definitiva). A gestora copia a mensagem e abre o grupo individual pelo link da ficha (`CreatorPrivate.whatsapp_group_url`). **O contato só conta quando a gestora marca "Enviei"**; abrir o WhatsApp não registra nada.
+3. **Não existe ranking em nenhuma tela**, nem do criador nem da gestão, nem em campanhas internas. Posição em campanha existe só no app do TikTok.
+4. **Nas telas do criador não aparecem as palavras meta, relatório, cobrança, prazo ou horário.** Regras do TikTok aparecem como "regra do TikTok". Linguagem neutra de gênero (nada de "sua gestora", "obrigada", "juntas"). O app nunca sugere número de horas, de dias ou horário: objetivos e dias de LIVE são escolhidos pelo criador.
+5. **Os dados do Backstage chegam como arquivo.** Não existe API do TikTok e o app nunca acessa o Backstage. O mesmo arquivo pode chegar por dois caminhos: o Claude, que lê o Backstage todo dia de manhã e envia o arquivo pela porta de importação (`POST /api/importacao/backstage/`, com a chave da agência; `data/port.py` e `web/views_api.py`), ou a gestora/as sócias, que sobem a planilha exportada (plano B). Os dois passam pelo mesmo `data/importer.py`. **A porta só grava sozinha leitura limpa:** com erro, saídas demais ou período estranho, o lote espera conferência na tela. A planilha Task do fechamento fica com Admin e Financeiro e não entra pela porta.
+6. **Fonte única:** tudo o que o criador e a gestão veem sai de "Dados do criador" (fecha no dia anterior; a tela diz "dados até ontem"). Receita › Incentivos e Task ficam só para o fechamento do mês e as decisões das sócias.
+7. **Grupos por nível:** Bronze T1, Prata T2–T3, Ouro T4, Diamante T5 ou mais (configurável em `GroupRule`). No app, o criador vê "Meu nível" e "Próximo nível".
+8. **Graduação:** 80 mil diamantes em um mês, dentro dos 3 primeiros meses de casa. Dá para graduar até 3 vezes, uma por mês nesse período. É regra do TikTok. Valores em `AgencySettings` (`graduation_diamonds`, `graduation_window_days`), nunca no código.
+9. **Inteligência artificial só na etapa 5** (rascunho do trecho da mensagem, resumo antes do 1:1, sugestão de oponente). Até lá, nada de IA no código. Em nenhuma etapa a IA envia mensagem.
+10. **Login do criador: código de acesso + e-mail e senha** (decisão de 14/11/2026). A gestão gera o código na ficha e envia no grupo individual; em `/primeiro-acesso/` o criador informa o @, o código e o e-mail e cria a senha (`crm/first_access.py`). Senha esquecida: código novo. **O e-mail do criador não é conferido, então nunca recupera acesso:** não recrie código por e-mail, "esqueci a senha" por e-mail nem login com Google. A equipe entra com e-mail e senha, cadastrados pelas sócias em Configurações.
+11. **Removidos em 14/11/2026, não recriar:** meta individual definida pela gestão (`Goal`), missão da semana e disparo assistido. A gestão não define número para o criador; objetivos são do criador (tela "Meu plano", etapa 3). Mensagem para vários criadores é post no grupo de avisos, não envio um a um.
+
+12. **Estado da semana, segmento, prioridade e sinais** seguem `docs/regras-estado-prioridade.md` (regras do Acompanhamento Semanal, trazidas como estão para `data/states.py`). Não mude limite sem mudar o documento. **Segmento (Top, Médio, Desenvolvimento, Base) não é grupo (Bronze, Prata, Ouro, Diamante):** o segmento prioriza a fila; o grupo vem do Tier do mês fechado e serve às campanhas internas.
+13. **Fila do dia** (`web/services.py:action_queue`): 4 blocos em ordem (suporte, o que tem data, o que vem do dado, rodízio); uma mensagem por dia por criador; teto por gestora; domingo sem envios; régua sem LIVE em 4, 14, 21 e 30 dias; um item só sai com "Enviei", "Adiar com motivo" ou mudança no dado. **Todo tipo de item está declarado em `ITEM_TYPES`** (com o bloco) e quem gera cada um em `COLLECTORS`: item novo é uma linha em cada tabela, sem mexer na ordenação, no teto nem no relógio. Os tipos "a construir" já estão lá e devolvem lista vazia.
+14. **Semana real para demonstração:** `python manage.py demo_semana --arquivo "..\exemplo-semana.json"`. O arquivo tem números reais com nomes trocados e fica **fora do repositório** (`HERA\creator-hub\`). Nunca copie esse arquivo para dentro de `hera-hub`, nem use os números dele em testes ou seeds. O comando também confere o motor de estados contra o script. Para os testes existe uma semana **inventada** no mesmo formato: `tests/fixtures/semana-sintetica.json`.
+15. **Biblioteca de mensagens** (passo 2.6). A fonte dos textos é `docs/playbook-gestor-hera.md` (Playbook do Gestor, revisão de novembro de 2026), palavra por palavra. Os padrões ficam em `engage/playbook.py` (cada mensagem diz de onde veio: `playbook`, `roteiro` ou `provisorio`) e são carregados por `engage/library.py:sync_defaults`. **Texto editado pela Hera nunca é sobrescrito:** `sync_defaults(agency)` só cria o que falta; uma revisão do Playbook entra por migração com `overwrite=True`, que guarda a versão anterior (`MessageVersion`). Uma mensagem pode ter variações por trilha e por "faz batalha" (`variant`, `tracks`, `battles`): **sempre escolha o texto com `engage.services.template_for` ou `pick_variant`**, nunca com `MessageTemplate.objects.get(code=...)`. Só Admin e Conteúdo editam (`/gestao/mensagens/`). O verificador de tom das mensagens (`engage/tom.py:verificar_tom_mensagem`) barra "meta", "cobrança", "prazo", "horário" e texto só no feminino. Não escreva texto novo de mensagem sem pedido: o que falta no Playbook entra como `provisorio` e vai para a lista de decisões da Mariana.
+16. **Cadência de não-resposta vale para a carteira inteira** (`web/services.py:_cadence_items`): no onboarding, depois de qualquer mensagem do roteiro sem resposta; depois do D15, depois da régua de sem LIVE (4º dia e 14 dias). Etapas +24h, +2 dias, +3 dias no privado, +5 dias; depois, a gestora aciona quem recrutou. "Respondeu" ou uma LIVE encerram.
+17. **Carteiras e ausência da gestora** (passo 2.7). A tela Carteiras (`/gestao/carteiras/`, só Admin) divide os criadores entre as gestoras; a troca usa sempre `core.access.assign_manager` ou `unassign_manager`, que guardam o histórico (nunca apague um `PortfolioAssignment`). O histórico do criador vai junto porque pertence ao criador. **"Hoje não trabalho"** (`crm/absence.py`, modelo `Absence`): os itens do dia passam para o dia seguinte sem mover nada; os que não podem esperar (`web/services.py:URGENT_CODES`: D10, D12, D14, encerramento do onboarding, batalha oficial e restrição) aparecem para quem cobre, no quadro "Cobertura de hoje" do Dashboard (`coverage_blocks`). Quem cobre é uma sócia ou uma recrutadora, **escolhida pelas sócias** (`Membership.covered_by`; vazio = as sócias). Item urgente novo = uma linha em `URGENT_CODES`.
+18. **Meu progresso é a tela inicial do app** (etapa 3, passo 3.1; lógica em `web/progress.py`, tela em `templates/streamer/home.html`). O topo muda com a fase: do D1 ao D14 sem a regra fechada, a contagem dos 14 dias com o selo "regra do TikTok"; depois, "Meu nível" e "Próximo nível". **No app do criador o Tier se chama "Nível"** (na gestão continua "Tier"). A frase do mês tem as três versões da visão (`month_phrase`); a única projeção é "No seu ritmo", sempre com "Estimativa pelo seu histórico, não é garantia". **Nunca volte com "Acelerar", "precisa/dia", alvo de horas ou de dias, ranking ou comparação com outro criador.** Texto novo para o criador: use a frase da visão; se a visão não tiver, escreva um fato (sem promessa e sem pedido) e registre nas decisões pendentes. O plano dos passos da etapa 3 está em `docs/STATUS_E_PROXIMOS_PASSOS.md`, "Etapa 3".
+
+19. **Hera Academy é o nome da página educacional** (decisão de 18/11/2026; passo 3.2; regras em `engage/academy.py`). Cada módulo (`Course`) abre por `opens_on`: primeiro acesso, depois da 1ª LIVE, ao fechar os 14 dias (ou no D15), ao chegar a um nível (`opens_level`) ou só com liberação da gestão (cursos extras). Quem chega a `AgencySettings.academy_all_open_level` (3) abre tudo, menos cursos extras. A gestão libera antes da hora pela ficha (`ModuleRelease`) e escolhe a aula que aparece no app (`LessonPick`, só de módulo já aberto); a escolha vence a sugestão automática (ponto mais fraco do mês pelo campo `Lesson.topic`, depois a próxima aula não vista). **Sempre pergunte se a aula abriu com `engage.academy` (`modules`, `open_lessons`, `lesson_state`)**, nunca listando `Lesson` direto. **Não volte com "obrigatória"** e não mostre módulo fechado sem o motivo ("Abre no Nível X", "Abre depois da sua 1ª LIVE"). Na barra de baixo o nome encurta para "Academy".
+
+O verificador de tom fica em `engage/tom.py`: `verificar_tom` para as telas do criador (teste `tests/test_tom.py`) e `verificar_tom_mensagem` para as mensagens da gestão (teste `tests/test_biblioteca.py`).
+
+## Regras que nunca podem ser quebradas
+
+1. **Isolamento de dados.** Um streamer nunca lê dados de outro streamer, nem por URL, nem por API, nem por consulta direta. A gestora só lê a carteira vigente dela. Tags, notas, 1:1 e contatos nunca são visíveis ao streamer. **Quem saiu da agência (status `saiu` ou `anonimizado`) não entra no app** (`web/views_streamer.py:streamer_required`); quem está em aviso prévio (`em_saida`) ainda entra.
+   - A segurança tem duas camadas: filtros em `core/access.py` **e** RLS no Postgres (`web/migrations/0001_rls.py`). Toda tabela nova com dado de creator precisa das duas.
+   - O app nunca conecta ao banco como superusuário nem com BYPASSRLS (verificação `hera.E001`).
+   - Tarefas internas usam `core.rls.system_context()`. Não use esse contexto em views. (O primeiro acesso, que acontece antes do login, usa o contexto dentro do serviço `crm/first_access.py`, nunca na view.)
+   - O código de acesso (`crm_accesscode`) tem regra mais restrita: só lê quem pode editar o criador (`web/migrations/0003_rls_codigo_acesso.py`).
+   - **Única exceção à carteira: a cobertura de ausência** (`web/migrations/0006_rls_carteiras_e_ausencia.py`). Quem cobre a gestora que avisou "Hoje não trabalho" enxerga a carteira dela **só naquele dia** e só registra contato ("Enviei", "Respondeu", nota). Não edita cadastro, não registra saída e não lê o código de acesso. Quem cobre é definido pelas sócias, e o banco impede a gestora de escolher outra pessoa. No Django: `scoped_creators` é o que é do usuário (listas e relatórios); `visible_creators` soma o que ele cobre hoje (ficha e ações de contato); `can_contact_creator` é quem edita ou quem cobre. Não amplie o que quem cobre pode fazer sem decisão da Mariana.
+2. **Valores de bônus, de receita da agência e de moedas só existem no painel das sócias** (decisão da Mariana de 14/11/2026). Só o papel Admin (Mariana e Aline) vê esses valores. Nenhum outro papel vê, em nenhuma tela: nem gestora, nem recrutadora, nem financeiro, nem analista, nem gestora parceira, nem o criador. Até o painel existir (etapa 4), as colunas de bônus da exportação Task continuam ignoradas. Quando forem guardadas, ficam em tabela própria, com RLS só para Admin e teste em `tests/test_isolation.py`.
+3. **Tier oficial = mês fechado** (`data/engine.py`). Não existe "Tier em andamento". No mês corrente, só a barra de progresso até o próximo Tier.
+4. **Primeiro Mês** é definido pelo tempo de casa e termina no dia 30 após a entrada. Depois disso, o grupo segue o Tier (ver "Regras da visão", item 6). Tiers e grupos são configuráveis (`TierRule`, `GroupRule`), nunca fixos no código.
+5. **O dia do TikTok é UTC** (fecha às 21h de Brasília). Contagem em UTC, exibição em America/Sao_Paulo.
+6. **A gestão nunca edita números.** Tudo vem de snapshots imutáveis de importação (`data/importer.py`) e é recalculado por `data.engine.recalculate`.
+7. **Campanhas não têm ranking no app**, nem as oficiais do TikTok nem as internas. O card abre a campanha no TikTok. A tela inicial mostra uma campanha só ("Campanha do momento"): por enquanto, a que fecha primeiro entre as que valem para o criador; a escolha por encaixe, chance, prêmio e esforço entra no passo 3.4, quando a leitura de campanhas existir.
+8. **Saída e retorno:** quem sai nos primeiros 15 dias pode voltar a qualquer momento; quem sai depois só volta após 90 dias (configurável). A volta reativa o mesmo cadastro (mesmo ID TikTok).
+9. **Carteira atribuída manualmente, pelas sócias** (tela Carteiras ou quadro Carteira da ficha). A coluna Agente da exportação é só sugestão.
+10. **Sem API do WhatsApp e sem IA até a etapa 5** (ver "Regras da visão", itens 2 e 9). A tabela `Outbox` fica reservada para notificações push do app; nunca para WhatsApp. Nunca use APIs não oficiais nem automação do WhatsApp Web.
+11. **Só dados fictícios** em seeds, testes, commits e capturas de tela (sufixo `.demo`). Nunca coloque dados reais de creators no repositório.
+12. **Logins de demonstração não podem existir em produção.** São os e-mails `@hera.demo` (criados por `seed_demo`) e `@semana.demo` (`admin@semana.demo` e `gestora.a@semana.demo` até `gestora.e@semana.demo`, criados por `demo_semana`), todos com a senha pública `hera-demo-2026`. Os dois comandos se recusam a rodar em produção (`settings.IS_PRODUCTION`) e o app não liga se achar um desses e-mails no banco (verificação `hera.E002`, em `core/checks.py`). Não remova essas travas, não crie outro login de senha fixa e nunca copie o banco de demonstração para produção.
+
+Se uma tarefa pedir para quebrar alguma dessas regras, pare e pergunte antes.
+
+## Dados de entrada (armadilhas conhecidas)
+
+- A exportação do Backstage é **acumulada do mês**, não diária. Métricas semanais = diferença entre snapshots consecutivos.
+- Tudo vem como texto: durações (`90h 2m 52s`, `59m 31s`, `0s`), percentuais (`48.81%`), `-` = vazio. Converta com `data/parsing.py`.
+- ID do criador tem 19 dígitos: guarde como texto.
+- Quem saiu vem com ID = "O criador deixou a agência": case pelo username.
+- A meta do TikTok é derivada: valor ÷ % alcançada.
+- Audiência (UV), melhor horário e dados por LIVE **não existem** na exportação "Dados do criador". A leitura detalhada por criador e por LIVE e a situação de cada criador nas campanhas, previstas na visão, vão chegar em arquivos de formato novo.
+
+## Mapa do código
+
+| Pasta | Conteúdo |
+|---|---|
+| `core/` | Agência, papéis (`Membership`), acesso (`access.py`), contexto RLS (`rls.py`), LGPD, auditoria, checks |
+| `crm/` | Creators, carteira, tags, notas, 1:1, onboarding, saídas, código de acesso ao app (`first_access.py`), linha do tempo da ficha (`timeline.py`), indicações (`referrals.py`), lembretes, motivo de quem parou, registro de batalhas, ausência da gestora e cobertura (`absence.py`) |
+| `data/` | Importação (`importer.py`), porta da leitura automática (`port.py`), parsing, snapshots, motor de cálculo (`engine.py`), fases e radar de graduação (`phases.py`), gerador de seeds |
+| `engage/` | Campanhas, avisos, Hera Academy (`academy.py`: o que abre para cada criador e a aula recomendada), Q&A, benefícios, pesquisas, batalhas, biblioteca de mensagens (`playbook.py` com os textos padrão, `library.py` com a carga, `tom.py` com o verificador de tom) |
+| `web/` | Views do streamer (`views_streamer.py`), da gestão (`views_gestao.py`) e da porta de importação (`views_api.py`), serviços de tela (`services.py`: fila do dia e carteiras; `progress.py`: Meu progresso, a tela inicial do criador), RLS, comandos |
+| `templates/` | `streamer/` (celular), `gestao/` (desktop), `account/` (login) |
+| `tests/` | Isolamento, importação, motor, telas, 375px |
+
+A lógica fica em funções de serviço testáveis (`data/engine.py`, `web/services.py`, `engage/services.py`), não nas views nem nos templates.
+
+## Comandos
+
+```bash
+python manage.py test tests        # todos os testes (precisa de Postgres; SQLite não roda o RLS)
+python manage.py migrate
+python manage.py seed_demo         # dados fictícios: admin@hera.demo, gestora1@hera.demo, streamer01@hera.demo / hera-demo-2026 (nunca em produção)
+python manage.py demo_semana --arquivo "..\exemplo-semana.json"   # semana real de demonstração: admin@semana.demo, gestora.a@semana.demo (nunca em produção)
+python manage.py runserver
+python manage.py rotina_diaria     # rotina agendada (06h BRT)
+python manage.py criar_usuario_banco
+python manage.py criar_admin --email voce@hera.com.br --senha "..."   # cria a sócia ou troca a senha dela
+```
+
+## Como trabalhar neste repositório
+
+- **Não reescreva o que já funciona.** Mudanças pequenas e focadas; siga os padrões existentes (HTMX para interação, CSS próprio sem build, telas renderizadas no servidor).
+- **Toda mudança roda os testes.** Mudou permissão, tabela com dado de creator ou importação: acrescente um teste em `tests/test_isolation.py` ou `tests/test_import.py`.
+- **Tela do streamer:** mobile-first, teste em 375px de largura. Linguagem próxima e motivadora, sem cara de sistema corporativo. Compare o creator com ele mesmo, não com os outros.
+- **Identidade visual:** roxo `#5c019b` (primária), rosa `#fb4fa5` (ação), ciano `#5de9f3` (dados), dourados `#f4af55` / `#ecbb58` (conquistas); base neutra com tema claro e escuro.
+- **Nova migração:** confira se a tabela precisa de política RLS e acrescente em uma migração própria, no padrão de `web/migrations/0001_rls.py`.
+- **Decisão pequena:** escolha a opção mais simples e segura e registre em `docs/STATUS_E_PROXIMOS_PASSOS.md` (seção "Decisões pequenas").
+- **Decisão grande** (muda uma regra acima, o modelo de dados ou o custo mensal): pare e apresente **DECISÃO NECESSÁRIA** com problema, opções, prós e contras e recomendação.
+- **Ao terminar uma tarefa:** atualize `docs/STATUS_E_PROXIMOS_PASSOS.md` (feito, falta, como testar) e explique em linguagem simples, porque a dona do produto não é programadora.
+
+## Escopo
+
+- **MVP:** construído (ver a tabela em `docs/STATUS_E_PROXIMOS_PASSOS.md`).
+- **Ordem de construção:** as 6 etapas da visão (`docs/hera-app-visao.md`, "A ordem de construção"). A etapa 1 (mapeamento) foi feita em 14/11/2026. A etapa 2 (passos 2.1 a 2.7) foi feita em 14 e 15/11. A etapa 3 (app do criador) começou em 15/11, a pedido da Mariana. O plano passo a passo de cada etapa está em `docs/STATUS_E_PROXIMOS_PASSOS.md`, seção 0.
+- **Não comece uma etapa nem um passo sem pedido explícito.** Termine o passo pedido, relate e espere a aprovação. Os itens "V2" e "V3" de `docs/PRODUTO.md` só valem onde coincidem com a visão.

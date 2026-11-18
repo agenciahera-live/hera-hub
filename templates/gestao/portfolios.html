@@ -1,0 +1,74 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Carteiras · Hera{% endblock %}
+{% block content %}
+<h1>Carteiras</h1>
+<p><small>Divisão dos criadores entre as gestoras. Cada gestora vê só a própria carteira. <b>A troca de carteira leva o histórico junto:</b> mensagens, respostas, notas e 1:1 pertencem ao criador, então a nova gestora passa a ver tudo e a anterior deixa de ver. Só as sócias mexem nesta tela.</small></p>
+
+<section class="card">
+  <h2>Gestoras</h2>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Gestora</th><th>Carteira</th><th>Fila de hoje</th><th>Quem cobre</th><th>Hoje</th><th>Dias sem trabalhar no mês</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><b>{{ r.name }}</b>{% if not r.active %} <span class="pill gold">sem o papel Gestora</span><br><small>Passe os criadores dela para outra carteira.</small>{% endif %}</td>
+      <td><a href="?gestora={{ r.user.pk }}"><b class="num">{{ r.n }}</b> criador{{ r.n|pluralize:"es" }}</a>{% if r.newcomers %}<br><small>{{ r.newcomers }} em onboarding (até o D15)</small>{% endif %}</td>
+      <td><span class="num">{{ r.messages }}</span> mensage{{ r.messages|pluralize:"m,ns" }}{% if r.overflow %}<br><small><span class="pill pink">+{{ r.overflow }} acima do teto de {{ cap }}</span> ficam para amanhã</small>{% endif %}</td>
+      <td>{% if r.active %}<form method="post" class="row" style="gap:6px">{% csrf_token %}<input type="hidden" name="a" value="cover"><input type="hidden" name="manager" value="{{ r.user.pk }}">
+          <select name="cover" aria-label="Quem cobre {{ r.name }}"><option value="">As sócias</option>{% for u in covers %}{% if u.pk != r.user.pk %}<option value="{{ u.pk }}" {% if r.cover and r.cover.pk == u.pk %}selected{% endif %}>{{ u.get_full_name|default:u.email }}</option>{% endif %}{% endfor %}</select>
+          <button class="btn btn-sm">Salvar</button></form>{% else %}—{% endif %}</td>
+      <td>{% if r.away %}<span class="pill pink">não trabalha hoje</span><br><small>Cobre: {{ r.away_cover|default:"as sócias" }}</small>
+          <form method="post" style="margin-top:4px">{% csrf_token %}<input type="hidden" name="a" value="absence_cancel"><input type="hidden" name="absence" value="{{ r.away.pk }}"><button class="btn btn-sm">Desfazer</button></form>
+        {% elif r.active %}<span class="pill cyan">trabalhando</span>
+          <details style="margin-top:4px"><summary><small>Marcar ausência</small></summary>
+            <form method="post" style="margin-top:4px">{% csrf_token %}<input type="hidden" name="a" value="absence_start"><input type="hidden" name="manager" value="{{ r.user.pk }}">
+              <input type="date" name="day" value="{{ today|date:'Y-m-d' }}" min="{{ today|date:'Y-m-d' }}" aria-label="Dia da ausência"><button class="btn btn-sm" style="margin-top:4px">Não trabalha nesse dia</button></form></details>
+        {% else %}—{% endif %}
+        {% for a in r.upcoming %}<br><small>Marcada: {{ a.day|date:"d/m" }} <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="a" value="absence_cancel"><input type="hidden" name="absence" value="{{ a.pk }}"><button class="btn btn-sm">desfazer</button></form></small>{% endfor %}</td>
+      <td>{% if r.skipped %}<b class="num">{{ r.skipped|length }}</b> dia{{ r.skipped|length|pluralize }}<br><small>{% for d in r.skipped %}{{ d|date:"d/m" }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>{% else %}<small class="muted">nenhum</small>{% endif %}</td>
+    </tr>
+    {% empty %}<tr><td colspan="6" class="empty">Nenhuma gestora cadastrada. Dê o papel Gestora em Configurações → Papéis.</td></tr>{% endfor %}
+    <tr><td><b>Sem gestora</b><br><small>Só as sócias veem.</small></td>
+      <td><a href="?gestora=sem"><b class="num">{{ unassigned.n }}</b> criador{{ unassigned.n|pluralize:"es" }}</a></td>
+      <td><span class="num">{{ unassigned.messages }}</span> mensage{{ unassigned.messages|pluralize:"m,ns" }}<br><small>sem teto: ninguém está cuidando</small></td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody></table></div>
+  <p><small><b>Quem cobre:</b> quando a gestora avisa “Hoje não trabalho”, os itens que não podem esperar (D10, D12, D14, encerramento, batalha oficial e restrição) vão para essa pessoa, que enxerga a carteira só naquele dia. Pode ser uma sócia ou uma recrutadora. Os outros itens passam para o dia seguinte. Para uma ausência longa, passe os criadores para outra carteira.</small></p>
+</section>
+
+<section class="card">
+  <h2>Criadores {% if which == 'sem' %}sem gestora{% endif %}</h2>
+  <form class="filters" method="get">
+    <select name="gestora" aria-label="Carteira"><option value="">Todas as carteiras</option>
+      {% for r in rows %}<option value="{{ r.user.pk }}" {% if which == r.user.pk|stringformat:"s" %}selected{% endif %}>{{ r.name }} ({{ r.n }})</option>{% endfor %}
+      <option value="sem" {% if which == 'sem' %}selected{% endif %}>Sem gestora ({{ unassigned.n }})</option></select>
+    <input type="search" name="q" value="{{ f.q }}" placeholder="@ ou nome">
+    <button class="btn btn-purple">Filtrar</button>
+  </form>
+  <form method="post">{% csrf_token %}<input type="hidden" name="a" value="move"><input type="hidden" name="next" value="?{{ request.GET.urlencode }}">
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <label style="margin:0">Passar os marcados para</label>
+      <select name="target" required style="width:auto" aria-label="Carteira de destino"><option value="">Escolha a carteira</option>{% for m in managers %}<option value="{{ m.pk }}">{{ m.get_full_name|default:m.email }}</option>{% endfor %}<option value="none">Sem gestora</option></select>
+      <button class="btn btn-purple">Mover</button>
+    </div>
+    <div class="table-wrap"><table class="t">
+      <thead><tr><th><input type="checkbox" aria-label="Marcar todos" onchange="this.form.querySelectorAll('input[name=creator]').forEach(e => e.checked = this.checked)"></th><th>Criador</th><th>Fase</th><th>Grupo</th><th>Dias de casa</th><th>Gestora atual</th><th>Sugestão do Backstage</th></tr></thead>
+      <tbody>
+      {% for p in people %}
+      <tr><td><input type="checkbox" name="creator" value="{{ p.c.pk }}" aria-label="Marcar @{{ p.c.username }}"></td>
+        <td><a href="{% url 'g_creator' p.c.pk %}"><b>@{{ p.c.username }}</b></a><br><small>{{ p.c.display_name }}</small></td>
+        <td><span class="pill {% if p.phase.code == 'pausa' %}pink{% endif %}">{{ p.phase.label }}</span></td>
+        <td>{{ p.group }}</td><td class="num">{{ p.day|default:"—" }}</td>
+        <td>{% if p.manager %}{{ p.manager.get_full_name|default:p.manager.email }}<br><small>desde {{ p.since|date:"d/m/Y" }}</small>{% else %}<span class="pill gold">sem gestora</span>{% endif %}</td>
+        <td><small>{{ p.c.suggested_agent_email|default:"—" }}</small></td></tr>
+      {% empty %}<tr><td colspan="7" class="empty">Nenhum criador com esse filtro.</td></tr>{% endfor %}
+      </tbody></table></div>
+    <p><small>{{ people|length }} criador{{ people|length|pluralize:"es" }}. A coluna “Sugestão do Backstage” é o Agente da exportação: é só uma sugestão, quem decide a carteira são as sócias.</small></p>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Últimas trocas</h2>
+  <ul class="list">{% for h in history %}<li><b>{{ h.target }}</b><br><small>{% for de, n in h.detail.de.items %}{{ n }} de {{ de }}{% if not forloop.last %}, {% endif %}{% endfor %}</small><br><small class="muted">{{ h.at|sp }}{% if h.actor %} · {{ h.actor.get_full_name|default:h.actor.email }}{% endif %}</small></li>{% empty %}<li class="empty">Nenhuma troca registrada por esta tela ainda.</li>{% endfor %}</ul>
+  <p><small>O histórico de carteiras de cada criador fica na ficha dele, no quadro Carteira.</small></p>
+</section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "streamer/base.html" %}
+{% block title %}Dúvidas · Hera{% endblock %}
+{% block content %}
+<h1>Qual é a sua dúvida?</h1>
+<div class="search-box" style="margin:8px 0 12px">
+  <input type="search" name="q" placeholder="Ex.: que horas o dia vira?" autocomplete="off"
+         hx-get="{% url 'faq_search' %}" hx-trigger="input changed delay:300ms, search" hx-target="#faq-results" aria-label="Buscar dúvida">
+</div>
+<div id="faq-results"></div>
+
+{% if open_cat %}
+  <a href="{% url 'faq' %}"><small>← Todos os temas</small></a>
+  <h2 style="margin-top:6px">{{ open_cat }}</h2>
+  <div class="card compact-card">
+  {% for it in open_items %}<details style="padding:8px 0;{% if not forloop.first %}border-top:1px solid var(--border){% endif %}"><summary>{{ it.question }}</summary><p style="margin:6px 0 0">{{ it.answer }}</p></details>{% endfor %}
+  </div>
+{% else %}
+  <h3 style="margin:0 0 8px">Ou escolha um tema</h3>
+  <div class="tiles cats">
+    {% for c in cats %}<a class="tile compact" href="?cat={{ c.name|urlencode }}"><div class="value" style="font-size:.98rem">{{ c.icon }} {{ c.name }}</div><div class="sub">{{ c.items|length }} pergunta{{ c.items|length|pluralize }}</div></a>{% endfor %}
+  </div>
+{% endif %}
+
+<details class="card compact-card ask" id="perguntar">
+  <summary>💬 Não achou? Pergunte para a Hera</summary>
+  {% if manager_link and manager_link != "/duvidas/#perguntar" %}<a class="btn btn-wa btn-block" style="margin-top:8px" href="{{ manager_link }}" target="_blank" rel="noopener">Abrir meu grupo com a Hera</a>
+  <p style="margin:8px 0 0"><small>Ou deixe a pergunta aqui e a resposta chega pelo app:</small></p>{% endif %}
+  <form method="post" action="{% url 'ask_manager' %}" style="margin-top:8px">{% csrf_token %}
+    <textarea name="question" required placeholder="Escreva sua dúvida"></textarea>
+    <button class="btn btn-primary btn-block" style="margin-top:8px">Enviar pergunta</button>
+  </form>
+</details>
+{% endblock %}

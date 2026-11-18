@@ -1,0 +1,16 @@
+# Programas instalados no computador (o Railway instala os dele pelo requirements.txt)
+.venv/
+venv/
+# Arquivos temporários do Word e do Excel
+~$*
+__pycache__/
+*.pyc
+.env
+staticfiles/
+media/
+seeds/
+*.sqlite3
+.DS_Store
+
+# Semana real do Acompanhamento Semanal (numeros reais): fica fora do repositorio, em HERA\creator-hub\
+exemplo-semana*.json

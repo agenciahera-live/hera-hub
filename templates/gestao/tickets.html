@@ -1,0 +1,10 @@
+{% extends "gestao/base.html" %}
+{% block content %}
+<h1>Dúvidas enviadas pelo app</h1>
+<p><small>Perguntas que a central de dúvidas não respondeu. Responda pelo WhatsApp e marque como respondida. Perguntas repetidas viram novas respostas no Q&A (Conteúdos).</small></p>
+<div class="card table-wrap" style="padding:0"><table class="t"><tbody>
+{% for t in items %}<tr><td><a href="{% url 'g_creator' t.creator.pk %}">@{{ t.creator.username }}</a><br><small>{{ t.created_at|date:"d/m H:i" }}</small></td><td>{{ t.question }}</td>
+<td>{% if t.status == 'aberto' %}<form method="post" action="{% url 'g_creator_action' t.creator.pk %}">{% csrf_token %}<input type="hidden" name="a" value="ticket_done"><input type="hidden" name="ticket" value="{{ t.pk }}"><input type="hidden" name="next" value="{% url 'g_tickets' %}"><button class="btn btn-sm btn-purple">Marcar respondida</button></form>{% else %}<span class="pill cyan">respondida</span>{% endif %}</td></tr>
+{% empty %}<tr><td class="empty">Nenhuma dúvida pendente.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

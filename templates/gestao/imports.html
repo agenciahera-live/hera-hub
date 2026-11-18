@@ -1,0 +1,71 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Importar dados · Hera{% endblock %}
+{% block content %}
+<h1>Importar dados do Backstage</h1>
+<div class="cols"><div>
+<form method="post" enctype="multipart/form-data" class="card">{% csrf_token %}
+  <h2>1. Envie o arquivo</h2>
+  {% if can_backstage %}<p class="freshness {% if not status.done_today %}stale{% endif %}"><span class="dot"></span>{% if status.done_today %}Importação de hoje feita às {{ status.last.committed_at|sp:"%H:%M" }}{% if status.last.via == 'porta' %} pela leitura automática{% elif status.last.uploaded_by %} por {{ status.last.uploaded_by.first_name|default:status.last.uploaded_by.email }}{% endif %}.{% elif status.last %}A importação de hoje ainda não foi feita. Última: {{ status.last.committed_at|sp }}.{% else %}Nenhuma importação ainda.{% endif %}</p>
+  {% if status.auto_held %}<ul class="messages"><li><b>A leitura automática de hoje chegou, mas não foi gravada:</b> {{ status.auto_held.counts.held|join:"; " }}. <a class="btn btn-sm btn-primary" style="margin-left:8px" href="{% url 'g_import_preview' status.auto_held.pk %}">Conferir e gravar</a></li></ul>
+  {% elif status.auto_late %}<ul class="messages"><li><b>A leitura automática de hoje não chegou até as {{ status.auto_deadline }}h.</b> Use o plano B: envie a planilha aqui.</li></ul>{% endif %}
+  <p><small><b>Todo dia:</b> exporte “Dados do criador” (mês corrente) no Backstage e envie aqui. <b>No dia 1:</b> envie também o mês fechado e a planilha “Task”. Aceita .xlsx e .csv. Reimportar o mesmo arquivo não duplica nada.</small></p>
+  {% else %}<p><small>Envie a planilha “Task” do fechamento do mês. Aceita .xlsx e .csv. Reimportar o mesmo arquivo não duplica nada.</small></p>{% endif %}
+  <input type="file" name="file" accept=".xlsx,.csv" required>
+  {% if error %}
+    <ul class="errorlist"><li>{{ error }}</li></ul>
+    {% if headers %}
+    <h3 style="margin-top:12px">Mapear colunas de “{{ filename }}”</h3>
+    <p><small>Envie o mesmo arquivo de novo com o mapeamento. Campos obrigatórios (Backstage): period, tiktok_id, name, diamonds, live_duration, valid_days.</small></p>
+    <label>Tipo</label><select name="kind"><option value="backstage">Dados do criador</option><option value="task">Task</option></select>
+    <div class="table-wrap"><table class="t"><thead><tr><th>Coluna do arquivo</th><th>Campo</th></tr></thead><tbody>
+    {% for h in headers %}<tr><td>{{ h }}</td><td><select name="map__{{ h }}"><option value="">ignorar</option>{% for fl in fields %}<option value="{{ fl }}">{{ fl }}</option>{% endfor %}</select></td></tr>{% endfor %}
+    </tbody></table></div>
+    <label class="check"><input type="checkbox" name="save_template" checked> Salvar como modelo reutilizável</label>
+    <input type="text" name="template_name" placeholder="Nome do modelo, ex.: Backstage PT v2">
+    {% endif %}
+  {% endif %}
+  <button class="btn btn-primary" style="margin-top:12px">Pré-visualizar</button>
+</form>
+{% if can_backstage %}
+<section class="card" id="leitura-automatica">
+  <h2>Leitura automática</h2>
+  <p><small>O Claude lê o Backstage todo dia de manhã e envia a planilha “Dados do criador” para o app, sem ninguém precisar subir o arquivo. Se a leitura não chegar até as {{ status.auto_deadline }}h, o painel avisa e vale o plano B: enviar a planilha aqui em cima.</small></p>
+  {% if status.auto_on %}
+    <p>🟢 <b>Ligada</b> desde {{ status.auto_key.created_at|sp:"%d/%m" }} · chave <span class="num">{{ status.auto_key.hint }}…</span><br>
+    <small>{% if status.auto_key.last_used_at %}Último envio recebido em {{ status.auto_key.last_used_at|sp }}.{% else %}Nenhum envio recebido com esta chave ainda.{% endif %}</small></p>
+  {% else %}
+    <p>⚪ <b>Desligada.</b> <small>Hoje a importação é só pela tela.</small></p>
+  {% endif %}
+  {% if key_once %}
+    <ul class="messages"><li><b>Copie agora.</b> A chave não aparece de novo: se perder, gere outra.</li></ul>
+    <pre class="msg" id="port-key">Leitura diária do Backstage → app da Hera
+
+Depois de exportar “Dados do criador” (mês corrente) no Backstage, envie o arquivo assim:
+Endereço: {{ api_url }}
+Método: POST, formulário com o arquivo no campo "file" (.xlsx ou .csv, sem alterar)
+Cabeçalho: Authorization: Bearer {{ key_once }}
+
+Exemplo no PowerShell:
+curl.exe -sS -H "Authorization: Bearer {{ key_once }}" -F "file=@C:\caminho\Dados do criador.xlsx" {{ api_url }}
+
+A resposta vem em JSON. "ok": true = dados gravados (ou arquivo repetido). "ok": false = não gravou; leia "mensagem" e avise a Mariana.</pre>
+    <button type="button" class="btn btn-sm btn-purple" onclick="heraCopy(this,'port-key')">Copiar instruções com a chave</button>
+  {% endif %}
+  {% if can_key %}
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+      <form method="post" action="{% url 'g_import_key' %}">{% csrf_token %}<input type="hidden" name="a" value="new"><button class="btn btn-sm {% if not status.auto_on %}btn-primary{% endif %}" {% if status.auto_on %}onclick="return confirm('Gerar uma chave nova cancela a atual. A leitura automática só volta a funcionar depois que o Claude receber a chave nova. Continuar?')"{% endif %}>{% if status.auto_on %}Gerar chave nova (cancela a atual){% else %}Ligar: gerar chave{% endif %}</button></form>
+      {% if status.auto_on %}<form method="post" action="{% url 'g_import_key' %}">{% csrf_token %}<input type="hidden" name="a" value="revoke"><button class="btn btn-sm" onclick="return confirm('Desligar a leitura automática? A importação volta a ser só pela tela.')">Desligar</button></form>{% endif %}
+    </div>
+    <p style="margin-top:8px"><small>A chave vale pela agência inteira: guarde como uma senha e entregue só ao Claude que faz a leitura. Endereço da porta: <span class="num">{{ api_url }}</span></small></p>
+  {% else %}
+    <p><small>Quem liga, desliga ou troca a chave são as sócias.</small></p>
+  {% endif %}
+</section>
+{% endif %}
+</div><div>
+<section class="card"><h2>Histórico</h2>
+<ul class="list">{% for b in batches %}<li><a href="{% url 'g_import_preview' b.pk %}"><b>{{ b.filename|truncatechars:48 }}</b></a><br>
+<small>{{ b.get_status_display }} · {{ b.created_at|sp }} · {% if b.via == 'porta' %}leitura automática{% if b.counts.held and b.status == 'preview' %} · <b>esperando conferência</b>{% endif %}{% elif b.uploaded_by %}{{ b.uploaded_by.first_name|default:b.uploaded_by.email }}{% else %}sistema{% endif %} · {{ b.counts.new|default:0 }} novos · {{ b.counts.updated|default:0 }} atualizados · {{ b.counts.exit|default:0 }} saídas · {{ b.counts.error|default:0 }} erros</small></li>{% empty %}<li class="empty">Nenhuma importação.</li>{% endfor %}</ul>
+</section>
+</div></div>
+{% endblock %}

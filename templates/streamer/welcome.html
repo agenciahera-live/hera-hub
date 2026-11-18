@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Boas-vindas · Hera{% endblock %}
+{% block body %}
+<div class="app" style="padding-top:24px">
+  <a class="brand" href="#"><span class="brand-dot">H</span>Hera Creator Hub</a>
+  {% if step == "1" %}
+  <form method="post" class="card" style="margin-top:16px">{% csrf_token %}<input type="hidden" name="action" value="consent">
+    <h1>Oi, {{ c.first_name|title }}! 💜</h1>
+    <p>Aqui você acompanha suas LIVEs, seu progresso e o que fazer a cada semana.</p>
+    <h2>Seus dados (LGPD)</h2>
+    <p><small>Usamos seus números do TikTok Backstage, seu WhatsApp e seu e-mail só para acompanhar sua evolução e falar com você. Só você e a gestão da Hera veem seus números; outros streamers nunca veem. A gestão da Hera pode ler as dúvidas que você manda pelo app. Se você sair da agência, seus dados pessoais são anonimizados. Versão do termo: {{ consent_version }}.</small></p>
+    <label class="check"><input type="checkbox" name="accept" required> Li e aceito o termo de uso dos meus dados.</label>
+    <button class="btn btn-primary btn-block" style="margin-top:12px">Continuar</button>
+  </form>
+  {% elif step == "2" %}
+  <form method="post" class="card" style="margin-top:16px">{% csrf_token %}<input type="hidden" name="action" value="confirm">
+    <h1>É você?</h1><p style="font-size:1.3rem"><b>@{{ c.username }}</b></p>
+    <div class="grid-2"><button class="btn btn-primary" name="is_me" value="1">Sim, sou eu</button><button class="btn" name="is_me" value="0">Não sou eu</button></div>
+  </form>
+  {% elif step == "wrong" %}
+  <section class="card" style="margin-top:16px"><h1>Tudo bem!</h1><p>Avisamos a Hera para corrigir o cadastro. Alguém da gestão vai falar com você.</p></section>
+  {% elif step == "c" %}
+  <form method="post" class="card" style="margin-top:16px">{% csrf_token %}<input type="hidden" name="action" value="cadastro">
+    <h1>Conta um pouco de você</h1>
+    <p><small>Isso ajuda a Hera a começar do ponto certo com você.</small></p>
+    <h2>Você já fez LIVE no TikTok?</h2>
+    <label class="check"><input type="radio" name="experience" value="primeira_live" required> Ainda não, vai ser a minha primeira</label>
+    <label class="check"><input type="radio" name="experience" value="outra_agencia"> Já fiz, em outra agência</label>
+    <label class="check"><input type="radio" name="experience" value="nivel_publico"> Já faço e já tenho nível e público</label>
+    <h2 style="margin-top:14px">Quando é o seu aniversário?</h2>
+    <p><small>Só o dia e o mês, se quiser contar. O ano não é pedido.</small></p>
+    <div class="row" style="gap:8px"><input type="number" name="birth_day" min="1" max="31" placeholder="dia" inputmode="numeric" style="width:100px" aria-label="Dia"><input type="number" name="birth_month" min="1" max="12" placeholder="mês" inputmode="numeric" style="width:100px" aria-label="Mês"></div>
+    <button class="btn btn-primary btn-block" style="margin-top:14px">Continuar</button>
+  </form>
+  {% elif step == "3" %}
+  <section class="card" style="margin-top:16px">
+    <h1>3 regras que mais ajudam no começo</h1>
+    <ul class="missions">
+      <li><span class="ico">🕘</span><div>O dia do TikTok vira às <b>21h</b>. Termine a LIVE antes para validar o dia.</div></li>
+      <li><span class="ico">⏱️</span><div><b>60 minutos</b> de LIVE no dia = 1 dia válido. LIVE com menos de 30 min não conta.</div></li>
+      <li><span class="ico">🎯</span><div>Regra do TikTok nos primeiros 14 dias: <b>5 dias válidos e 15 horas</b>.</div></li>
+    </ul>
+    <a class="btn btn-primary btn-block" href="?s=4">Entendi</a>
+  </section>
+  {% elif step == "4" %}
+  <section class="card" style="margin-top:16px">
+    <h1>Sua primeira aula</h1>
+    {% if lesson %}<p>{{ lesson.title }} ({{ lesson.minutes }} min). Pode assistir agora ou depois: ela fica na Hera Academy, com os outros módulos que abrem para você.</p>
+    <a class="btn btn-purple btn-block" href="{% url 'lesson' lesson.pk %}">Assistir agora</a>{% endif %}
+    <a class="btn btn-block" style="margin-top:8px" href="?s=5">Assistir depois</a>
+  </section>
+  {% else %}
+  <section class="card" style="margin-top:16px" x-data="{ios: /iphone|ipad/i.test(navigator.userAgent)}">
+    <h1>Coloque a Hera na tela inicial</h1>
+    <p x-show="ios">No iPhone: toque em <b>Compartilhar</b> e depois em <b>Adicionar à Tela de Início</b>.</p>
+    <p x-show="!ios">No Android: toque nos <b>três pontinhos</b> do navegador e em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p>
+    <a class="btn btn-primary btn-block" href="/">Ir para o início</a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

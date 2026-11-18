@@ -1,0 +1,32 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Radar de graduação · Hera{% endblock %}
+{% block content %}
+<h1>Radar de graduação</h1>
+<p><small>Regra do TikTok: {{ settings.graduation_diamonds|intbr }} diamantes em um mês, dentro dos primeiros {{ settings.graduation_window_days }} dias de casa. Cada mês com a marca vale uma graduação. O radar usa os diamantes do mês corrente, pela última leitura do Backstage, e atualiza a cada importação.</small></p>
+<div class="kpis">
+  <div class="kpi"><b class="num">{{ rows|length }}</b><span>na janela de graduação</span></div>
+  <div class="kpi"><b class="num">{{ counts.graduou }}</b><span>bateram a marca neste mês</span></div>
+  <div class="kpi"><b class="num">{{ counts.potencial }}</b><span>com potencial de graduação ({{ counts.no_ritmo }} no ritmo, {{ counts.acelerar }} precisam acelerar): 1:1 todo mês</span></div>
+  <div class="kpi"><b class="num">{{ counts.conferir }}</b><span>para conferir no Backstage</span></div>
+  <div class="kpi"><b class="num">{{ last_month_n }}</b><span>no último mês da janela</span></div>
+</div>
+<div class="card table-wrap" style="padding:0"><table class="t">
+<thead><tr><th>Creator</th><th>Situação</th><th>Mês: 💎</th><th>Falta</th><th>Ritmo/dia</th><th>Precisa/dia</th><th>Projeção</th><th>Janela</th><th>Mensagens</th><th>1:1</th></tr></thead>
+<tbody>
+{% for r in rows %}
+<tr class="{% if r.last_month and r.status != 'graduou' %}prio-1{% endif %}">
+  <td><a href="{% url 'g_creator' r.creator.pk %}"><b>@{{ r.creator.username }}</b></a><br><small>D{{ r.day }}{% if r.graduations %} · {{ r.graduations }} graduaç{{ r.graduations|pluralize:"ão,ões" }} antes{% endif %}</small></td>
+  <td><span class="pill {% if r.status == 'graduou' %}cyan{% elif r.status == 'no_ritmo' or r.status == 'conferir' %}gold{% elif r.status == 'acelerar' %}pink{% else %}gray{% endif %}">{{ r.status_label }}</span>{% if r.last_month %}<br><small><b>último mês da janela</b></small>{% endif %}</td>
+  <td class="num">{{ r.diamonds|intbr }}</td>
+  <td class="num">{% if r.missing %}{{ r.missing|intbr }}{% else %}—{% endif %}</td>
+  <td class="num">{{ r.avg_per_day|intbr }}</td>
+  <td class="num">{% if r.status == 'graduou' %}—{% else %}{{ r.needed_per_day|intbr }}{% endif %}</td>
+  <td class="num">{{ r.forecast|intbr }}</td>
+  <td><small>até {{ r.window_end|date:"d/m" }}</small></td>
+  <td><small>{% if r.last_contact %}última em {{ r.last_contact|sp:"%d/%m" }}{% else %}nenhuma{% endif %}<br>{{ r.contacts_month }} no mês</small></td>
+  <td><small>{% if r.next_1a1 %}próximo {{ r.next_1a1|date:"d/m" }}{% elif r.last_1a1 %}último {{ r.last_1a1|date:"d/m" }}{% else %}nenhum{% endif %}</small></td>
+</tr>
+{% empty %}<tr><td colspan="10" class="empty">Ninguém na janela de graduação agora.</td></tr>{% endfor %}
+</tbody></table></div>
+<p><small>Faixas: <b>No ritmo</b> = a projeção do mês chega à marca; <b>Precisa acelerar</b> = a projeção chega à metade; <b>Difícil no mês</b> = 5 mil no mês ou 3 mil na semana; <b>No radar</b> = menos de 3h de LIVE na semana; <b>Conferir graduação</b> = fez a marca no mês anterior e o Backstage ainda diz “Não se graduou”. Ordem: primeiro quem está no último mês da janela. “Precisa/dia” é quanto falta dividido pelos dias que restam no mês; serve para a gestão ler o ritmo, não para pedir número ao criador.</small></p>
+{% endblock %}

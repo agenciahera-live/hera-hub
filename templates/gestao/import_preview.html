@@ -1,0 +1,24 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Pré-visualização · Hera{% endblock %}
+{% block content %}
+<a href="{% url 'g_imports' %}"><small>← Importar dados</small></a>
+<h1>{{ b.filename }}</h1>
+<p><small>{{ b.template.name|default:"Modelo mapeado" }} · período {{ b.period_start|date:"d/m/Y" }} a {{ b.period_end|date:"d/m/Y" }} · exportado em {{ b.exported_at|sp }} · {{ n_rows }} linhas · <b>{{ b.get_status_display }}</b></small></p>
+{% if b.counts.duplicate_of %}<ul class="messages"><li>Este arquivo já foi importado antes. Gravar de novo não duplica nada.</li></ul>{% endif %}
+{% if b.via == 'porta' %}<ul class="messages"><li>{% if b.counts.held and b.status == 'preview' %}<b>Esta leitura automática não foi gravada sozinha:</b> {{ b.counts.held|join:"; " }}. Confira os números abaixo. Se estiver certo, clique em “Confirmar e gravar”; se não, descarte e suba a planilha pela tela.{% else %}Este arquivo chegou pela leitura automática.{% endif %}</li></ul>{% endif %}
+<div class="kpis">
+  <div class="kpi"><b>{{ b.counts.new }}</b><span>novos (viram cadastro pendente)</span></div>
+  <div class="kpi"><b>{{ b.counts.updated }}</b><span>atualizados</span></div>
+  <div class="kpi"><b>{{ b.counts.unchanged }}</b><span>sem mudança</span></div>
+  <div class="kpi"><b>{{ b.counts.exit }}</b><span>saídas detectadas</span></div>
+  <div class="kpi"><b class="{% if b.counts.error %}down{% endif %}">{{ b.counts.error }}</b><span>erros (não serão gravados)</span></div>
+</div>
+{% if b.counts.unknown_columns %}<p><small>Colunas ignoradas: {{ b.counts.unknown_columns|join:", " }}</small></p>{% endif %}
+<form method="post" class="row" style="gap:8px;margin-bottom:16px">{% csrf_token %}
+  {% if b.status == 'preview' %}<button class="btn btn-primary" name="a" value="commit">Confirmar e gravar</button><button class="btn" name="a" value="discard">Descartar</button>{% endif %}
+  {% if b.status == 'committed' %}<button class="btn" name="a" value="revert" onclick="return confirm('Desfazer esta importação? Os números voltam ao estado anterior.')">Desfazer importação</button>{% endif %}
+</form>
+{% if errors %}<section class="card"><h2>Erros</h2><table class="t"><thead><tr><th>Linha</th><th>Problema</th></tr></thead><tbody>{% for r in errors %}<tr><td>{{ r.row_number }}</td><td>{{ r.errors }}</td></tr>{% endfor %}</tbody></table></section>{% endif %}
+{% if new %}<section class="card"><h2>Novos creators</h2><ul class="list">{% for r in new %}<li>@{{ r.parsed.username }} <small>· {{ r.parsed.group }} · {{ r.parsed.agent }}</small></li>{% endfor %}</ul></section>{% endif %}
+{% if exits %}<section class="card"><h2>Saídas detectadas</h2><ul class="list">{% for r in exits %}<li>@{{ r.creator.username }} <small>(reconhecido pelo @: o Backstage troca o ID por “O criador deixou a agência”)</small></li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

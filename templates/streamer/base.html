@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-dot">H</span>Hera</a>
+    <div class="top-actions">
+      <a class="icon-btn" href="{% url 'notifications' %}" aria-label="Notificações">🔔{% if unread_notifications %}<span class="badge">{{ unread_notifications }}</span>{% endif %}</a>
+      <a class="avatar {% if nav == 'profile' %}on{% endif %}" href="{% url 'profile' %}" aria-label="Meu perfil">{{ user.first_name|default:user.email|slice:":1"|upper }}</a>
+    </div>
+  </header>
+  {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% block content %}{% endblock %}
+</div>
+{% block nav %}
+<nav class="nav-bottom" aria-label="Navegação principal">
+  <a href="/" class="{% if nav == 'home' %}on{% endif %}"><span class="i">🏠</span>Início</a>
+  <a href="{% url 'academy' %}" class="{% if nav == 'academy' %}on{% endif %}"><span class="i">🎓</span>Academy</a>{# na barra o nome encurta: "Hera Academy" quebra em duas linhas em 375px #}
+  <a href="{% url 'campaigns' %}" class="{% if nav == 'camp' %}on{% endif %}"><span class="i">🏆</span>Campanhas</a>
+  <a href="{% url 'battles' %}" class="{% if nav == 'battles' %}on{% endif %}"><span class="i">⚔️</span>Batalhas</a>
+  <a href="{% url 'faq' %}" class="{% if nav == 'faq' %}on{% endif %}"><span class="i">💬</span>Dúvidas</a>
+</nav>
+{% endblock %}
+{% endblock %}

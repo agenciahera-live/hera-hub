@@ -1,0 +1,10 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block content %}
+<a href="{% url 'g_content' %}"><small>← Conteúdos</small></a>
+<h1>{{ sv.title }}</h1><p><small>{{ sv.completions.count }} respostas{% if sv.anonymous %} · anônimas{% endif %}</small></p>
+{% for q, d in qs %}<section class="card"><h2>{{ q.text }}</h2>
+{% if q.kind == 'nps' %}<p class="big">{{ d.nps|default:"—" }}</p><small>NPS · {{ d.n }} notas</small>
+{% elif d.counts %}{% for o, n, p in d.counts %}<div class="bar-label"><span>{{ o }}</span><span>{{ n }}</span></div><div class="bar"><i style="width:{{ p|width }}"></i></div>{% endfor %}
+{% else %}<ul class="list">{% for t in d.texts %}<li>{{ t }}</li>{% empty %}<li class="empty">Sem respostas.</li>{% endfor %}</ul>{% endif %}
+</section>{% endfor %}
+{% endblock %}

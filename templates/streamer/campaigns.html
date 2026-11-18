@@ -1,0 +1,29 @@
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}Campanhas · Hera{% endblock %}
+{% block content %}
+<div class="seg" role="tablist" aria-label="Tipo de campanha">
+  <a role="tab" href="?aba=oficiais" class="{% if tab == 'oficiais' %}on{% endif %}">Destaques TikTok {% if official %}<span class="count">{{ official|length }}</span>{% endif %}</a>
+  <a role="tab" href="?aba=hera" class="{% if tab == 'hera' %}on{% endif %}">Da Hera {% if internal %}<span class="count">{{ internal|length }}</span>{% endif %}</a>
+</div>
+<p class="hint">{% if tab == 'oficiais' %}As campanhas do TikTok em que a Hera quer que você foque este mês.{% else %}Campanhas da Hera para você participar.{% endif %} Toque no card para abrir no TikTok.</p>
+
+<div class="stack">
+{% for item in items %}
+  <a class="tile" {% if item.c.tiktok_url %}href="{{ item.c.tiktok_url }}" target="_blank" rel="noopener"{% else %}href="{% url 'campaign' item.c.pk %}"{% endif %}>
+    <div class="label">{% if item.c.featured %}<span class="pill gold">⭐ foco do mês</span>{% endif %}
+      {% if item.days_left <= 3 %}<span class="pill pink">⏳ {{ item.days_left }}d</span>{% else %}<span class="pill gray">até {{ item.c.end|date:"d/m" }}</span>{% endif %}
+      {% if item.c.tiktok_url %}<span class="pill cyan" style="margin-left:auto">abre no TikTok ↗</span>{% endif %}</div>
+    <div class="value" style="font-size:1.05rem">{{ item.c.name }}</div>
+    {% if item.c.what_to_do %}<div class="sub" style="color:var(--text)">🎯 {{ item.c.what_to_do|truncatechars:160 }}</div>{% endif %}
+    {% if item.c.prizes %}<div class="sub">🎁 {{ item.c.prizes|truncatechars:80 }}</div>{% endif %}
+  </a>
+{% empty %}
+  <p class="card empty">{% if tab == 'oficiais' %}Nenhum destaque do TikTok para você agora.{% else %}Nenhuma campanha da Hera agora.{% endif %}</p>
+{% endfor %}
+</div>
+
+{% if manager_link %}<a class="btn btn-wa btn-block" href="{{ manager_link }}" target="_blank" rel="noopener">💬 Dúvida sobre campanha? Falar com a Hera</a>{% endif %}
+
+{% if past %}<details class="card compact-card" style="margin-top:12px"><summary>Encerradas ({{ past|length }})</summary>
+<ul class="list" style="margin-top:6px">{% for c in past %}<li class="row between"><span>{{ c.name }}</span><small>{{ c.end|date:"d/m" }}</small></li>{% endfor %}</ul></details>{% endif %}
+{% endblock %}

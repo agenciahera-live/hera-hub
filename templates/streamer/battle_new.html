@@ -1,0 +1,34 @@
+{% extends "streamer/base.html" %}
+{% block content %}
+<a href="{% url 'battles' %}"><small>← Meus pedidos</small></a>
+<h1>Pedir batalha</h1>
+<p><small>A Hera vai buscar alguém do seu mesmo nível para batalhar com você. Quando a batalha estiver confirmada, avisamos no seu grupo do WhatsApp e aqui no app, com os dados de quem vai batalhar com você.</small></p>
+{% if battle_lesson %}<a class="btn btn-purple btn-block" style="margin-bottom:12px" href="{% url 'lesson' battle_lesson.pk %}">▶️ Entenda a batalha oficial em {{ battle_lesson.minutes }} min</a>{% endif %}
+<form method="post" class="card" x-data="{extras: [], max: {{ max_options }}}">{% csrf_token %}
+  {% if error %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endif %}
+  <p style="margin:0 0 4px"><span class="pill cyan">⚔️ Batalha agendada</span></p>
+  <div class="grid-2">
+    <div><label for="date">Dia</label><input id="date" type="date" name="date" min="{{ today|date:'Y-m-d' }}" required></div>
+    <div><label for="time">Começa às</label><input id="time" type="time" name="time" value="20:00" required></div>
+  </div>
+  <template x-for="(e, i) in extras" :key="e.id">
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      <div class="row between"><small x-text="'Outra opção ' + (i + 1)"></small>
+        <button type="button" class="btn btn-sm" @click="extras.splice(i, 1)" :aria-label="'Remover opção ' + (i + 1)">Remover</button></div>
+      <div class="grid-2">
+        <div><label :for="'ad' + e.id">Dia</label><input :id="'ad' + e.id" type="date" name="alt_date" min="{{ today|date:'Y-m-d' }}" required></div>
+        <div><label :for="'at' + e.id">Começa às</label><input :id="'at' + e.id" type="time" name="alt_time" value="20:00" required></div>
+      </div>
+    </div>
+  </template>
+  <button type="button" class="btn btn-sm" style="margin-top:10px" x-show="extras.length < max" @click="extras.push({id: Date.now()})">＋ Adicionar outro dia e hora</button>
+  <p style="margin:8px 0 0"><small>Quanto mais opções, mais fácil encontrar alguém para batalhar com você. Pico de audiência: 20h–21h. O dia do TikTok vira às 21h.</small></p>
+  <fieldset style="border:0;padding:0;margin:12px 0 0">
+    <legend style="padding:0;font-weight:600">Quantos rounds?</legend>
+    {% for valor, rotulo in rounds %}<label class="check"><input type="radio" name="rounds" value="{{ valor }}" {% if forloop.first %}checked{% endif %} required> {{ rotulo }}</label>{% endfor %}
+  </fieldset>
+  <label for="goal">Quantos diamantes você quer buscar?</label><input id="goal" type="number" name="goal_diamonds" min="0" step="1000" placeholder="Ex.: 20000">
+  <label for="notes">Observações</label><textarea id="notes" name="notes" placeholder="Tema, ideia, motivo..."></textarea>
+  <button class="btn btn-primary btn-block" style="margin-top:12px">Enviar pedido</button>
+</form>
+{% endblock %}

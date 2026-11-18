@@ -1,0 +1,28 @@
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}{{ camp.name }} · Hera{% endblock %}
+{% block content %}
+<a href="{% url 'campaigns' %}{% if camp.tracked_in_app %}?aba=hera{% endif %}"><small>← Campanhas</small></a>
+<h1 style="margin-top:4px">{{ camp.name }}</h1>
+<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">
+  {% if camp.featured %}<span class="pill gold">⭐ foco do mês</span>{% endif %}
+  <span class="pill {% if days_left <= 3 %}pink{% else %}gray{% endif %}">⏳ {{ camp.start|date:"d/m" }}–{{ camp.end|date:"d/m" }} · {{ days_left }} dia{{ days_left|pluralize }}</span>
+  <span class="pill cyan">✅ você participa</span>
+</div>
+{% if camp.banner %}<img src="{{ camp.banner.url }}" alt="" style="border-radius:16px;margin-bottom:12px">{% endif %}
+
+{% if camp.what_to_do %}
+<section class="card card-hero compact-card">
+  <h2 style="margin:0 0 6px">🎯 O que você deve fazer</h2>
+  <p style="margin:0">{{ camp.what_to_do|linebreaksbr }}</p>
+</section>
+{% endif %}
+
+{% if camp.prizes %}<section class="card compact-card"><h3>🎁 O que você pode ganhar</h3><p style="margin:0">{{ camp.prizes|linebreaksbr }}</p></section>{% endif %}
+
+<div class="stack">
+  {% if manager_link %}<a class="btn btn-wa btn-block" href="{{ manager_link }}" target="_blank" rel="noopener">💬 Ficou com dúvida? Falar com a Hera</a>{% endif %}
+</div>
+
+<details class="card compact-card"><summary>Regras completas</summary><p style="margin:8px 0 0">{{ camp.rules|linebreaksbr }}</p></details>
+
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Onboarding · Hera{% endblock %}
+{% block content %}
+<h1>Onboarding D1–D15</h1>
+<p><small>Creators no primeiro mês. Regra do TikTok: 5 dias válidos e 15h em 14 dias, contados do aceite no Backstage. “Próximo passo” vem do roteiro da fila do dia: a mensagem aparece lá, pronta para copiar. Em azul: marcado automaticamente pelos dados.</small></p>
+<div class="card table-wrap" style="padding:0"><table class="t ob-grid">
+<thead><tr><th>Creator</th><th>Regra dos 14 dias</th><th>Próximo passo</th><th>%</th>{% for it in items %}<th title="{{ it.label }}">D{{ it.day }}<br><small style="text-transform:none">{{ it.label|truncatechars:14 }}</small></th>{% endfor %}</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr><td><a href="{% url 'g_creator' r.c.pk %}?tab=onboarding"><b>@{{ r.c.username }}</b></a><br><small>entrou {{ r.c.joined_at|date:"d/m" }}{% if r.c.first_live_at %} · 1ª LIVE {{ r.c.first_live_at|date:"d/m" }}{% elif r.c.first_live_planned %} · 1ª LIVE combinada para {{ r.c.first_live_planned|date:"d/m" }}{% else %} · <b>sem LIVE</b>{% endif %}</small></td>
+<td>{% if r.ob %}Dia {{ r.ob.day }} · {{ r.ob.valid_days }}/5 · {{ r.ob.hours|hours }}/15h {% if r.ob.met %}<span class="pill cyan">ok</span>{% elif r.ob.at_risk %}<span class="pill pink">risco</span>{% elif r.ob.failed %}<span class="pill gray">não cumpriu</span>{% endif %}{% endif %}</td>
+<td>{% if r.next %}<small><b>{{ r.next.title }}</b><br>{{ r.next.detail|truncatechars:110 }}</small>{% else %}<small class="muted">nada pendente hoje</small>{% endif %}</td>
+<td class="num">{{ r.pct|pct }}</td>
+{% for co in r.cells %}<td class="{% if co.done and co.auto %}auto{% elif co.done %}on{% else %}off{% endif %}">{% if co %}{% if r.can_edit %}<button class="btn btn-sm" hx-post="{% url 'g_creator_action' r.c.pk %}" hx-vals='{"a":"onboarding","item":"{{ co.pk }}"}' hx-swap="innerHTML">{% if co.done %}✅{% else %}—{% endif %}</button>{% else %}{% if co.done %}✅{% else %}—{% endif %}{% endif %}{% endif %}</td>{% endfor %}</tr>
+{% empty %}<tr><td class="empty" colspan="20">Nenhum creator no primeiro mês.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

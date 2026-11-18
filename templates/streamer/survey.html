@@ -1,0 +1,17 @@
+{% extends "streamer/base.html" %}
+{% block content %}
+<h1>{{ sv.title }}</h1>
+<div class="bar cyan" style="margin-bottom:12px"><i style="width:{% widthratio step total 100 %}%"></i></div>
+<form method="post" class="card">{% csrf_token %}<input type="hidden" name="step" value="{{ step }}">
+  <p><small>Pergunta {{ step|add:1 }} de {{ total }}{% if sv.anonymous %} · resposta anônima{% endif %}</small></p>
+  <h2>{{ q.text }}</h2>
+  {% if q.kind == 'nps' %}
+    <div class="chips">{% for n in nps %}<label class="btn btn-sm" style="margin:0"><input type="radio" name="value" value="{{ n }}" required style="margin-right:4px">{{ n }}</label>{% endfor %}</div>
+  {% elif q.kind == 'single' %}
+    {% for o in q.options %}<label class="check"><input type="radio" name="value" value="{{ o }}" required> {{ o }}</label>{% endfor %}
+  {% elif q.kind == 'multi' %}
+    {% for o in q.options %}<label class="check"><input type="checkbox" name="value" value="{{ o }}"> {{ o }}</label>{% endfor %}
+  {% else %}<textarea name="value" maxlength="1000"></textarea>{% endif %}
+  <button class="btn btn-primary btn-block" style="margin-top:12px">{% if step|add:1 == total %}Enviar{% else %}Próxima{% endif %}</button>
+</form>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}{{ t.code }} · Mensagens · Hera{% endblock %}
+{% block content %}
+<a href="{% url 'g_messages' %}"><small>← Biblioteca de mensagens</small></a>
+<h1 style="margin:6px 0">{{ t.title }}</h1>
+<p><small>{{ t.stage }} · código <b>{{ t.code }}</b>{% if t.variant %} · variação <b>{{ t.variant }}</b>{% endif %} · origem: {{ t.get_source_display }} · atualizada em {{ t.updated_at|sp }}</small>
+  {% for l in row.tracks %}<span class="pill gray">{{ l }}</span> {% endfor %}{% if t.battles == 'nao' %}<span class="pill gray">não faz batalha</span>{% endif %}
+  {% if t.provisional %}<span class="pill gold">provisório: o Playbook não traz este texto</span>{% endif %}</p>
+{% if row.problems %}<ul class="messages"><li><b>O verificador de tom barraria este texto:</b> {{ row.problems|join:"; " }}. Ele veio assim do Playbook. Para salvar qualquer mudança nesta mensagem, o trecho precisa ser ajustado.</li></ul>{% endif %}
+{% if errors %}<ul class="errorlist">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+<div class="cols">
+<div>
+  {% if can_edit %}
+  <form method="post" class="card">{% csrf_token %}<input type="hidden" name="a" value="save">
+    <h2>Editar</h2>
+    <label>Título</label><input type="text" name="title" value="{{ draft.title }}" maxlength="140" required>
+    <label>Mensagem</label><textarea name="body" rows="14" required>{{ draft.body }}</textarea>
+    <p><small>Variáveis que o sistema preenche: <span class="num">{nome}, {dias_validos}, {horas}, {falta_dias}, {falta_horas}, {dias_restantes}, {tier}, {grupo}, {diamantes}, {lives}, {link_app}, {codigo_acesso}, {codigo_validade}, {proxima_aula}, {campanha}, {campanha_regra}, {campanha_link}</span>. Trechos entre [colchetes] ficam para a gestora completar.<br>
+    O verificador de tom não deixa salvar mensagem com meta, cobrança, prazo, horário pedido pela Hera ou texto só no feminino.</small></p>
+    <button class="btn btn-primary">Salvar</button>
+  </form>
+  {% else %}
+  <section class="card"><h2>Mensagem</h2><pre class="msg" id="m">{{ t.body }}</pre><button type="button" class="btn btn-sm" onclick="heraCopy(this,'m')">Copiar</button>
+    <p><small>Quem edita a biblioteca são as sócias e quem tem o papel Conteúdo.</small></p></section>
+  {% endif %}
+  {% if siblings %}<section class="card"><h2>Outras versões deste passo</h2>
+    <ul class="list">{% for s in siblings %}<li><a href="{% url 'g_message' s.t.pk %}">{{ s.t.title }}</a> {% for l in s.tracks %}<span class="pill gray">{{ l }}</span> {% endfor %}{% if s.t.battles == 'nao' %}<span class="pill gray">não faz batalha</span>{% endif %}{% if not s.t.variant %}<span class="pill">modelo geral</span>{% endif %}</li>{% endfor %}</ul>
+    <p><small>O sistema escolhe a versão pela trilha e pelo “faz batalha” da ficha do criador.</small></p></section>{% endif %}
+</div>
+<div>
+  <section class="card"><h2>Histórico de versões</h2>
+    <p><small>Toda mudança guarda o texto anterior. Nada é sobrescrito.</small></p>
+    {% for v in versions %}
+    <details style="padding:6px 0;border-top:1px solid var(--border)"><summary>Valeu até {{ v.saved_at|sp }}{% if v.saved_by %} · trocada por {{ v.saved_by.first_name|default:v.saved_by.email }}{% else %} · trocada pela carga do Playbook{% endif %}</summary>
+      <p><small><b>{{ v.title }}</b></small></p><pre class="msg">{{ v.body }}</pre>
+      {% if can_edit %}<form method="post">{% csrf_token %}<input type="hidden" name="a" value="restore"><input type="hidden" name="version" value="{{ v.pk }}"><button class="btn btn-sm" onclick="return confirm('Voltar para este texto? O texto atual vai para o histórico.')">Restaurar esta versão</button></form>{% endif %}
+    </details>
+    {% empty %}<p class="empty">Esta mensagem ainda não foi alterada.</p>{% endfor %}
+  </section>
+</div>
+</div>
+{% endblock %}

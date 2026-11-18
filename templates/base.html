@@ -1,0 +1,25 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5c019b">
+<title>{% block title %}Hera Creator Hub{% endblock %}</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="{% static 'img/icon-192.png' %}">
+<link rel="apple-touch-icon" href="{% static 'img/icon-192.png' %}">
+<link rel="stylesheet" href="{% static 'css/hera.css' %}">
+<script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+<script src="{% static 'vendor/alpine.min.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+{% block body %}{% endblock %}
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {})); }
+function heraCopy(btn, id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.innerText).then(() => { const t = btn.innerText; btn.innerText = 'Copiado ✓'; setTimeout(() => btn.innerText = t, 1500); });
+}
+</script>
+</body>
+</html>

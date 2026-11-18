@@ -1,0 +1,21 @@
+{# Uma linha da fila do dia. Recebe: i (item), p (prefixo dos ids), n (número da linha), can_defer (mostra "Adiar"). #}
+<tr class="prio-{{ i.priority }}" id="{{ p }}{{ n }}">
+  <td><a href="{% url 'g_creator' i.creator.pk %}"><b>@{{ i.creator.username }}</b></a><br><small>{{ i.title }}</small>
+    {% if i.state %}<br><small class="muted">{{ i.state.label }} · {{ i.state.segment_label }} · P{{ i.state.priority }}{% for s in i.state.signals %} · {{ s }}{% endfor %}</small>{% endif %}</td>
+  <td><small>{{ i.detail }}</small>
+    {% if i.text %}<details><summary><small>ver mensagem</small></summary><pre class="msg" id="{{ p }}m{{ n }}">{{ i.text }}</pre></details>{% endif %}</td>
+  <td style="white-space:nowrap">
+    {% if i.text %}<span id="{{ p }}a{{ n }}"><textarea name="text" id="{{ p }}t{{ n }}" hidden>{{ i.text }}</textarea>
+      <button type="button" class="btn btn-sm" onclick="heraCopy(this,'{{ p }}m{{ n }}')">Copiar mensagem</button>
+      <a class="btn btn-sm btn-wa" href="{% url 'g_open' i.creator.pk i.template %}" target="_blank" rel="noopener">{% if i.group_url %}Abrir grupo{% else %}Abrir WhatsApp{% endif %}</a>
+      <button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' i.creator.pk i.template %}" hx-include="#{{ p }}t{{ n }}" hx-target="#{{ p }}a{{ n }}" hx-swap="innerHTML">Enviei</button>
+    </span>{% endif %}
+    <a class="btn btn-sm" href="{% url 'g_creator' i.creator.pk %}">Ficha</a>
+    {% if can_defer %}<details style="display:inline-block;vertical-align:top"><summary class="btn btn-sm">Adiar</summary>
+      <form hx-post="{% url 'g_dismiss' i.creator.pk i.code %}" hx-target="#{{ p }}{{ n }}" hx-swap="outerHTML" style="white-space:normal;margin-top:6px">
+        <input type="text" name="reason" placeholder="Motivo (obrigatório)" required maxlength="240">
+        <select name="days" style="margin-top:4px"><option value="1">até amanhã</option><option value="2">por 2 dias</option><option value="3">por 3 dias</option><option value="7">por 7 dias</option></select>
+        <button class="btn btn-sm" style="margin-top:4px">Adiar com motivo</button>
+      </form></details>{% endif %}
+  </td>
+</tr>

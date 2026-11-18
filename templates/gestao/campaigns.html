@@ -1,0 +1,11 @@
+{% extends "gestao/base.html" %}
+{% block content %}
+<div class="row between"><h1>Campanhas</h1>{% if user.is_staff %}<a class="btn btn-primary btn-sm" href="/gestao/admin/engage/campaign/add/">Nova campanha</a>{% endif %}</div>
+<p><small>Campanhas oficiais: crie no Backstage e cadastre aqui só público, prêmios e o link do TikTok (o acompanhamento fica no TikTok, em tempo real). Campanhas internas (relâmpago, maratona, pontos) mostram aqui o progresso de quem participa, sem classificação.</small></p>
+{% if uncovered %}<ul class="messages"><li>Tiers sem campanha ativa agora: {{ uncovered|join:", " }}.</li></ul>{% endif %}
+<div class="card table-wrap" style="padding:0"><table class="t"><thead><tr><th>Campanha</th><th>Período</th><th>Público</th><th>Métrica</th><th></th></tr></thead><tbody>
+{% for c in items %}<tr><td><a href="{% url 'g_campaign' c.pk %}"><b>{{ c.name }}</b></a>{% if c.featured %} <span class="pill gold">⭐ destaque</span>{% elif c.source == 'backstage' %} <span class="pill gray">não aparece no app</span>{% endif %}<br><small>{{ c.get_source_display }}</small></td><td>{{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }} {% if c.start <= today and today <= c.end %}<span class="pill cyan">ativa</span>{% endif %}</td>
+<td><small>{% if c.audience_tiers %}Tiers {{ c.audience_tiers|join:", " }}{% else %}Todos os Tiers{% endif %}{% if c.audience_groups %} · {{ c.audience_groups|join:", " }}{% endif %}{% if c.only_first_month %} · só novatos{% endif %}</small></td>
+<td>{% if c.tiktok_url %}<a href="{{ c.tiktok_url }}" target="_blank" rel="noopener">ver no TikTok</a>{% else %}<span class="pill gold">sem link do TikTok</span>{% endif %}</td><td>{% if user.is_staff %}<a class="btn btn-sm" href="/gestao/admin/engage/campaign/{{ c.pk }}/change/">Editar</a>{% endif %}</td></tr>
+{% empty %}<tr><td class="empty">Nenhuma campanha.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

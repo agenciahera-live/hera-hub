@@ -1,0 +1,5 @@
+{% extends "streamer/base.html" %}
+{% block content %}
+<h1>Notificações</h1>
+<ul class="card list">{% for n in items %}<li><a href="{{ n.url|default:'#' }}" style="color:inherit"><b>{% if not n.read_at %}🔵 {% endif %}{{ n.title }}</b>{% if n.body %}<br><small>{{ n.body }}</small>{% endif %}<br><small>{{ n.created_at|date:"d/m H:i" }}</small></a></li>{% empty %}<li class="empty">Nada por aqui ainda.</li>{% endfor %}</ul>
+{% endblock %}

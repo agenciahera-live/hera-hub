@@ -1,0 +1,22 @@
+{% extends "gestao/base.html" %}
+{% block content %}
+<h1>Conteúdos</h1>
+<div class="kpis">
+  <a class="kpi" href="/gestao/admin/engage/announcement/add/"><b>📣</b><span>Novo aviso</span></a>
+  <a class="kpi" href="/gestao/admin/engage/faqitem/"><b>❓</b><span>Perguntas e respostas (Q&A)</span></a>
+  <a class="kpi" href="/gestao/admin/engage/course/"><b>🎓</b><span>Hera Academy</span></a>
+  <a class="kpi" href="/gestao/admin/engage/partneroffer/"><b>🎁</b><span>Benefícios</span></a>
+  <a class="kpi" href="/gestao/admin/engage/survey/"><b>📝</b><span>Pesquisas</span></a>
+  <a class="kpi" href="/gestao/admin/engage/messagetemplate/"><b>💬</b><span>Modelos de mensagem</span></a>
+  <a class="kpi" href="/gestao/admin/engage/tip/"><b>💡</b><span>Dicas</span></a>
+</div>
+<div class="cols"><div>
+<section class="card"><h2>Avisos recentes</h2><table class="t"><tbody>{% for a in anns %}<tr><td><b>{{ a.title }}</b><br><small>{{ a.publish_at|date:"d/m H:i" }}{% if a.audience_groups %} · {{ a.audience_groups|join:", " }}{% endif %}{% if a.audience_tiers %} · Tiers {{ a.audience_tiers|join:", " }}{% endif %}</small></td>
+<td>{% if a.notified %}<span class="pill cyan">notificado</span>{% else %}<form method="post">{% csrf_token %}<button class="btn btn-sm btn-primary" name="publish" value="{{ a.pk }}">Publicar e notificar</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="empty">Nenhum aviso.</td></tr>{% endfor %}</tbody></table></section>
+<section class="card"><h2>Buscas sem resposta na central de dúvidas</h2><p><small>Crie perguntas no Q&A para estes termos.</small></p><table class="t"><tbody>{% for g in gaps %}<tr><td>{{ g.query }}</td><td class="num">{{ g.n }}×</td></tr>{% empty %}<tr><td class="empty">Nenhuma busca sem resposta.</td></tr>{% endfor %}</tbody></table></section>
+<section class="card"><h2>Respostas marcadas como “não ajudou”</h2><ul class="list">{% for f in faq_bad %}<li><a href="/gestao/admin/engage/faqitem/{{ f.pk }}/change/">{{ f.question }}</a> <small>👎 {{ f.not_helpful }} · 👍 {{ f.helpful }}</small></li>{% empty %}<li class="empty">Nenhuma.</li>{% endfor %}</ul></section>
+</div><div>
+<section class="card"><h2>Pesquisas</h2><ul class="list">{% for s in surveys %}<li class="row between"><a href="{% url 'g_survey' s.pk %}">{{ s.title }}</a><small>{{ s.n }} respostas</small></li>{% empty %}<li class="empty">Nenhuma.</li>{% endfor %}</ul></section>
+<section class="card"><h2>Benefícios</h2><ul class="list">{% for o in offers %}<li class="row between"><span>{{ o.brand }} · {{ o.title }}</span><small>{{ o.n_clicks }} cliques · {{ o.n_used }} usaram</small></li>{% empty %}<li class="empty">Nenhum.</li>{% endfor %}</ul></section>
+</div></div>
+{% endblock %}

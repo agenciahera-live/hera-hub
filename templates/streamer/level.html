@@ -1,0 +1,39 @@
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}Meu nível · Hera{% endblock %}
+{% block content %}
+<a href="/"><small>← Meu progresso</small></a>
+<section class="card" style="margin-top:8px">
+  <div class="row"><div class="tier-badge"><div>{{ level.level }}<small>NÍVEL</small></div></div>
+    <div><h1 style="margin:0">Meu nível: {{ level.level }}</h1><small>Grupo {{ group }}{% if level.level_month %} · pelo mês de {{ level.level_month|date:"F"|lower }}{% endif %}</small></div></div>
+  {% if level.next %}
+    <div class="bar-label"><span>Próximo nível: Nível {{ level.next.tier }}</span><span class="num">{{ level.diamonds|intbr }} / {{ level.next.min_diamonds|intbr }} 💎</span></div>
+    <div class="bar gold"><i style="width:{{ level.pct|width }}"></i></div>
+    <p style="margin:6px 0 0"><small>{% if level.reached %}Você já passou dessa marca neste mês 🎉{% else %}Faltam {{ level.missing|intbr }} 💎 neste mês.{% endif %} O nível muda no fechamento do mês.</small></p>
+  {% else %}
+    <p style="margin:10px 0 0"><small>Você está no nível mais alto 👑</small></p>
+  {% endif %}
+  {% if counting %}
+    <div class="bar-label"><span>Primeiros 14 dias · dias válidos <span class="pill gray">regra do TikTok</span></span><span class="num">{{ onboarding.valid_days }} / {{ settings.onboarding_valid_days }}</span></div>
+    <div class="bar cyan"><i style="width:{% widthratio onboarding.valid_days settings.onboarding_valid_days 100 %}%"></i></div>
+    <div class="bar-label"><span>Primeiros 14 dias · tempo de LIVE <span class="pill gray">regra do TikTok</span></span><span class="num">{{ onboarding.hours|hours }} / {{ settings.onboarding_hours }}h</span></div>
+    <div class="bar cyan"><i style="width:{% widthratio onboarding.hours settings.onboarding_hours 100 %}%"></i></div>
+  {% elif snap %}
+    <p style="margin:10px 0 0"><small>Neste mês: {{ snap.hours|hours }}h de LIVE · {{ snap.valid_days }} dia{{ snap.valid_days|pluralize }} válido{{ snap.valid_days|pluralize }}.</small></p>
+  {% endif %}
+</section>
+<section class="card">
+  <h2>Faixa de cada nível</h2>
+  <ul class="list">
+    {% for l in levels %}<li class="row between"><span>{% if l.level == level.level %}<b>Nível {{ l.level }}</b> <span class="pill gold">você está aqui</span>{% else %}Nível {{ l.level }}{% endif %}</span>
+      <small class="num">{% if not l.max %}{{ l.min|intbr }} 💎 ou mais{% elif not l.min %}até {{ l.max|intbr }} 💎{% else %}{{ l.min|intbr }} a {{ l.max|intbr }} 💎{% endif %}</small></li>{% endfor %}
+  </ul>
+  <p style="margin:8px 0 0"><small>São os diamantes de um mês. O nível vale pelo mês fechado.</small></p>
+</section>
+<section class="card">
+  <h2>Como funcionam os grupos</h2>
+  <ul class="list">
+    <li class="row between"><span>Primeiro Mês</span><small>seu 1º mês na Hera</small></li>
+    {% for g in group_rules %}<li class="row between"><span>{{ g.name }}</span><small>{{ g.range }}</small></li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

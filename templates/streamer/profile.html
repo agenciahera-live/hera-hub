@@ -1,0 +1,33 @@
+{% extends "streamer/base.html" %}
+{% block title %}Perfil · Hera{% endblock %}
+{% block content %}
+<h1>Perfil</h1>
+<section class="card">
+  <div class="row"><a class="tier-badge" href="{% url 'my_level' %}" aria-label="Meu nível: {{ tier }}"><div>{{ tier }}<small>NÍVEL</small></div></a><div><b>{{ c.display_name }}</b><br><small>@{{ c.username }} · grupo {{ group }}</small></div></div>
+  {% if manager_link %}<a class="btn btn-wa btn-block" style="margin-top:12px" href="{{ manager_link }}" target="_blank" rel="noopener">💬 Falar com a Hera</a>{% endif %}
+  <ul class="list" style="margin-top:12px">
+    <li class="row between"><span>Na Hera desde</span><span>{{ c.joined_at|date:"d/m/Y" }}</span></li>
+    <li class="row between"><span>Seu contato na Hera</span><span>{% if manager %}{{ manager.first_name|default:manager.email }}{% else %}—{% endif %}</span></li>
+  </ul>
+</section>
+<form method="post" class="card">{% csrf_token %}
+  <h2>Meus dados</h2>
+  <label for="wa">WhatsApp</label><input id="wa" type="text" name="whatsapp" value="{{ priv.whatsapp }}" inputmode="tel">
+  {% if prof %}
+  <label for="about">Sobre mim</label><textarea id="about" name="about" maxlength="1000">{{ prof.about }}</textarea>
+  {% endif %}
+  <button class="btn btn-primary btn-block" style="margin-top:12px">Salvar</button>
+</form>
+<section class="card">
+  <h2>Atalhos</h2>
+  <ul class="list">
+    <li><a href="{% url 'battles' %}">⚔️ Meus pedidos de batalha</a></li>
+    <li><a href="{% url 'offers' %}">🎁 Benefícios e cupons</a></li>
+    <li><a href="{% url 'announcements' %}">📣 Avisos da Hera</a></li>
+    <li><a href="{% url 'faq' %}">❓ Central de dúvidas</a></li>
+  </ul>
+</section>
+{% if history %}<section class="card"><h2>Meus grupos</h2><ul class="list">{% for h in history %}<li class="row between"><span>{{ h.group_name }}</span><small>desde {{ h.since|date:"d/m/Y" }}</small></li>{% endfor %}</ul></section>{% endif %}
+<form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button class="btn btn-block">Sair</button></form>
+<p style="margin-top:12px"><small>Seus dados são tratados conforme a LGPD. Termo aceito na versão atual.</small></p>
+{% endblock %}

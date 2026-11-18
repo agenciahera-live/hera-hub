@@ -1,0 +1,63 @@
+from django.urls import path
+from django.views.generic import RedirectView
+
+from . import views_api as A
+from . import views_gestao as G
+from . import views_streamer as V
+
+urlpatterns = [
+    path("", V.root, name="home"),
+    path("entrar/", RedirectView.as_view(url="/accounts/login/"), name="entrar"),
+    path("primeiro-acesso/", V.first_access, name="first_access"),
+    path("boas-vindas/", V.welcome, name="welcome"),
+    path("meu-nivel/", V.my_level, name="my_level"),
+    path("meu-tier/", RedirectView.as_view(pattern_name="my_level")),  # endereço antigo: no app o criador vê "Meu nível"
+    path("desempenho/", V.performance, name="performance"),  # unida ao Meu progresso: leva para a tela inicial
+    path("campanhas/", V.campaigns, name="campaigns"),
+    path("campanhas/<int:pk>/", V.campaign, name="campaign"),
+    path("academy/", V.academy, name="academy"),
+    path("academy/aula/<int:pk>/", V.lesson, name="lesson"),
+    path("perfil/", V.profile, name="profile"),
+    path("notificacoes/", V.notifications, name="notifications"),
+    path("avisos/", V.announcements, name="announcements"),
+    path("duvidas/", V.faq, name="faq"),
+    path("duvidas/buscar/", V.faq_search_view, name="faq_search"),
+    path("duvidas/<int:pk>/ajudou/", V.faq_feedback, name="faq_feedback"),
+    path("duvidas/perguntar/", V.ask_manager, name="ask_manager"),
+    path("beneficios/", V.offers, name="offers"),
+    path("beneficios/<int:pk>/abrir/", V.offer_go, name="offer_go"),
+    path("beneficios/<int:pk>/usei/", V.offer_used, name="offer_used"),
+    path("pesquisas/<int:pk>/", V.survey, name="survey"),
+    path("batalhas/", V.battles, name="battles"),
+    path("batalhas/nova/", V.battle_new, name="battle_new"),
+    path("manifest.json", V.manifest, name="manifest"),
+    path("sw.js", V.service_worker, name="sw"),
+    path("offline/", V.offline, name="offline"),
+    # gestão
+    path("gestao/", G.dashboard, name="g_dashboard"),
+    path("gestao/creators/", G.creators, name="g_creators"),
+    path("gestao/creators/<int:pk>/", G.creator_detail, name="g_creator"),
+    path("gestao/creators/<int:pk>/acao/", G.creator_action, name="g_creator_action"),
+    path("gestao/creators/<int:pk>/codigo/", G.access_code_new, name="g_access_code"),
+    path("gestao/creators/<int:pk>/1a1/", G.one_on_one_new, name="g_1a1"),
+    path("gestao/creators/<int:pk>/abrir/<str:code>/", G.open_chat, name="g_open"),
+    path("gestao/creators/<int:pk>/enviei/<str:code>/", G.mark_sent, name="g_sent"),
+    path("gestao/creators/<int:pk>/dispensar/<str:code>/", G.dismiss, name="g_dismiss"),
+    path("gestao/carteiras/", G.portfolios, name="g_portfolios"),
+    path("gestao/ausencia/", G.absence_toggle, name="g_absence"),
+    path("gestao/onboarding/", G.onboarding, name="g_onboarding"),
+    path("gestao/graduacao/", G.graduation, name="g_graduation"),
+    path("gestao/mensagens/", G.message_library, name="g_messages"),
+    path("gestao/mensagens/<int:pk>/", G.message_detail, name="g_message"),
+    path("api/importacao/backstage/", A.import_backstage, name="api_import_backstage"),
+    path("gestao/importar/", G.imports, name="g_imports"),
+    path("gestao/importar/chave/", G.import_key, name="g_import_key"),
+    path("gestao/importar/<int:pk>/", G.import_preview, name="g_import_preview"),
+    path("gestao/batalhas/", G.battles, name="g_battles"),
+    path("gestao/duvidas/", G.tickets, name="g_tickets"),
+    path("gestao/campanhas/", G.campaigns, name="g_campaigns"),
+    path("gestao/campanhas/<int:pk>/", G.campaign_detail, name="g_campaign"),
+    path("gestao/conteudos/", G.content, name="g_content"),
+    path("gestao/pesquisas/<int:pk>/", G.survey_results, name="g_survey"),
+    path("gestao/relatorios/", G.reports, name="g_reports"),
+]

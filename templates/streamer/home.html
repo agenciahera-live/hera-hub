@@ -1,0 +1,116 @@
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}Meu progresso · Hera{% endblock %}
+{% block content %}
+<div class="hello">
+  <h1>Oi, {{ creator.first_name|title }}! 💜</h1>
+  <span class="freshness {% if not data_until %}stale{% endif %}" style="margin:0"><span class="dot"></span>{% if data_until %}dados até {{ data_until|date:"d/m" }}{% if updated_at %} · atualizado {{ updated_at|sp:"%d/%m às %H:%M" }}{% endif %}{% else %}sem dados ainda{% endif %}</span>
+</div>
+
+{# 1. Topo, que muda com a fase #}
+{% if counting %}
+<section class="card card-hero">
+  <div class="row between"><b>Seus primeiros 14 dias</b><span class="pill seal">regra do TikTok</span></div>
+  <div class="bar-label"><span>Dias válidos</span><span class="num">{{ onboarding.valid_days }} de {{ settings.onboarding_valid_days }}</span></div>
+  <div class="bar"><i style="width:{% widthratio onboarding.valid_days settings.onboarding_valid_days 100 %}%"></i></div>
+  <div class="bar-label"><span>Tempo de LIVE</span><span class="num">{{ onboarding.hours|hours }}h de {{ settings.onboarding_hours }}h</span></div>
+  <div class="bar"><i style="width:{% widthratio onboarding.hours settings.onboarding_hours 100 %}%"></i></div>
+  <p style="margin:10px 0 0"><small>A contagem vai até {{ onboarding.end|date:"d/m" }}. O dia do TikTok vira às 21h de Brasília.</small></p>
+</section>
+<section class="card compact-card">
+  <h3 style="margin:0 0 4px">Próximo passo</h3>
+  <p style="margin:0">{{ next_step }}</p>
+  {% if lesson %}<a class="btn btn-primary btn-block" style="margin-top:10px" href="{% url 'lesson' lesson.pk %}">▶️ {{ lesson.title }}</a>{% endif %}
+</section>
+{% else %}
+<a class="tile hero" href="{% url 'my_level' %}" style="margin-bottom:10px">
+  <div class="label">Meu nível{% if closed_rule %} · 14 dias do TikTok completos 🎉{% endif %}</div>
+  <div class="value">Nível {{ level.level }}</div>
+  <div class="sub">Grupo {{ group }} · {{ level.diamonds|intbr }} 💎 em {{ month_label }}</div>
+  {% if level.next %}
+  <div class="bar"><i style="width:{{ level.pct|width }}"></i></div>
+  <div class="sub">{% if level.reached %}Você já passou da marca do Nível {{ level.next.tier }} neste mês 🎉{% else %}Próximo nível: Nível {{ level.next.tier }}, a partir de {{ level.next.min_diamonds|intbr }} 💎 no mês. Faltam {{ level.missing|intbr }}.{% endif %}</div>
+  {% else %}<div class="sub">Você está no nível mais alto 👑</div>{% endif %}
+</a>
+{% if snap %}<p class="hint" style="margin:0 2px 10px">Neste mês: {{ snap.hours|hours }}h de LIVE · {{ snap.valid_days }} dia{{ snap.valid_days|pluralize }} válido{{ snap.valid_days|pluralize }} · {{ snap.battles }} batalha{{ snap.battles|pluralize }}</p>
+{% else %}<p class="hint" style="margin:0 2px 10px">O mês começou. Seus números aparecem depois da próxima atualização.</p>{% endif %}
+
+{# 2. A frase do mês e 3. No seu ritmo #}
+{% if phrase %}
+<section class="card compact-card">
+  <p style="margin:0"><b>{{ phrase.text }}</b></p>
+  {% if phrase.estimate %}<small class="muted">{{ estimate_note }}</small>{% endif %}
+  {% if phrase.lesson %}<a class="btn btn-sm" style="margin-top:8px" href="{% if lesson %}{% url 'lesson' lesson.pk %}{% else %}{% url 'academy' %}{% endif %}">Ver a aula</a>{% endif %}
+</section>
+{% endif %}
+{% if forecast %}
+<section class="card compact-card">
+  <h3 style="margin:0 0 4px">No seu ritmo</h3>
+  <p style="margin:0">Mantendo esse ritmo, você fecha o mês em torno de <b class="num">{{ forecast|intbr }} 💎</b>.</p>
+  <small class="muted">{{ estimate_note }}</small>
+</section>
+{% endif %}
+{% if graduation %}
+<section class="card compact-card">
+  <div class="row between"><h3 style="margin:0">Graduação</h3><span class="pill gray">regra do TikTok</span></div>
+  <div class="bar-label"><span>{{ graduation.target|intbr }} 💎 em um mês</span><span class="num">{{ graduation.diamonds|intbr }} / {{ graduation.target|intbr }}</span></div>
+  <div class="bar gold"><i style="width:{{ graduation.pct|width }}"></i></div>
+  <p style="margin:8px 0 0"><small>{% if graduation.reached %}Você bateu a marca neste mês 🎉{% else %}Faltam {{ graduation.missing|intbr }} 💎 neste mês. Seu ritmo: {{ graduation.per_day|intbr }} 💎 por dia.{% endif %}
+    A janela vai até {{ graduation.window_end|date:"d/m" }}: {{ graduation.months_left }} {{ graduation.months_left|pluralize:"mês,meses" }}, contando este.{% if graduation.done_before %} Você já graduou {{ graduation.done_before }} vez{{ graduation.done_before|pluralize:"es" }}.{% endif %}</small></p>
+</section>
+{% endif %}
+{% endif %}
+
+{# 5. Campanha do momento e 6. pedir batalha #}
+{% if campaign %}{% with c=campaign.c %}
+<a class="tile" style="margin-bottom:10px" {% if c.tiktok_url %}href="{{ c.tiktok_url }}" target="_blank" rel="noopener"{% else %}href="{% url 'campaign' c.pk %}"{% endif %}>
+  <div class="label">🏆 Campanha do momento <span class="pill gray" style="margin-left:auto">até {{ c.end|date:"d/m" }}</span></div>
+  <div class="value" style="font-size:1.05rem">{{ c.name }}</div>
+  {% if c.what_to_do %}<div class="sub" style="color:var(--text)">{{ c.what_to_do|truncatechars:140 }}</div>{% endif %}
+  {% if c.tiktok_url %}<div class="sub">abre no TikTok ↗</div>{% endif %}
+</a>
+{% endwith %}{% endif %}
+<a class="btn btn-primary btn-block" style="margin-bottom:14px" href="{% url 'battle_new' %}">⚔️ Pedir batalha oficial</a>
+
+{# 7. Semanas deste mês e 8. aula recomendada #}
+{% if weeks %}
+<section class="card compact-card" id="semanas">
+  <h3 style="margin-bottom:6px">Semanas deste mês</h3>
+  <ul class="weeks">
+    {% for w in weeks %}
+    <li{% if w.weak %} class="weak"{% endif %}>
+      <span class="wk">{{ w.iv.start|date:"d/m" }}–{{ w.iv.end|date:"d/m" }}</span>
+      <span class="wbar"><i style="width:{{ w.pct|width }}"></i></span>
+      <span class="num wv">{% if w.iv.had_live %}{{ w.iv.diamonds|intbr }} 💎 · {{ w.iv.hours|hours }}h · {{ w.iv.valid_days }} dia{{ w.iv.valid_days|pluralize }}{% else %}<span class="pill gray">sem LIVE</span>{% endif %}{% if not w.closed %} <span class="pill gray">em andamento</span>{% endif %}</span>
+      {% if w.note %}<span class="wv wnote">{{ w.note }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if lesson and not counting %}
+<a class="tile" style="margin-bottom:14px" href="{% url 'lesson' lesson.pk %}">
+  <div class="label">🎓 Aula recomendada</div>
+  <div class="value" style="font-size:1.05rem">▶️ {{ lesson.title }}</div>
+  {% if lesson_why %}<div class="sub" style="color:var(--text)">{{ lesson_why }}</div>{% endif %}
+  <div class="sub">Hera Academy · {{ lesson.course.title }} · {{ lesson.minutes }} min</div>
+</a>
+{% endif %}
+
+{# 9. Meses desde a entrada #}
+{% if months %}
+<section class="card compact-card" id="meses">
+  <h3 style="margin-bottom:4px">Meses desde a entrada</h3>
+  <ul class="list months">
+    {% for x in months %}<li{% if x.best %} class="best"{% endif %}><span>{{ x.m.month|date:"M/y"|lower }}</span><span class="wbar"><i style="width:{{ x.pct|width }}"></i></span><span class="num">{{ x.m.diamonds|intbr }} 💎</span><span class="pill {% if x.best %}gold{% else %}gray{% endif %}">Nível {{ x.m.tier|default:1 }}</span></li>{% endfor %}
+  </ul>
+  <p style="margin:6px 0 0"><small>Em dourado, o seu melhor mês.</small></p>
+</section>
+{% endif %}
+
+<div class="more-links">
+  <a class="btn btn-sm" href="{% url 'announcements' %}">📣 Avisos{% if pinned %} · 1 fixado{% endif %}</a>
+  <a class="btn btn-sm" href="{% url 'offers' %}">🎁 Benefícios</a>
+  {% if survey %}<a class="btn btn-sm" href="{% url 'survey' survey.pk %}">📝 Pesquisa</a>{% endif %}
+</div>
+{% if tip %}<p class="tip-line">💡 {{ tip.text }}</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,2 @@
+{% extends "base.html" %}
+{% block body %}<div class="login-wrap"><form method="post" class="card" action="{% url 'account_logout' %}">{% csrf_token %}<h1>Sair?</h1><button class="btn btn-primary btn-block">Sair</button></form></div>{% endblock %}

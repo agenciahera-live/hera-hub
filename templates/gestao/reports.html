@@ -1,0 +1,15 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block content %}
+<div class="row between"><h1>Relatórios</h1><a class="btn btn-sm" href="?export=csv">CSV do mês fechado ({{ pm|date:"m/Y" }})</a></div>
+<h2>Sucesso do app</h2>
+<div class="kpis">
+  <div class="kpi"><b>{% if usage is not None %}{{ usage|pct }}{% else %}—{% endif %}</b><span>streamers com acesso que abriram o app nos últimos 7 dias ({{ opened }}/{{ with_access }}). Meta: o máximo possível</span></div>
+  <div class="kpi"><b>{% if early_exit_rate is not None %}{{ early_exit_rate|pct:1 }}{% else %}—{% endif %}</b><span>saída em 15 dias (entradas dos últimos 90 dias: {{ joined }}). Meta: &lt; 10%</span></div>
+  <div class="kpi"><b>{% if ob_rate is not None %}{{ ob_rate|pct }}{% else %}—{% endif %}</b><span>novatos que cumpriram 5 dias e 15h em 14 dias ({{ ob_eligible }} avaliados)</span></div>
+  <div class="kpi"><b>{{ contacts_week }}</b><span>mensagens enviadas pelo app na semana</span></div>
+</div>
+<section class="card"><h2>Meses fechados</h2><div class="table-wrap"><table class="t num"><thead><tr><th>Mês</th><th>Creators</th><th>💎</th><th>Horas</th><th>Dias válidos</th><th>Frequência média (dias/semana)</th><th>Bateram mínimo 5d/15h</th></tr></thead>
+<tbody>{% for m in months %}<tr><td>{{ m.month|date:"m/Y" }}</td><td>{{ m.n }}</td><td>{{ m.diamonds|intbr }}</td><td>{{ m.hours|intbr }}</td><td>{{ m.valid_days|intbr }}</td><td>{{ m.freq|hours }}</td><td>{{ m.min_ok }} ({{ m.min_ok_pct|pct }})</td></tr>{% empty %}<tr><td colspan="7" class="empty">Sem meses fechados.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Por gestora ({{ pm|date:"m/Y" }})</h2><div class="table-wrap"><table class="t num"><thead><tr><th>Gestora</th><th>Carteira</th><th>💎</th><th>1:1 desde {{ pm|date:"d/m" }}</th><th>1:1 com registro completo</th></tr></thead>
+<tbody>{% for g in per_mgr %}<tr><td>{{ g.u.get_full_name|default:g.u.email }}</td><td>{{ g.n }}</td><td>{{ g.diamonds|intbr }}</td><td>{{ g.one_on_ones }}</td><td>{{ g.complete }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">—</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "streamer/base.html" %}
+{% block title %}Benefícios · Hera{% endblock %}
+{% block content %}
+<h1>Benefícios Hera</h1>
+<p><small>Cupons e produtos que indicamos para melhorar sua LIVE.</small></p>
+{% for o in items %}
+<section class="card">
+  <div class="row between"><b>{{ o.brand }}</b><span class="pill cyan">{{ o.get_category_display }}</span></div>
+  <p style="margin:6px 0">{{ o.title }}</p>
+  {% if o.recommended_for %}<p><span class="pill gold">Kit recomendado: {{ o.recommended_for }}</span></p>{% endif %}
+  {% if o.coupon %}<div class="row" style="gap:8px"><code id="cp{{ o.pk }}" style="font-size:1.1rem;font-weight:700">{{ o.coupon }}</code><button type="button" class="btn btn-sm" onclick="heraCopy(this,'cp{{ o.pk }}')">Copiar cupom</button></div>{% endif %}
+  <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+    {% if o.url %}<a class="btn btn-sm btn-primary" href="{% url 'offer_go' o.pk %}" target="_blank" rel="noopener">Ver oferta</a>{% endif %}
+    <span id="used{{ o.pk }}"><button class="btn btn-sm" hx-post="{% url 'offer_used' o.pk %}" hx-target="#used{{ o.pk }}">Usei o cupom</button></span>
+  </div>
+  {% if o.affiliate %}<p style="margin:8px 0 0"><small>Link de parceiro: a Hera pode receber comissão.</small></p>{% endif %}
+  {% if o.valid_until %}<p style="margin:4px 0 0"><small>Válido até {{ o.valid_until|date:"d/m/Y" }}</small></p>{% endif %}
+</section>
+{% empty %}<p class="card empty">Nenhum benefício disponível agora.</p>{% endfor %}
+{% endblock %}

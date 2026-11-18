@@ -1,0 +1,69 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Dashboard · Hera{% endblock %}
+{% block content %}
+<div class="row between" style="flex-wrap:wrap"><h1>Dashboard</h1>
+<p class="freshness {% if not n.import.done_today %}stale{% endif %}" style="margin:0"><span class="dot"></span>{% if n.import.last %}Backstage importado {% if n.import.done_today %}hoje às {{ n.import.last.committed_at|sp:"%H:%M" }}{% else %}em {{ n.import.last.committed_at|sp }}{% endif %}{% if n.import.last.via == 'porta' %} pela leitura automática{% endif %} (dados até {{ n.end_ref|date:"d/m" }}){% else %}Nenhuma importação ainda{% endif %}</p></div>
+{% if not n.import.done_today %}
+<ul class="messages"><li>
+  {% if n.import.auto_held %}<b>A leitura automática de hoje chegou, mas não foi gravada:</b> {{ n.import.auto_held.counts.held|join:"; " }}.
+    {% if can_import %}<a class="btn btn-sm btn-primary" style="margin-left:8px" href="{% url 'g_import_preview' n.import.auto_held.pk %}">Conferir e gravar</a>{% else %}Quem confere é a gestão ou as sócias.{% endif %}
+  {% elif n.import.auto_late %}<b>A leitura automática de hoje não chegou até as {{ n.import.auto_deadline }}h.</b> Plano B: exporte “Dados do criador” no Backstage e suba a planilha{% if n.import.last %}. Enquanto isso, a fila abaixo usa os dados de {{ n.end_ref|date:"d/m" }}{% endif %}.
+    {% if can_import %}<a class="btn btn-sm btn-primary" style="margin-left:8px" href="{% url 'g_imports' %}">Importar agora</a>{% else %}Quem importa é a gestão ou as sócias.{% endif %}
+  {% elif n.import.auto_on %}{% if n.import.stale %}<b>Importação atrasada.</b> {% endif %}A leitura automática de hoje ainda não chegou (esperada até as {{ n.import.auto_deadline }}h){% if n.import.last %}: a fila abaixo usa os dados de {{ n.end_ref|date:"d/m" }}{% endif %}.
+  {% else %}{% if n.import.stale %}<b>Importação atrasada.</b> {% endif %}A importação de hoje do Backstage ainda não foi feita{% if n.import.last %}: a fila abaixo usa os dados de {{ n.end_ref|date:"d/m" }}{% endif %}.
+    {% if can_import %}<a class="btn btn-sm btn-primary" style="margin-left:8px" href="{% url 'g_imports' %}">Importar agora</a>{% else %}Quem importa é a gestão ou as sócias.{% endif %}
+  {% endif %}</li></ul>
+{% endif %}
+<div class="kpis">
+  <div class="kpi"><b class="num">{{ n.active }}</b><span>creators ativos</span></div>
+  <div class="kpi"><b class="num">{{ n.with_live }}</b><span>fizeram LIVE no mês</span></div>
+  <div class="kpi"><b class="num">{{ n.without_live }}</b><span>sem LIVE no mês</span></div>
+  <div class="kpi"><b class="num">{{ n.new }}</b><span>novos no mês</span></div>
+  <div class="kpi"><b class="num">{{ n.diamonds|intbr }}</b><span>diamantes no mês {% if n.diamonds_change is not None %}<b class="{% if n.diamonds_change >= 0 %}up{% else %}down{% endif %}" style="display:inline;font-size:.85rem">{{ n.diamonds_change|signed_pct }}</b> vs. mesmo ponto do mês passado{% endif %}</span></div>
+</div>
+{% for b in coverage %}{% with bn=forloop.counter|stringformat:"s" %}{% with p="c"|add:bn|add:"x" %}
+<section class="card" style="border-left:4px solid var(--pink)">
+  <h2>Cobertura de hoje · carteira de {{ b.manager }} <span class="pill pink">{{ b.items|length }}</span></h2>
+  <p><small><b>{{ b.manager }} avisou que não trabalha hoje.</b> {% if b.mine %}Você cobre.{% else %}Cobre: <b>{{ b.cover|default:"as sócias" }}</b>.{% endif %}
+    Aqui fica só o que não pode esperar: D10, D12, D14, encerramento, batalha oficial e restrição.
+    {% if b.waiting %}Os outros {{ b.waiting }} ite{{ b.waiting|pluralize:"m,ns" }} da carteira passa{{ b.waiting|pluralize:",m" }} para amanhã, na mesma ordem.{% endif %}
+    Quem cobre envia a mensagem, marca <b>Enviei</b> e pode registrar a resposta e uma nota na ficha.</small></p>
+  <div class="table-wrap"><table class="t"><tbody>
+    {% for i in b.items %}{% include "gestao/_queue_row.html" with i=i p=p n=forloop.counter can_defer=False %}
+    {% empty %}<tr><td class="empty">Nada que não possa esperar hoje. 🎉</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endwith %}{% endwith %}{% endfor %}
+<div class="cols">
+  <section class="card">
+    <div class="row between" style="flex-wrap:wrap"><h2>Fila do dia <span class="pill">{{ queue_total }}</span></h2>
+      {% if is_manager and not away %}<details style="text-align:right"><summary class="btn btn-sm">Hoje não trabalho</summary>
+        <form method="post" action="{% url 'g_absence' %}" style="max-width:420px;text-align:left;margin-top:6px">{% csrf_token %}<input type="hidden" name="a" value="start">
+          <p><small>Os itens de hoje passam para amanhã, na mesma ordem. {% if urgent_count %}<b>{{ urgent_count }}</b> não pode{{ urgent_count|pluralize:",m" }} esperar e {{ urgent_count|pluralize:"vai,vão" }} para <b>{{ cover_name|default:"as sócias" }}</b>.{% else %}Hoje nenhum item precisa de cobertura; se aparecer algum, vai para <b>{{ cover_name|default:"as sócias" }}</b>.{% endif %} As sócias são avisadas e o dia fica registrado.</small></p>
+          <button class="btn btn-sm btn-purple">Confirmar: hoje não trabalho</button></form></details>{% endif %}</div>
+    {% if away %}
+    <ul class="messages"><li><b>Você avisou que hoje não trabalha.</b> Os itens de hoje passam para amanhã, na mesma ordem.
+      {% if urgent_count %}{{ urgent_count }} que não pode{{ urgent_count|pluralize:",m" }} esperar est{{ urgent_count|pluralize:"á,ão" }} com <b>{{ cover_name|default:"as sócias" }}</b>.{% else %}Hoje nenhum item precisa de cobertura.{% endif %}
+      <form method="post" action="{% url 'g_absence' %}" style="display:inline;margin-left:8px">{% csrf_token %}<input type="hidden" name="a" value="cancel"><button class="btn btn-sm">Voltei: vou trabalhar hoje</button></form></li></ul>
+    {% else %}
+    <p><small>Em ordem: suporte, o que tem data, o que vem do dado e o rodízio. Uma mensagem por dia por criador. Copie a mensagem, abra o grupo, envie e marque <b>Enviei</b>: só o “Enviei” registra o contato e tira o item da fila. Primeiro cai a LIVE, depois o diamante: veja a frequência antes de falar de resultado.</small></p>
+    {% if q.sunday %}<ul class="messages"><li>Domingo: a fila não traz envios. Ficam só os pedidos e as dúvidas.</li></ul>{% endif %}
+    {% if q.overflow or q.deferred %}<p><small>{% if q.overflow %}<b>{{ q.overflow }}</b> mensage{{ q.overflow|pluralize:"m,ns" }} fica{{ q.overflow|pluralize:",m" }} para amanhã (teto de {{ cap }} por gestora por dia). {% endif %}{% if q.deferred %}<b>{{ q.deferred }}</b> espera{{ q.deferred|pluralize:",m" }} o próximo dia livre do criador (uma mensagem por dia).{% endif %}</small></p>{% endif %}
+    <div class="table-wrap"><table class="t">
+      <tbody>
+      {% for i in queue %}
+      {% ifchanged i.block %}<tr><td colspan="3"><b>{{ i.block }}. {{ i.block_label }}</b></td></tr>{% endifchanged %}
+      {% include "gestao/_queue_row.html" with i=i p="q" n=forloop.counter can_defer=True %}
+      {% empty %}<tr><td class="empty">Nada na fila agora. 🎉</td></tr>{% endfor %}
+      </tbody></table></div>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>Distribuição por Tier</h2><p><small>Mês fechado anterior (Tier oficial).</small></p>
+    {% for t in n.tier_dist %}
+    <div class="bar-label"><span>Tier {{ t.tier }}</span><span class="num">{{ t.n }}</span></div>
+    <div class="bar gold"><i style="width:{{ t.pct|width }}"></i></div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "gestao/base.html" %}
+{% block title %}Biblioteca de mensagens · Hera{% endblock %}
+{% block content %}
+<h1>Biblioteca de mensagens</h1>
+<p><small>Os scripts do Playbook do Gestor (revisão de novembro/2026), palavra por palavra, com as variações do roteiro por trilha e por “faz batalha”. Na ficha de cada criador (aba Mensagens) e na fila do dia, a mensagem já aparece na versão certa e com os números preenchidos. Trechos entre [colchetes] são para a gestora completar antes de enviar.</small></p>
+<div class="kpis">
+  <div class="kpi"><b class="num">{{ total }}</b><span>mensagens na biblioteca</span></div>
+  <div class="kpi"><b class="num">{{ counts.provisional }}</b><span><a href="?ver=provisorias">provisórias</a>: o Playbook não traz o texto</span></div>
+  <div class="kpi"><b class="num">{{ counts.tone }}</b><span><a href="?ver=tom">com alerta do verificador de tom</a></span></div>
+</div>
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Buscar no título, no texto ou no código">
+  <select name="trilha"><option value="">Todas as trilhas</option>{% for k, l in tracks %}<option value="{{ k }}" {% if f.trilha == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <select name="ver"><option value="">Todas</option><option value="provisorias" {% if f.ver == 'provisorias' %}selected{% endif %}>Só as provisórias</option><option value="tom" {% if f.ver == 'tom' %}selected{% endif %}>Só as com alerta de tom</option></select>
+  <button class="btn btn-purple">Filtrar</button>
+</form>
+{% if shown != total %}<p><small>Mostrando {{ shown }} de {{ total }}. <a href="{% url 'g_messages' %}">Ver todas</a></small></p>{% endif %}
+
+{% for stage, list in groups.items %}
+<section class="card"><h2>{{ stage }}</h2>
+  {% for r in list %}
+  <details style="padding:6px 0;border-top:1px solid var(--border)">
+    <summary>{{ r.t.title }} <small class="muted">{{ r.t.code }}</small>
+      {% if r.t.variant %}<span class="pill">variação</span>{% endif %}
+      {% for l in r.tracks %}<span class="pill gray">{{ l }}</span> {% endfor %}
+      {% if r.t.battles == 'nao' %}<span class="pill gray">não faz batalha</span>{% endif %}
+      {% if r.t.provisional %}<span class="pill gold">provisório</span>{% endif %}
+      {% if r.problems %}<span class="pill pink">tom: {{ r.problems|join:", " }}</span>{% endif %}</summary>
+    <pre class="msg" id="lib{{ r.t.pk }}">{{ r.t.body }}</pre>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="heraCopy(this,'lib{{ r.t.pk }}')">Copiar</button>
+      <a class="btn btn-sm" href="{% url 'g_message' r.t.pk %}">{% if can_edit %}Editar e ver versões{% else %}Ver detalhes e versões{% endif %}</a>
+      <small class="muted">Origem: {{ r.t.get_source_display }}{% if r.t.variables %} · variáveis: {% for v in r.t.variables %}{{ "{" }}{{ v }}{{ "}" }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</small></div>
+  </details>
+  {% endfor %}
+</section>
+{% empty %}<p class="card empty">Nenhuma mensagem com esses filtros.</p>{% endfor %}
+
+<section class="card"><h2>Ajustes por nicho</h2>
+  <p><small>O roteiro é o mesmo para todos. Por nicho mudam três pontos: o que testar no D2, o que fazer no lugar da batalha no D4 e os ganchos para puxar conversa. O guia do nicho também aparece na ficha do criador, aba Mensagens.</small></p>
+  {% for n in niche_guide %}
+  <details style="padding:6px 0;border-top:1px solid var(--border)"><summary>{{ n.name }} <small class="muted">{{ n.who }}</small></summary>
+    <ul class="list"><li><small><b>Teste do D2:</b> {{ n.d2 }}</small></li><li><small><b>No lugar da batalha (D4):</b> {{ n.d4 }}</small></li>
+    <li><small><b>Ganchos de conversa:</b> {{ n.ganchos }}</small></li><li><small><b>Atenção:</b> {{ n.obs }}</small></li></ul></details>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,106 @@
+"""Fila de ação: graduação pela regra do TikTok e item que sai da fila depois do "Enviei" (correções de 14/11/2026)."""
+import datetime as dt
+
+from django.test import TestCase
+from django.urls import reverse
+
+from core.access import assign_manager
+from core.models import AgencySettings
+from core.rls import set_context, system_context
+from crm.models import Creator
+from web import services as S
+
+from . import factories as F
+
+# As fábricas contam a entrada a partir de 28/09/2026; a fila é calculada nessa mesma data.
+HOJE = dt.date(2026, 9, 28)
+
+
+def _fila(ag, *creators, today=HOJE):
+    with system_context():
+        return S.action_queue(Creator.objects.filter(pk__in=[c.pk for c in creators]), ag, today=today)
+
+
+def _codigos(itens, creator):
+    return {i.code for i in itens if i.creator.pk == creator.pk}
+
+
+class GraduacaoNaFilaTests(TestCase):
+    """Graduação = 80 mil diamantes em UM mês, dentro dos 3 primeiros meses de casa. Nunca a soma desde a entrada."""
+
+    @classmethod
+    def setUpTestData(cls):
+        set_context(system=True)
+        cls.ag = F.agency()
+        setembro = (dt.date(2026, 9, 1), dt.date(2026, 9, 27))
+        # na janela (41 dias de casa) e perto: 70 mil em setembro
+        cls.perto = F.creator(cls.ag, username="perto.demo", joined_days_ago=40)
+        F.snapshot(cls.perto, *setembro, diamonds=70_000, hours=30, valid_days=12, streams=14)
+        # na janela, mas o mês está longe: 40 mil em agosto + 35 mil em setembro (a soma antiga dava 75 mil e acendia o alerta)
+        cls.soma = F.creator(cls.ag, username="soma.demo", joined_days_ago=40)
+        F.snapshot(cls.soma, dt.date(2026, 8, 19), dt.date(2026, 8, 31), diamonds=40_000, hours=20, valid_days=8, streams=9)
+        F.snapshot(cls.soma, *setembro, diamonds=35_000, hours=20, valid_days=9, streams=10)
+        # já graduou neste mês
+        cls.graduou = F.creator(cls.ag, username="graduou.demo", joined_days_ago=40)
+        F.snapshot(cls.graduou, *setembro, diamonds=85_000, hours=40, valid_days=15, streams=18)
+        # fora da janela (200 dias de casa)
+        cls.veterano = F.creator(cls.ag, username="veterano.demo", joined_days_ago=200)
+        F.snapshot(cls.veterano, *setembro, diamonds=70_000, hours=30, valid_days=12, streams=14)
+        set_context()
+
+    def tearDown(self):
+        set_context()
+
+    def test_conta_os_diamantes_do_mes_dentro_da_janela(self):
+        fila = _fila(self.ag, self.perto, self.soma, self.graduou, self.veterano)
+        self.assertIn("perto_graduar", _codigos(fila, self.perto))
+        self.assertNotIn("perto_graduar", _codigos(fila, self.soma))
+        self.assertNotIn("perto_graduar", _codigos(fila, self.graduou))
+        self.assertNotIn("perto_graduar", _codigos(fila, self.veterano))
+        item = next(i for i in fila if i.creator.pk == self.perto.pk and i.code == "perto_graduar")
+        self.assertIn("70.000 diamantes neste mês", item.detail)
+        self.assertIn("faltam 10.000", item.detail)
+
+    def test_valores_vem_da_configuracao(self):
+        with system_context():
+            AgencySettings.objects.filter(agency=self.ag).update(graduation_window_days=30)
+        self.assertNotIn("perto_graduar", _codigos(_fila(self.ag, self.perto), self.perto))
+        with system_context():
+            AgencySettings.objects.filter(agency=self.ag).update(graduation_window_days=90, graduation_diamonds=40_000)
+        fila = _fila(self.ag, self.soma)
+        self.assertIn("perto_graduar", _codigos(fila, self.soma))  # 35 mil é 87% de 40 mil
+
+
+class EnvieiTiraDaFilaTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        set_context(system=True)
+        cls.ag = F.agency()
+        cls.gestora = F.user(role="gestora", ag=cls.ag)
+        cls.c = F.creator(cls.ag, username="parado.demo")
+        assign_manager(cls.c, cls.gestora)
+        # fez LIVE até 03/09 e parou: 11 dias sem LIVE na leitura de 14/09
+        F.snapshot(cls.c, dt.date(2026, 9, 1), dt.date(2026, 9, 3), diamonds=2_000, hours=5, valid_days=2, streams=2)
+        F.snapshot(cls.c, dt.date(2026, 9, 1), dt.date(2026, 9, 14), diamonds=2_000, hours=5, valid_days=2, streams=2)
+        set_context()
+
+    def tearDown(self):
+        set_context()
+
+    def test_item_sai_da_fila_so_depois_do_enviei(self):
+        hoje = dt.date(2026, 9, 14)
+        item = next(i for i in _fila(self.ag, self.c, today=hoje) if i.code == "regua_4")
+        self.assertEqual(item.template, "REG-04")
+        self.client.force_login(self.gestora)
+        self.client.get(reverse("g_open", args=[self.c.pk, "REG-04"]))
+        self.assertIn("regua_4", _codigos(_fila(self.ag, self.c, today=hoje), self.c))  # abrir não tira da fila
+        self.client.post(reverse("g_sent", args=[self.c.pk, "REG-04"]))
+        self.assertNotIn("regua_4", _codigos(_fila(self.ag, self.c, today=hoje), self.c))
+
+    def test_fila_mostra_mensagem_pronta_e_botoes(self):
+        with system_context():
+            itens = _fila(self.ag, self.c, today=dt.date(2026, 9, 14))
+            S.fill_queue_messages(itens, self.ag)
+        item = next(i for i in itens if i.code == "regua_4")
+        self.assertTrue(item.text)
+        self.assertEqual(item.group_url, "")

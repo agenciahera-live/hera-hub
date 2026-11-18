@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="g-layout">
+  <aside class="g-side">
+    <a class="brand" href="{% url 'g_dashboard' %}"><span class="brand-dot">H</span>Hera · Gestão</a>
+    <nav aria-label="Gestão">
+      <a href="{% url 'g_dashboard' %}" class="{% if nav == 'dash' %}on{% endif %}">📊 Dashboard</a>
+      <a href="{% url 'g_creators' %}" class="{% if nav == 'creators' %}on{% endif %}">👥 Creators</a>
+      {% if 'admin' in hera_roles %}<a href="{% url 'g_portfolios' %}" class="{% if nav == 'port' %}on{% endif %}">🗂️ Carteiras</a>{% endif %}
+      <a href="{% url 'g_onboarding' %}" class="{% if nav == 'onb' %}on{% endif %}">🌱 Onboarding</a>
+      <a href="{% url 'g_graduation' %}" class="{% if nav == 'grad' %}on{% endif %}">🚀 Graduação</a>
+      <a href="{% url 'g_campaigns' %}" class="{% if nav == 'camp' %}on{% endif %}">🏆 Campanhas</a>
+      <a href="/gestao/admin/engage/course/">🎓 Hera Academy</a>
+      <a href="{% url 'g_content' %}" class="{% if nav == 'content' %}on{% endif %}">📣 Conteúdos</a>
+      <a href="{% url 'g_messages' %}" class="{% if nav == 'msgs' %}on{% endif %}">💬 Mensagens</a>
+      <a href="{% url 'g_battles' %}" class="{% if nav == 'battles' %}on{% endif %}">⚔️ Batalhas</a>
+      <a href="{% url 'g_tickets' %}" class="{% if nav == 'tickets' %}on{% endif %}">❓ Dúvidas</a>
+      {% if 'admin' in hera_roles or 'gestora' in hera_roles or 'financeiro' in hera_roles %}<a href="{% url 'g_imports' %}" class="{% if nav == 'import' %}on{% endif %}">⬆️ Importar dados</a>{% endif %}
+      <a href="{% url 'g_reports' %}" class="{% if nav == 'reports' %}on{% endif %}">📑 Relatórios</a>
+      {% if user.is_staff %}<a href="/gestao/admin/">⚙️ Configurações</a>{% endif %}
+    </nav>
+    <div class="who">{{ user.get_full_name|default:user.email }}<br>{{ hera_roles|join:", " }}
+      <form method="post" action="{% url 'account_logout' %}" style="margin-top:8px">{% csrf_token %}<button class="btn btn-sm">Sair</button></form></div>
+  </aside>
+  <main class="g-main">
+    {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

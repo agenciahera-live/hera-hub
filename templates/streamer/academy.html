@@ -1,0 +1,41 @@
+{% extends "streamer/base.html" %}
+{% block title %}Hera Academy · Hera{% endblock %}
+{% block content %}
+<div class="hello"><h1>Hera Academy</h1>{% if total %}<span class="freshness" style="margin:0">{{ n_done }} de {{ total }} aulas</span>{% endif %}</div>
+
+{% if rec %}
+<a class="tile hero" href="{% url 'lesson' rec.lesson.pk %}">
+  <div class="label">{% if rec.by == "gestao" %}Escolhida pela Hera para você{% elif rec.by == "ponto" %}Aula recomendada{% else %}Continuar de onde parei{% endif %}</div>
+  <div class="value" style="font-size:1.2rem">▶️ {{ rec.lesson.title }}</div>
+  {% if rec.why and rec.by != "gestao" %}<div class="sub">{{ rec.why }}</div>{% endif %}
+  <div class="sub">{{ rec.lesson.course.title }} · {{ rec.lesson.minutes }} min</div>
+</a>
+{% elif total %}
+<div class="card compact-card"><b>✅ Você assistiu a todas as aulas abertas.</b><br><small>Os próximos módulos abrem conforme você avança.</small></div>
+{% endif %}
+
+<h3 style="margin:14px 0 8px">Módulos</h3>
+<div class="stack">
+{% for m in modules %}
+  {% if m.open %}
+  <details class="card compact-card course"{% if forloop.first and m.done < m.total %} open{% endif %}>
+    <summary>
+      <span class="course-title">{{ m.course.title }}{% if m.released %} <span class="pill cyan">liberado pela Hera</span>{% endif %}</span>
+      <span class="pill {% if m.total and m.done == m.total %}cyan{% endif %}">{{ m.done }}/{{ m.total }}</span>
+      <span class="bar cyan course-bar"><i style="width:{% if m.total %}{% widthratio m.done m.total 100 %}{% else %}0{% endif %}%"></i></span>
+    </summary>
+    {% if m.course.description %}<p style="margin:6px 0 0"><small>{{ m.course.description }}</small></p>{% endif %}
+    <ul class="list" style="margin-top:6px">{% for l in m.lessons %}
+      <li><a href="{% url 'lesson' l.pk %}" class="row between" style="color:inherit"><span>{% if l.pk in done %}✅{% else %}▶️{% endif %} {{ l.title }}</span><small>{{ l.minutes }}min</small></a></li>
+    {% empty %}<li class="empty"><small>As aulas deste módulo chegam em breve.</small></li>{% endfor %}</ul>
+  </details>
+  {% else %}
+  <section class="card compact-card course-next">
+    <div class="row between"><span class="course-title">{{ m.course.title }}</span>{% if m.total %}<small class="muted">{{ m.total }} aula{{ m.total|pluralize }}</small>{% endif %}</div>
+    {% if m.course.description %}<p style="margin:4px 0 0"><small>{{ m.course.description }}</small></p>{% endif %}
+    <p style="margin:6px 0 0"><span class="pill gray">{{ m.hint }}</span></p>
+  </section>
+  {% endif %}
+{% empty %}<p class="card empty">Os módulos da Hera Academy chegam em breve.</p>{% endfor %}
+</div>
+{% endblock %}

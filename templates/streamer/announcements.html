@@ -1,0 +1,5 @@
+{% extends "streamer/base.html" %}
+{% block content %}
+<h1>Avisos</h1>
+{% for a in items %}<section class="card"><h2>{% if a.pinned %}📌 {% endif %}{{ a.title }}</h2><p>{{ a.body|linebreaksbr }}</p>{% if a.link %}<a class="btn btn-sm" href="{{ a.link }}" target="_blank" rel="noopener">Abrir link</a>{% endif %}<p style="margin:8px 0 0"><small>{{ a.publish_at|date:"d/m/Y" }}</small></p></section>{% empty %}<p class="card empty">Sem avisos no momento.</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Primeiro acesso · Hera{% endblock %}
+{% block body %}
+<div class="login-wrap">
+  <div class="brand" style="font-size:1.4rem;margin-bottom:16px"><span class="brand-dot">H</span>Hera Creator Hub</div>
+  <form method="post" class="card" action="{% url 'first_access' %}">{% csrf_token %}
+    <h1>Primeiro acesso</h1>
+    <p><small>Use o código que a Hera enviou no seu grupo do WhatsApp. Ele vale uma vez.</small></p>
+    {% if errors %}<ul class="errorlist">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <label for="id_handle">Seu @ do TikTok</label><input type="text" name="handle" id="id_handle" required autocapitalize="none" autocomplete="off" placeholder="@seunome" value="{{ handle }}">
+    <label for="id_code">Código de acesso</label><input type="text" name="code" id="id_code" required autocapitalize="characters" autocomplete="off" placeholder="XXXX-XXXX" value="{{ code }}">
+    <label for="id_email">Seu e-mail</label><input type="email" name="email" id="id_email" required autocomplete="email" value="{{ email }}">
+    <label for="id_password">Crie uma senha (8 caracteres ou mais)</label><input type="password" name="password" id="id_password" required minlength="8" autocomplete="new-password">
+    <label for="id_password2">Repita a senha</label><input type="password" name="password2" id="id_password2" required minlength="8" autocomplete="new-password">
+    <button class="btn btn-primary btn-block" style="margin-top:12px">Entrar no app</button>
+    <p style="margin-top:12px"><small>Esqueceu a senha? Peça um código novo à Hera no seu grupo e preencha esta tela de novo, com a senha nova.</small></p>
+    <p><a href="{% url 'account_login' %}"><small>← Já tenho senha</small></a></p>
+  </form>
+</div>
+{% endblock %}

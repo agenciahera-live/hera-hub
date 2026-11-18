@@ -1,0 +1,311 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}@{{ c.username }} · Hera{% endblock %}
+{% block content %}
+<a href="{% url 'g_creators' %}"><small>← Creators</small></a>
+<div class="row between" style="flex-wrap:wrap;margin:6px 0 12px">
+  <div class="row"><div class="tier-badge"><div>{{ tier }}<small>TIER</small></div></div>
+    <div><h1 style="margin:0">@{{ c.username }}</h1><small>{{ c.display_name }} · {{ facts.group }} · {{ c.get_status_display }} · {{ c.partner_group.name|default:"" }} · ID {{ c.tiktok_id }}</small></div></div>
+  <div class="row" style="gap:8px">
+    {% if phone %}<a class="btn btn-wa btn-sm" href="https://wa.me/{{ phone|cut:' '|cut:'+'|cut:'-'|cut:'('|cut:')' }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+  </div>
+</div>
+<p style="margin:0 0 12px"><span class="pill {% if phase.code == 'pausa' %}pink{% elif phase.code == 'saida' %}gray{% else %}cyan{% endif %}">Fase: {{ phase.label }}</span>
+  {% if phase.code == 'pausa' %}<span class="pill gray">antes: {{ phase.base_label }}</span>{% endif %}
+  {% if c.track %}<span class="pill">{{ c.get_track_display }}</span>{% endif %}{% if c.niche %} <span class="pill">{{ c.get_niche_display }}</span>{% endif %}{% if c.does_battles == 'nao' %} <span class="pill">não faz batalha</span>{% endif %}
+  {% if phase.detail %}<small style="margin-left:6px">{{ phase.detail }}</small>{% endif %}</p>
+{% if week %}<p style="margin:0 0 12px"><span class="pill {% if week.state == 'queda' or week.state == 'sem_live' or week.state == 'inativo' %}pink{% elif week.state == 'subindo' %}cyan{% else %}gray{% endif %}">Semana: {{ week.label }}</span>
+  <span class="pill gray">Segmento: {{ week.segment_label }}</span> <span class="pill {% if week.priority == 1 %}pink{% else %}gray{% endif %}">Prioridade {{ week.priority }}</span>
+  {% for s in week.signals %}<span class="pill gold">{{ s }}</span> {% endfor %}
+  <small style="margin-left:6px">Semana de {{ week.week.start|date:"d/m" }} a {{ week.week.end|date:"d/m" }}: {{ week.week.diamonds|intbr }} 💎{% if week.pct is not None %} ({% if week.pct >= 0 %}+{% endif %}{{ week.pct }}% contra o normal de {{ week.base|intbr }}){% endif %}, {{ week.week.hours|hours }}h, {{ week.week.valid_days }} dias válidos.</small></p>{% endif %}
+{% if covering %}<ul class="messages"><li><b>Você está cobrindo esta carteira hoje</b>{% if manager %}: {{ manager.get_full_name|default:manager.email }} avisou que não trabalha{% endif %}. Você pode enviar as mensagens, marcar “Enviei”, registrar a resposta e anotar. O resto da ficha é só para leitura, e o acesso termina hoje.</li></ul>{% endif %}
+<nav class="tabs">
+  <a href="?tab=visao" class="{% if tab == 'visao' %}on{% endif %}">Visão geral</a>
+  <a href="?tab=1a1" class="{% if tab == '1a1' %}on{% endif %}">1:1 e plano de ação</a>
+  <a href="?tab=onboarding" class="{% if tab == 'onboarding' %}on{% endif %}">Onboarding</a>
+  <a href="?tab=batalhas" class="{% if tab == 'batalhas' %}on{% endif %}">Batalhas</a>
+  <a href="?tab=mensagens" class="{% if tab == 'mensagens' %}on{% endif %}">Mensagens</a>
+  <a href="?tab=saida" class="{% if tab == 'saida' %}on{% endif %}">Saída</a>
+</nav>
+
+{% if tab == 'visao' %}
+<div class="cols">
+<div>
+  <section class="card">
+    <h2>Mês atual {% if snap %}<small>até {{ snap.period_end|date:"d/m" }}</small>{% endif %}</h2>
+    {% if snap %}
+    <div class="kpis">
+      {% for key, p in paces.items %}
+      <div class="kpi"><b class="num">{% if key == 'hours' %}{{ p.value|hours }}h{% else %}{{ p.value|intbr }}{% endif %}</b>
+        <span>{% if key == 'diamonds' %}diamantes{% elif key == 'hours' %}horas{% else %}dias válidos{% endif %} · meta {% if key == 'hours' %}{{ p.target|hours }}{% else %}{{ p.target|intbr }}{% endif %} ({{ p.target_source|source_label }})</span>
+        <div class="bar" style="margin-top:6px"><i style="width:{{ p.pct|width }}"></i></div>
+        <span>{% if p.on_track %}🟢 no ritmo{% else %}🟠 precisa acelerar{% endif %} · previsão {% if key == 'hours' %}{{ p.forecast|hours }}{% else %}{{ p.forecast|intbr }}{% endif %}</span></div>
+      {% endfor %}
+    </div>
+    <p><small>Batalhas: {{ snap.battles }} · Transmissões: {{ snap.streams }} · Novos seguidores: {{ snap.new_followers }} · Nível TikTok: {{ snap.level_status|default:"—" }} · Graduação: {{ snap.graduation_status|default:"—" }}{% if dias_sem_live is not None %} · Sem LIVE há {{ dias_sem_live }} dia(s){% endif %}</small></p>
+    {% else %}<p class="empty">Sem dados do mês atual ainda.</p>{% endif %}
+  </section>
+  {% if radar %}<section class="card"><h2>Graduação <small>janela até {{ radar.window_end|date:"d/m" }}{% if radar.last_month %} · <b>último mês</b>{% endif %}</small></h2>
+    <p><span class="pill {% if radar.status == 'graduou' %}cyan{% elif radar.status == 'no_ritmo' or radar.status == 'conferir' %}gold{% elif radar.status == 'acelerar' %}pink{% else %}gray{% endif %}">{{ radar.status_label }}</span>{% if radar.potential %} <span class="pill">potencial de graduação: 1:1 todo mês</span>{% endif %}
+    <small>{{ radar.diamonds|intbr }} de {{ radar.target|intbr }} 💎 no mês{% if radar.missing %} · faltam {{ radar.missing|intbr }} · ritmo {{ radar.avg_per_day|intbr }}/dia · precisa {{ radar.needed_per_day|intbr }}/dia · projeção {{ radar.forecast|intbr }}{% endif %}{% if radar.graduations %} · já graduou {{ radar.graduations }} vez{{ radar.graduations|pluralize:"es" }} antes{% endif %}</small></p>
+    <p><small>Regra do TikTok. <a href="{% url 'g_graduation' %}">Ver o radar de graduação</a></small></p></section>{% endif %}
+  <section class="card"><h2>Semana a semana</h2>
+    <div class="table-wrap"><table class="t num"><thead><tr><th>Período</th><th>💎</th><th>Horas</th><th>Dias válidos</th><th>Batalhas</th></tr></thead>
+    <tbody>{% for iv in intervals %}<tr><td>{{ iv.start|date:"d/m" }}–{{ iv.end|date:"d/m" }}</td><td>{{ iv.diamonds|intbr }}</td><td>{{ iv.hours|hours }}</td><td>{{ iv.valid_days }}</td><td>{{ iv.battles }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">Sem dados.</td></tr>{% endfor %}</tbody></table></div></section>
+  <section class="card"><h2>Histórico mensal</h2>
+    <div class="table-wrap"><table class="t num"><thead><tr><th>Mês</th><th>💎</th><th>Horas</th><th>Dias válidos</th><th>Tier</th><th>Fonte</th></tr></thead>
+    <tbody>{% for m in months %}<tr><td>{{ m.month|date:"m/Y" }}</td><td>{{ m.diamonds|intbr }}</td><td>{{ m.live_seconds|secs_hours }}</td><td>{{ m.valid_days }}</td><td>{{ m.tier }}</td><td><small>{{ m.source }}</small></td></tr>{% empty %}<tr><td colspan="6" class="empty">Sem meses fechados.</td></tr>{% endfor %}</tbody></table></div></section>
+  <section class="card"><h2>Linha do tempo</h2>
+    <p><small>Tudo o que foi enviado, respondido, anotado e registrado, com data e autor. Nada é apagado nem escrito por cima. O streamer nunca vê.</small></p>
+    {% if can_contact %}
+    <form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="note"><textarea name="body" placeholder="Nota interna" required></textarea><button class="btn btn-sm btn-purple" style="margin-top:6px">Salvar nota</button></form>
+    <form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">{% csrf_token %}<input type="hidden" name="a" value="wrote"><input type="text" name="note" placeholder="O que o criador escreveu (resumo, opcional)" style="flex:1;min-width:220px"><button class="btn btn-sm">O criador me escreveu</button></form>
+    {% endif %}
+    <ul class="list" style="margin-top:10px">{% for e in timeline %}<li>{{ e.icon }} <b>{{ e.title }}</b>{% if e.detail %}<br><small>{{ e.detail|truncatechars:300|linebreaksbr }}</small>{% endif %}<br><small class="muted">{{ e.when|sp }}{% if e.author_name %} · {{ e.author_name }}{% endif %}</small></li>{% empty %}<li class="empty">Nada registrado ainda.</li>{% endfor %}</ul>
+  </section>
+</div>
+<div>
+  <section class="card"><h2>Cadastro</h2>
+    {% if can_edit %}
+    <form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="profile">
+      <label>Trilha {% if c.track_suggested and not c.track %}<small class="muted">· o cadastro sugere: {{ c.get_track_suggested_display }}</small>{% endif %}</label>
+      <select name="track"><option value="">Ainda não definida</option>{% for k, l in tracks %}<option value="{{ k }}" {% if c.track == k %}selected{% endif %}>{{ l }}{% if c.track_suggested == k %} (sugerida pelo cadastro){% endif %}</option>{% endfor %}</select>
+      <label>Nicho</label>
+      <select name="niche"><option value="">Ainda não definido</option>{% for k, l in niches %}<option value="{{ k }}" {% if c.niche == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <label>Faz batalha?</label>
+      <select name="does_battles">{% for k, l in battles_choices %}<option value="{{ k }}" {% if c.does_battles == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <small>A trilha e o “faz batalha” escolhem a versão certa de cada mensagem do roteiro.</small>
+      {% if not c.first_live_at %}<label>Data combinada para a 1ª LIVE</label><input type="date" name="first_live_planned" value="{{ c.first_live_planned|date:'Y-m-d' }}" style="max-width:170px">{% endif %}
+      <label>Recrutadora</label>
+      <select name="recruited_by"><option value="">Não informada</option>{% for r in recruiters %}<option value="{{ r.pk }}" {% if c.recruited_by_id == r.pk %}selected{% endif %}>{{ r.get_full_name|default:r.email }}</option>{% endfor %}</select>
+      <label>Indicado por (@ de um criador da Hera)</label><input type="text" name="referred_by" value="{% if referred_by %}@{{ referred_by }}{% endif %}" placeholder="@ de quem indicou, se houver" autocapitalize="none">
+      <label>Aniversário (dia e mês)</label>
+      <div class="row" style="gap:6px"><input type="number" name="birth_day" min="1" max="31" placeholder="dia" value="{{ private.birth_day|default_if_none:'' }}" style="width:90px"><input type="number" name="birth_month" min="1" max="12" placeholder="mês" value="{{ private.birth_month|default_if_none:'' }}" style="width:90px"></div>
+      <button class="btn btn-sm btn-purple" style="margin-top:10px">Salvar cadastro</button>
+    </form>
+    {% else %}
+    <ul class="list"><li><small>Trilha: {{ c.get_track_display|default:"não definida" }}</small></li><li><small>Nicho: {{ c.get_niche_display|default:"—" }}</small></li>
+      <li><small>Recrutadora: {% if c.recruited_by %}{{ c.recruited_by.get_full_name|default:c.recruited_by.email }}{% else %}—{% endif %}</small></li>
+      <li><small>Indicado por: {% if referred_by %}@{{ referred_by }}{% else %}—{% endif %}</small></li></ul>
+    {% endif %}
+    {% if referred %}<p style="margin-top:8px"><small>Indicou: {% for h in referred %}@{{ h }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></p>{% endif %}
+  </section>
+  <section class="card"><h2>Lembretes</h2>
+    <ul class="list">{% for r in reminders %}<li class="row between"><span>{% if r.due_date <= today %}🔔{% else %}⏰{% endif %} <b>{{ r.due_date|date:"d/m" }}</b> · {{ r.text }}</span>
+      {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="reminder_done"><input type="hidden" name="reminder" value="{{ r.pk }}"><button class="btn btn-sm">Feito</button></form>{% endif %}</li>{% empty %}<li class="empty">Nenhum lembrete aberto.</li>{% endfor %}</ul>
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="a" value="reminder_add">
+      <input type="text" name="text" maxlength="240" placeholder="Ex.: retorno prometido" required>
+      <div class="row" style="gap:8px;margin-top:6px"><input type="date" name="due_date" required style="max-width:170px"><button class="btn btn-sm btn-purple">Criar lembrete</button></div>
+      <small>No dia marcado, o lembrete entra na fila de ação.</small></form>{% endif %}
+  </section>
+  <section class="card"><h2>Restrição ou banimento</h2>
+    {% if open_case %}
+    <p><span class="pill pink">{{ open_case.get_kind_display }} · dia {{ open_case.days_open }}</span> <small>aberto em {{ open_case.opened_on|date:"d/m" }}{% if open_case.escalated_at %} · <b>com as sócias</b>{% endif %}</small></p>
+    {% if open_case.note %}<p><small>{{ open_case.note|linebreaksbr }}</small></p>{% endif %}
+    <p><small>Passos: pedir o print da restrição e da negativa do recurso, orientar o recurso, abrir o chamado no TikTok. No dia {{ escalate_days }} sem solução, o caso sobe para as sócias.</small></p>
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:6px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="a" value="case_resolve"><input type="hidden" name="case" value="{{ open_case.pk }}"><input type="text" name="resolution" placeholder="Como terminou" style="flex:1;min-width:160px"><button class="btn btn-sm btn-purple">Encerrar caso</button></form>{% endif %}
+    {% elif can_edit %}
+    <form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="case_open">
+      <div class="row" style="gap:6px"><select name="kind" style="width:auto">{% for k, l in case_kinds %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select><input type="date" name="opened_on" value="{{ today|date:'Y-m-d' }}" style="max-width:160px"></div>
+      <input type="text" name="note" placeholder="O que aconteceu" style="margin-top:6px"><button class="btn btn-sm" style="margin-top:6px">Abrir caso</button>
+      <br><small>Com o caso aberto, o criador fica no topo da fila todo dia.</small></form>
+    {% else %}<p class="empty">Nenhum caso aberto.</p>{% endif %}
+  </section>
+  <section class="card"><h2>Visitas às LIVEs</h2>
+    <ul class="list">{% for v in visits %}<li><small><b>{{ v.date|date:"d/m" }}</b> · nota {{ v.score }}{% if v.note %} · {{ v.note|truncatechars:120 }}{% endif %}</small></li>{% empty %}<li class="empty">Nenhuma visita registrada.</li>{% endfor %}</ul>
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="a" value="visit">
+      <div class="row" style="gap:6px"><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" style="max-width:160px"><select name="score" required style="width:auto"><option value="">Nota</option>{% for k, l in visit_scores %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+      <input type="text" name="note" placeholder="Cenário, câmera, áudio, interação, batalha, diretrizes" style="margin-top:6px"><button class="btn btn-sm btn-purple" style="margin-top:6px">Visitei</button></form>{% endif %}
+  </section>
+  <section class="card"><h2>Parou de fazer LIVE?</h2>
+    {% if last_stop %}<p><small>Último motivo registrado ({{ last_stop.created_at|sp:"%d/%m" }}): <b>{{ last_stop.get_reason_display }}</b>{% if last_stop.detail %} · {{ last_stop.get_detail_display }}{% endif %}{% if last_stop.return_date %} · volta em {{ last_stop.return_date|date:"d/m" }}{% endif %}</small></p>{% endif %}
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" x-data="{r:''}">{% csrf_token %}<input type="hidden" name="a" value="stop_reason">
+      <label>Motivo (pergunta aberta, sem cobrança)</label>
+      <select name="reason" x-model="r" required><option value="">Escolha</option>{% for k, l in stop_reasons %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+      <div x-show="r=='desmotivou'"><label>Por quê?</label><select name="detail"><option value="">Escolha</option>{% for k, l in stop_details %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+      <label>Data de volta, se informou</label><input type="date" name="return_date" style="max-width:170px">
+      <label>Observação</label><input type="text" name="note" placeholder="Saúde: só a categoria, sem detalhes">
+      <button class="btn btn-sm btn-purple" style="margin-top:8px">Registrar motivo</button></form>{% endif %}
+  </section>
+  <section class="card"><h2>Tags internas</h2>
+    <div class="chips">{% for k, l in all_tags %}
+      {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="tag"><input type="hidden" name="tag" value="{{ k }}">
+      <button class="btn btn-sm {% for t in tags %}{% if t.tag == k %}btn-purple{% endif %}{% endfor %}">{{ l }}</button></form>
+      {% else %}{% for t in tags %}{% if t.tag == k %}<span class="pill">{{ l }}</span>{% endif %}{% endfor %}{% endif %}
+    {% endfor %}</div>
+  </section>
+  <section class="card"><h2>Acesso ao app</h2>
+    {% if c.user %}<p>✅ Entra com <b>{{ c.user.email }}</b>{% if c.confirmed_username %} · @ confirmado{% endif %}</p>
+    {% else %}<p class="empty">Ainda não entrou no app.</p>{% endif %}
+    {% if can_edit and c.status != 'saiu' and c.status != 'anonimizado' %}
+      {% if access_code %}
+      <p>Código de acesso: <b class="num" style="font-size:1.15rem;letter-spacing:.06em">{{ access_code.display }}</b><br><small>vale uma vez, até {{ access_code.expires_at|sp:"%d/%m" }}</small></p>
+      {% if invite_text %}<pre class="msg" id="invite-msg">{{ invite_text }}</pre>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px"><button type="button" class="btn btn-sm" onclick="heraCopy(this,'invite-msg')">Copiar mensagem</button>
+        <a class="btn btn-sm btn-wa" href="{% url 'g_open' c.pk 'CONVITE-APP' %}" target="_blank" rel="noopener">{% if group_url %}Abrir grupo{% else %}Abrir WhatsApp{% endif %}</a>
+        <span id="invite-sent"><button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' c.pk 'CONVITE-APP' %}" hx-target="#invite-sent" hx-swap="innerHTML">Enviei</button></span></div>{% endif %}
+      {% endif %}
+      <form method="post" action="{% url 'g_access_code' c.pk %}">{% csrf_token %}<button class="btn btn-sm {% if access_code %}{% else %}btn-primary{% endif %}">{% if access_code %}Gerar outro código (cancela este){% elif c.user %}Gerar código para senha nova{% else %}Gerar código de acesso{% endif %}</button></form>
+      <p style="margin-top:6px"><small>Envie o código no grupo individual. No app, em “Primeiro acesso ou senha nova”, a pessoa informa o @, o código e o e-mail e cria a senha. O código vale por {{ code_days }} dias.</small></p>
+    {% endif %}
+    <h3 style="margin-top:12px">Grupo individual no WhatsApp</h3>
+    {% if group_url %}<p><a href="{{ group_url }}" target="_blank" rel="noopener">{{ group_url|truncatechars:40 }}</a></p>{% else %}<p><small>Sem link: o botão “Abrir grupo” das mensagens abre o WhatsApp pelo número, e o botão “Falar com a Hera” do app abre o WhatsApp da gestora.</small></p>{% endif %}
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="group_link">
+      <input type="url" name="url" value="{{ group_url }}" placeholder="https://chat.whatsapp.com/..."><button class="btn btn-sm btn-purple" style="margin-top:6px">Salvar link do grupo</button></form>{% endif %}
+  </section>
+  <section class="card"><h2>Carteira</h2>
+    <p>Gestora atual: <b>{% if manager %}{{ manager.get_full_name|default:manager.email }}{% else %}nenhuma{% endif %}</b></p>
+    {% if c.suggested_agent_email %}<p><small>Sugestão do Backstage (Agente): {{ c.suggested_agent_email }}</small></p>{% endif %}
+    {% if 'admin' in hera_roles %}<form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:8px">{% csrf_token %}<input type="hidden" name="a" value="assign">
+      <select name="manager">{% for m in managers %}<option value="{{ m.pk }}" {% if manager and m.pk == manager.pk %}selected{% endif %}>{{ m.get_full_name|default:m.email }}</option>{% endfor %}</select><button class="btn btn-sm btn-purple">Atribuir</button></form>
+      <p><small>Para passar vários criadores de uma vez, use a tela <a href="{% url 'g_portfolios' %}">Carteiras</a>. O histórico do criador vai junto.</small></p>{% endif %}
+    <ul class="list" style="margin-top:8px">{% for a in assign_history %}<li><small>{{ a.manager.get_full_name|default:a.manager.email }} · {{ a.valid_from|date:"d/m/Y" }}{% if a.valid_to %} → {{ a.valid_to|date:"d/m/Y" }}{% else %} → hoje{% endif %}{% if a.assigned_by %} · por {{ a.assigned_by.first_name|default:a.assigned_by.email }}{% endif %}</small></li>{% endfor %}</ul>
+  </section>
+  {% if onboarding and onboarding.active %}<section class="card"><h2>Onboarding · Dia {{ onboarding.day }}</h2><p>{{ onboarding.valid_days }}/5 dias válidos · {{ onboarding.hours|hours }}/15h {% if onboarding.met %}<span class="pill cyan">meta cumprida</span>{% elif onboarding.at_risk %}<span class="pill pink">em risco</span>{% endif %}</p></section>{% endif %}
+  <section class="card"><h2>Campanhas</h2><ul class="list">{% for s in campaigns %}<li class="row between"><span>{{ s.campaign.name }}</span><small>{% if s.campaign.metric == 'hours' %}{{ s.value|hours }}h{% else %}{{ s.value|intbr }}{% endif %}{% if s.reached_goal %} ✅{% endif %}</small></li>{% empty %}<li class="empty">Nenhuma.</li>{% endfor %}</ul></section>
+  <section class="card"><h2>Hera Academy</h2>
+    <h3 style="margin-top:0">Aula que aparece no app</h3>
+    {% if lesson_pick %}<p><b>{{ lesson_pick.lesson.title }}</b><br><small>Escolhida por {{ lesson_pick.picked_by.first_name|default:lesson_pick.picked_by.email|default:"a gestão" }} em {{ lesson_pick.picked_at|date:"d/m" }}. A escolha da gestão vence a sugestão automática.</small></p>
+    {% elif academy_auto %}<p><b>{{ academy_auto.lesson.title }}</b><br><small>Sugestão automática{% if academy_auto.by == "ponto" %}: {{ academy_auto.why|lower }}{% else %}: próxima aula aberta que ainda não foi vista{% endif %}.</small></p>
+    {% else %}<p><small>Nenhuma aula aberta para sugerir.</small></p>{% endif %}
+    {% if can_edit and academy_open %}<form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:8px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="a" value="lesson_pick"><input type="hidden" name="next" value="?tab=visao">
+      <select name="lesson" style="flex:1;min-width:200px"><option value="">Sugestão automática do app</option>
+        {% for m in academy_open %}<optgroup label="{{ m.course.title }}">{% for l in m.lessons %}<option value="{{ l.pk }}" {% if lesson_pick and lesson_pick.lesson_id == l.pk %}selected{% endif %}>{{ l.title }}{% if l.pk in lessons_done_ids %} (já vista){% endif %}</option>{% endfor %}</optgroup>{% endfor %}
+      </select><button class="btn btn-sm btn-purple">Salvar</button></form>{% endif %}
+    <h3 style="margin-top:12px">Módulos</h3>
+    <ul class="list">{% for m in academy_mods %}
+      <li class="row between" style="gap:8px;flex-wrap:wrap"><span>{{ m.course.title }} <small class="muted">{{ m.done }}/{{ m.total }}</small><br>
+        <small>{% if m.released %}Liberado antes da hora{% if m.released.released_by %} por {{ m.released.released_by.first_name|default:m.released.released_by.email }}{% endif %} em {{ m.released.released_at|date:"d/m" }}{% elif m.open %}Aberto{% elif m.course.opens_on == "gestao" %}Curso extra: só com liberação{% else %}Fechado. Para o criador: “{{ m.hint }}”{% endif %}</small></span>
+        {% if can_edit %}{% if m.released %}<form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="module_unrelease"><input type="hidden" name="course" value="{{ m.course.pk }}"><input type="hidden" name="next" value="?tab=visao"><button class="btn btn-sm">Desfazer</button></form>
+        {% elif not m.open %}<form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="module_release"><input type="hidden" name="course" value="{{ m.course.pk }}"><input type="hidden" name="next" value="?tab=visao"><button class="btn btn-sm btn-purple">Liberar agora</button></form>{% endif %}{% endif %}
+      </li>{% empty %}<li class="empty">Nenhum módulo cadastrado. Cadastre em Hera Academy, no menu.</li>{% endfor %}</ul>
+    <h3 style="margin-top:12px">Aulas assistidas</h3>
+    <ul class="list">{% for p in lessons_done %}<li><small>✅ {{ p.lesson.title }} · {{ p.completed_at|date:"d/m" }}</small></li>{% empty %}<li class="empty">Nenhuma ainda.</li>{% endfor %}</ul>
+  </section>
+  <section class="card"><h2>@ anteriores</h2><ul class="list">{% for u in usernames %}<li><small>@{{ u.username }} · {{ u.first_seen|date:"d/m/Y" }}–{{ u.last_seen|date:"d/m/Y" }}</small></li>{% endfor %}</ul></section>
+</div>
+</div>
+
+{% elif tab == '1a1' %}
+<div class="cols">
+<div>
+{% if can_edit %}
+<form method="post" action="{% url 'g_1a1' c.pk %}" class="card">{% csrf_token %}
+  <h2>Registrar 1:1</h2>
+  <label>Data</label><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" style="max-width:200px">
+  <label>1. Performance da semana/mês</label><textarea name="b1">{{ b1_default }}</textarea>
+  <label>2. Constância e agenda</label><textarea name="b2" placeholder="Dias que fez LIVE, falhas, atrasos"></textarea>
+  <label>3. Qualidade de conteúdo</label><textarea name="b3" placeholder="Cenário, áudio, interação, retenção"></textarea>
+  <label>4. Monetização</label><textarea name="b4" placeholder="Presentes, metas, campanhas ativas"></textarea>
+  <label>5. Dificuldades do creator</label><textarea name="b5" placeholder="Técnicas, emocionais, agenda, burnout. Ouvir antes de sugerir."></textarea>
+  <label>6. Plano de ação (2–3 ações, responsável e prazo)</label>
+  {% for i in "123" %}<div class="row" style="gap:6px;margin-bottom:6px;flex-wrap:wrap"><input type="text" name="action{{ i }}" placeholder="Ação {{ i }}" style="flex:3;min-width:200px"><input type="text" name="owner{{ i }}" placeholder="Responsável" style="flex:1;min-width:120px"><input type="date" name="due{{ i }}" style="flex:1;min-width:140px"></div>{% endfor %}
+  <label>7. Próximo 1:1</label><input type="date" name="b7" style="max-width:200px">
+  {% if prev_actions %}<label>Plano anterior (marque o que foi feito)</label>{% for a in prev_actions %}<label class="check"><input type="checkbox" name="prev_done" value="{{ a.pk }}" {% if a.done %}checked{% endif %}> {{ a.action }} <small>({{ a.owner }}, {{ a.due_date|date:"d/m" }})</small></label>{% endfor %}{% endif %}
+  <label class="check"><input type="checkbox" name="reviewed"> Revisei o plano de ação da reunião anterior</label>
+  <button class="btn btn-primary" style="margin-top:12px">Salvar 1:1</button>
+</form>
+{% endif %}
+</div>
+<div>
+  <section class="card"><h2>Histórico de 1:1</h2>
+  {% for o in items %}
+    <details style="padding:8px 0;border-top:1px solid var(--border)"><summary>{{ o.date|date:"d/m/Y" }} · Tier {{ o.tier_at|default:"—" }} {% if o.complete %}<span class="pill cyan">completo</span>{% else %}<span class="pill pink">incompleto</span>{% endif %}</summary>
+      <p><b>1.</b> {{ o.b1_performance }}</p><p><b>2.</b> {{ o.b2_constancia }}</p><p><b>3.</b> {{ o.b3_qualidade }}</p><p><b>4.</b> {{ o.b4_monetizacao }}</p><p><b>5.</b> {{ o.b5_dificuldades }}</p>
+      <p><b>6.</b></p><ul>{% for a in o.actions.all %}<li>{% if a.done %}✅{% else %}⬜{% endif %} {{ a.action }} · {{ a.owner }} · {{ a.due_date|date:"d/m" }}</li>{% endfor %}</ul>
+      <p><b>7.</b> Próximo: {{ o.b7_next_date|date:"d/m/Y"|default:"—" }}</p>
+    </details>
+  {% empty %}<p class="empty">Nenhum 1:1 registrado.</p>{% endfor %}
+  </section>
+</div>
+</div>
+
+{% elif tab == 'onboarding' %}
+<section class="card">
+  {% if ob %}<h2>Dia {{ ob.day }} de casa · meta {{ ob.valid_days }}/5 dias e {{ ob.hours|hours }}/15h até {{ ob.end|date:"d/m" }} {% if ob.met %}<span class="pill cyan">cumprida</span>{% elif ob.at_risk %}<span class="pill pink">em risco</span>{% endif %}</h2>{% endif %}
+  <p><small>Itens em azul foram marcados automaticamente pelos dados do Backstage. “Dia do desafio” conta a partir da 1ª LIVE{% if c.first_live_at %} ({{ c.first_live_at|date:"d/m" }}){% endif %}.</small></p>
+  <table class="t ob-grid"><thead><tr><th>Etapa</th><th>Relógio</th><th>Feito</th></tr></thead><tbody>
+  {% for co in items %}<tr><td>D{{ co.item.day }} · {{ co.item.label }}</td><td><small>{{ co.item.get_anchor_display }}</small></td>
+  <td class="{% if co.done and co.auto %}auto{% elif co.done %}on{% else %}off{% endif %}">
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="a" value="onboarding"><input type="hidden" name="item" value="{{ co.pk }}"><input type="hidden" name="next" value="?tab=onboarding"><button class="btn btn-sm">{% if co.done %}✅{% else %}marcar{% endif %}</button></form>{% else %}{% if co.done %}✅{% else %}—{% endif %}{% endif %}
+  </td></tr>{% endfor %}
+  </tbody></table>
+</section>
+
+{% elif tab == 'batalhas' %}
+<div class="cols">
+<div>
+{% if can_edit %}
+<form method="post" action="{% url 'g_creator_action' c.pk %}" class="card">{% csrf_token %}<input type="hidden" name="a" value="battle_record"><input type="hidden" name="next" value="?tab=batalhas">
+  <h2>Registrar batalha</h2>
+  <p><small>Registre depois que a batalha aconteceu. O histórico ajuda a escolher o oponente e o formato das próximas. O streamer não vê este registro.</small></p>
+  {% if requests %}<label>Pedido ligado (opcional)</label><select name="request"><option value="">Sem pedido no app</option>{% for b in requests %}<option value="{{ b.pk }}">{{ b.date|date:"d/m" }} às {{ b.time|time:"H:i" }} · {{ b.get_status_display }}</option>{% endfor %}</select>{% endif %}
+  <label>Data da batalha</label><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required style="max-width:200px">
+  <label>Oponente (@ e agência)</label><input type="text" name="opponent" maxlength="120" placeholder="@oponente · agência">
+  <label>Rounds</label><select name="rounds" style="max-width:200px"><option value="1">1 round</option><option value="3">3 rounds</option></select>
+  <label>Resultado</label><select name="result" required style="max-width:200px"><option value="">Escolha</option>{% for k, l in results %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+  <label>Diamantes na batalha</label>
+  <div class="row" style="gap:6px"><input type="number" name="diamonds" min="0" placeholder="do criador" style="max-width:160px"><input type="number" name="opponent_diamonds" min="0" placeholder="do oponente" style="max-width:160px"></div>
+  <label>Observação para as próximas</label><textarea name="note" placeholder="Ex.: oponente muito acima do nível; funcionou melhor em 1 round; público respondeu bem às 20h"></textarea>
+  <button class="btn btn-primary" style="margin-top:12px">Salvar batalha</button>
+</form>
+{% endif %}
+<section class="card"><h2>Pedidos feitos pelo app</h2>
+  <ul class="list">{% for b in requests %}<li>{{ b.date|date:"d/m/Y" }} às {{ b.time|time:"H:i" }} · {{ b.get_rounds_display }} · <b>{{ b.get_status_display }}</b>{% if b.manager_reply %}<br><small>{{ b.manager_reply }}</small>{% endif %}</li>{% empty %}<li class="empty">Nenhum pedido.</li>{% endfor %}</ul>
+</section>
+</div>
+<div>
+<section class="card"><h2>Histórico de batalhas</h2>
+  {% if placar.total %}<p><small>{{ placar.total }} batalha{{ placar.total|pluralize }}: {{ placar.venceu }} vitória{{ placar.venceu|pluralize }}, {{ placar.perdeu }} derrota{{ placar.perdeu|pluralize }}, {{ placar.empate }} empate{{ placar.empate|pluralize }}.</small></p>{% endif %}
+  <ul class="list">{% for r in records %}<li><b>{{ r.date|date:"d/m/Y" }}</b> · {{ r.get_result_display }} · {{ r.rounds }} round{{ r.rounds|pluralize }}{% if r.diamonds is not None %} · {{ r.diamonds|intbr }}{% if r.opponent_diamonds is not None %} x {{ r.opponent_diamonds|intbr }}{% endif %} 💎{% endif %}
+    {% if r.opponent %}<br><small>Oponente: {{ r.opponent }}</small>{% endif %}{% if r.note %}<br><small>{{ r.note|linebreaksbr }}</small>{% endif %}
+    <br><small class="muted">registrado por {{ r.author.first_name|default:r.author.email }} em {{ r.created_at|sp:"%d/%m" }}</small></li>{% empty %}<li class="empty">Nenhuma batalha registrada.</li>{% endfor %}</ul>
+</section>
+</div>
+</div>
+
+{% elif tab == 'mensagens' %}
+<section class="card"><h2>Cadência de não-resposta</h2>
+  {% if cadence and not cadence.resolved_at %}<p>Etapa atual: <b>{{ cadence.get_step_display }}</b> · vence {{ cadence.due_at|date:"d/m H:i" }}</p>{% else %}<p><small>Use quando o streamer parar de responder: +24h, +2 dias, +3 dias (outra pessoa envia), +5 dias.</small></p>{% endif %}
+  {% if can_contact %}<div class="row" style="gap:8px;flex-wrap:wrap">
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="cadence_start"><input type="hidden" name="next" value="?tab=mensagens"><button class="btn btn-sm">Iniciar cadência</button></form>{% endif %}
+    <form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:6px">{% csrf_token %}<input type="hidden" name="a" value="responded"><input type="hidden" name="next" value="?tab=mensagens"><input type="text" name="note" placeholder="O que respondeu (opcional)" style="min-width:220px"><button class="btn btn-sm btn-purple">Respondeu ✓</button></form>
+  </div>{% endif %}
+</section>
+<section class="card"><h2>Roteiro deste criador</h2>
+  <p><small>Trilha: <b>{{ track_label }}</b>{% if not track_defined %} (ainda não definida pela gestão: defina no quadro Cadastro){% endif %} · Faz batalha: <b>{{ c.get_does_battles_display }}</b>. Cada mensagem abaixo já está na versão desta trilha. As marcadas “outra trilha” não fazem parte do roteiro deste criador.</small></p>
+  {% if niche_guide %}<details><summary>Ajustes do nicho {{ niche_guide.name }}</summary>
+    <ul class="list"><li><small><b>Teste do D2:</b> {{ niche_guide.d2 }}</small></li><li><small><b>No lugar da batalha (D4):</b> {{ niche_guide.d4 }}</small></li>
+    <li><small><b>Ganchos de conversa:</b> {{ niche_guide.ganchos }}</small></li><li><small><b>Atenção:</b> {{ niche_guide.obs }}</small></li></ul></details>{% endif %}
+</section>
+{% for stage, list in groups.items %}
+<section class="card"><h2>{{ stage }}</h2>
+  {% for x in list %}
+  <details style="padding:6px 0;border-top:1px solid var(--border)"><summary>{{ x.t.title }} <small class="muted">{{ x.t.code }}</small>{% if x.t.variant %} <span class="pill">versão: {{ x.t.variant }}</span>{% endif %}{% if x.outside %} <span class="pill gray">outra trilha</span>{% endif %}{% if x.t.provisional %} <span class="pill gold">provisório</span>{% endif %}</summary>
+    <pre class="msg" id="m{{ x.t.pk }}">{{ x.text }}</pre>
+    <div class="row" style="gap:8px"><button type="button" class="btn btn-sm" onclick="heraCopy(this,'m{{ x.t.pk }}')">Copiar mensagem</button>
+    {% if can_contact %}<a class="btn btn-sm btn-wa" href="{% url 'g_open' c.pk x.t.code %}" target="_blank" rel="noopener">{% if group_url %}Abrir grupo{% else %}Abrir WhatsApp{% endif %}</a>
+    <span id="s{{ x.t.pk }}"><button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' c.pk x.t.code %}" hx-target="#s{{ x.t.pk }}" hx-swap="innerHTML">Enviei</button></span>{% endif %}</div>
+  </details>
+  {% endfor %}
+</section>
+{% endfor %}
+
+{% elif tab == 'saida' %}
+<div class="cols"><div>
+{% if can_edit and c.status != 'saiu' %}
+<form method="post" action="{% url 'g_creator_action' c.pk %}" class="card">{% csrf_token %}<input type="hidden" name="a" value="exit">
+  <h2>Registrar saída</h2>
+  <p><small>{{ days_in }} dias de casa. {% if days_in <= settings.free_exit_days %}Dentro dos {{ settings.free_exit_days }} dias: a agência exclui e o streamer pode voltar quando quiser.{% else %}Depois dos {{ settings.free_exit_days }} dias: aviso prévio pelo app do TikTok (até 30 dias) e retorno só após {{ settings.return_wait_days }} dias.{% endif %}</small></p>
+  <label>Data do pedido</label><input type="date" name="requested_at" style="max-width:200px">
+  <label>Motivo (obrigatório)</label>
+  <select name="reason_code" required><option value="">Escolha</option>{% for k, l in stop_reasons %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+  <label>Detalhe do motivo (opcional)</label><textarea name="reason" placeholder="Saúde: só a categoria, sem detalhes"></textarea>
+  <button class="btn btn-primary" style="margin-top:10px">Registrar saída</button>
+  <p style="margin-top:8px"><small>Scripts de saída: aba Mensagens (SAI-01, SAI-02, SAI-03). Pergunte o motivo antes de explicar a burocracia.</small></p>
+</form>
+{% endif %}
+</div><div>
+<section class="card"><h2>Histórico de saídas</h2><ul class="list">{% for e in exits %}<li><b>{{ e.requested_at|date:"d/m/Y" }}</b> · {{ e.get_action_display }}{% if e.within_free_period %} · antes de 15 dias{% endif %}<br><small>{% if e.reason_code %}<b>{{ e.get_reason_code_display }}</b> {% endif %}{{ e.reason }}</small><br><small>Pode voltar a partir de {{ e.return_eligible_at|date:"d/m/Y" }} · anonimização em {{ e.anonymize_at|date:"d/m/Y" }}</small></li>{% empty %}<li class="empty">Nenhuma saída.</li>{% endfor %}</ul></section>
+</div></div>
+{% endif %}
+{% endblock %}

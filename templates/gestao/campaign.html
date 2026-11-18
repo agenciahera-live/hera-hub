@@ -1,0 +1,10 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block content %}
+<a href="{% url 'g_campaigns' %}"><small>← Campanhas</small></a>
+<h1>{{ camp.name }}</h1><p><small>{{ camp.start|date:"d/m" }}–{{ camp.end|date:"d/m" }} · {{ camp.get_metric_display }}{% if camp.goal %} · alvo {{ camp.goal|intbr }}{% endif %}</small></p>
+<p>{{ camp.rules|linebreaksbr }}</p>
+<p class="card">No app do streamer, o card abre direto esta campanha no TikTok.{% if camp.tracked_in_app %} A lista abaixo mostra quem participa, em ordem alfabética, só para acompanhamento da equipe.{% endif %} {% if camp.tiktok_url %}<a href="{{ camp.tiktok_url }}" target="_blank" rel="noopener">Abrir no TikTok</a>{% else %}Falta cadastrar o link do TikTok.{% endif %}</p>
+{% if camp.tracked_in_app %}<div class="card table-wrap" style="padding:0"><table class="t num"><thead><tr><th>@</th><th>Tier</th><th>Valor</th><th>Chegou ao alvo</th></tr></thead><tbody>
+{% for s in rows %}<tr><td>@{{ s.username }}</td><td>{{ s.tier }}</td><td>{% if camp.metric == 'hours' %}{{ s.value|hours }}h{% else %}{{ s.value|intbr }}{% endif %}</td><td>{% if s.reached_goal %}✅{% endif %}</td></tr>
+{% empty %}<tr><td colspan="4" class="empty">O progresso é calculado após cada importação.</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endblock %}
