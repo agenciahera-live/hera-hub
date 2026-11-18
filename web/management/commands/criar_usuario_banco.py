@@ -8,6 +8,7 @@ import secrets
 from urllib.parse import urlparse
 
 import psycopg
+from psycopg import sql
 from django.core.management.base import BaseCommand
 
 
@@ -23,16 +24,18 @@ class Command(BaseCommand):
         dbname = url.path.lstrip("/")
         pwd = secrets.token_urlsafe(24)
         role = o["role"]
+        # O Postgres não aceita parâmetro ($1) em CREATE/ALTER ROLE: a senha entra como literal montado com segurança.
+        r, db = sql.Identifier(role), sql.Identifier(dbname)
         with psycopg.connect(o["admin_url"], autocommit=True) as conn:
             cur = conn.cursor()
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", [role])
             if cur.fetchone():
-                cur.execute(f'ALTER ROLE "{role}" WITH LOGIN PASSWORD %s NOSUPERUSER NOBYPASSRLS', [pwd])
+                cur.execute(sql.SQL("ALTER ROLE {} WITH LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS").format(r, sql.Literal(pwd)))
             else:
-                cur.execute(f'CREATE ROLE "{role}" WITH LOGIN PASSWORD %s NOSUPERUSER NOBYPASSRLS NOCREATEROLE', [pwd])
-            cur.execute(f'GRANT ALL PRIVILEGES ON DATABASE "{dbname}" TO "{role}"')
-            cur.execute(f'GRANT ALL ON SCHEMA public TO "{role}"')
-            cur.execute(f'ALTER SCHEMA public OWNER TO "{role}"')
+                cur.execute(sql.SQL("CREATE ROLE {} WITH LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS NOCREATEROLE").format(r, sql.Literal(pwd)))
+            cur.execute(sql.SQL("GRANT ALL PRIVILEGES ON DATABASE {} TO {}").format(db, r))
+            cur.execute(sql.SQL("GRANT ALL ON SCHEMA public TO {}").format(r))
+            cur.execute(sql.SQL("ALTER SCHEMA public OWNER TO {}").format(r))
         new = f"postgresql://{role}:{pwd}@{url.hostname}:{url.port}/{dbname}"
         self.stdout.write(self.style.SUCCESS("Usuário criado. Cole esta DATABASE_URL nas variáveis do app:"))
         self.stdout.write(new)
