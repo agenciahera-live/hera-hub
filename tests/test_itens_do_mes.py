@@ -225,3 +225,36 @@ class SinaisDeRiscoTests(TestCase):
         self.assertEqual(RiskSignal.objects.count(), 0)
         set_context(user_id=self.gestora.pk)
         self.assertEqual(RiskSignal.objects.count(), 1)
+
+
+class SemanaSemLeituraPropriaTests(TestCase):
+    """Decisão da Mariana de 19/11/2026: semana sem leitura própria não gera queda, subida nem semana irregular."""
+
+    @classmethod
+    def setUpTestData(cls):
+        set_context(system=True)
+        cls.ag = F.agency()
+        cls.gestora = F.user(role="gestora", ag=cls.ag)
+        out_, nov = dt.date(2026, 10, 1), dt.date(2026, 11, 1)
+        cls.lote, cls.diario = F.creator(cls.ag, username="lote.demo"), F.creator(cls.ag, username="diario.demo")
+        for c in (cls.lote, cls.diario):
+            assign_manager(c, cls.gestora)
+            for d in range(1, 32):  # outubro diário: 7 mil por dia
+                F.snapshot(c, out_, out_.replace(day=d), diamonds=7_000 * d, hours=2 * d, valid_days=d, streams=d, battles=3 * d)
+        # lote.demo: 01 a 17/11 de uma vez e depois diário (a semana de 16 a 22 recebe o mês inteiro e parece enorme)
+        F.snapshot(cls.lote, nov, dt.date(2026, 11, 17), diamonds=7_000 * 17, hours=34, valid_days=17, streams=17, battles=51)
+        for d in range(18, 23):
+            F.snapshot(cls.lote, nov, nov.replace(day=d), diamonds=7_000 * d, hours=2 * d, valid_days=d, streams=d, battles=3 * d)
+        # diario.demo: novembro diário, com a semana de 16 a 22 de verdade bem acima (20 mil por dia)
+        for d in range(1, 23):
+            extra = 13_000 * max(d - 15, 0)
+            F.snapshot(cls.diario, nov, nov.replace(day=d), diamonds=7_000 * d + extra, hours=2 * d, valid_days=d, streams=d, battles=3 * d)
+        set_context()
+
+    def tearDown(self):
+        set_context()
+
+    def test_semana_inflada_pelo_lote_nao_vira_subindo(self):
+        itens = _fila(self.ag, dt.date(2026, 11, 25))  # quarta: a semana analisada é 16 a 22/11
+        self.assertFalse(_de(itens, self.lote, "subindo"))
+        self.assertEqual(len(_de(itens, self.diario, "subindo")), 1)

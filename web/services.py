@@ -337,7 +337,7 @@ def _visit_items(ctx):
         seen = last.get(pk)
         days = (today - seen).days if seen else None
         recent = days is not None and days < 7
-        if ws.state == "queda" and ws.priority == 1 and not recent:
+        if ws.state == "queda" and ws.priority == 1 and not recent and d.get("readable", True):
             ranked.append((1, c, f"caiu {abs(ws.pct)}% na semana"))
         elif c.first_live_at and 0 <= (today - c.first_live_at).days < 5 and not recent:
             ranked.append((2, c, "novato nos 5 primeiros dias de LIVE"))
@@ -574,7 +574,7 @@ def action_queue(creators, agency, today=None, now=None, raw=False):
 
     Regras: 4 blocos em ordem; uma mensagem por dia por criador; teto por gestora; domingo sem envios;
     um item só sai quando a gestora marca "Enviei", adia com motivo, ou o dado muda."""
-    from data.states import analysed_sunday, week_state
+    from data.states import analysed_sunday, week_state, weeks_readable
 
     now = now or timezone.now()
     today = today or E.tiktok_today()
@@ -649,7 +649,13 @@ def action_queue(creators, agency, today=None, now=None, raw=False):
         # ---------------- bloco 3: o que vem do dado (estado da última semana completa)
         w = ws.week
         semana = f"Semana de {w.start:%d/%m} a {w.end:%d/%m}: {fmt_int(w.diamonds)} 💎"
-        if ws.state == "queda" and not (sent_since("APO-03", week_start) or sent_since("QUEDA-01", week_start)):
+        # decisão da Mariana de 19/11: semana sem leitura própria (ex.: mês importado de uma vez) não gera queda, subida
+        # nem semana irregular, porque a conta compararia semanas vazias com semanas infladas (data/states.py)
+        readable = weeks_readable(snaps, ws)
+        info[c.pk]["readable"] = readable
+        if not readable:
+            pass
+        elif ws.state == "queda" and not (sent_since("APO-03", week_start) or sent_since("QUEDA-01", week_start)):
             why = ("Caíram as horas ou os dias válidos: a conversa é sobre rotina, não sobre resultado." if ws.hours_dropped
                    else "Horas e dias mantidos: veja audiência, presentes e batalhas; se nada explicar, assista a uma LIVE.")
             add("queda", ws.priority, f"Queda de {abs(ws.pct)}% na semana ({ws.segment_label})",

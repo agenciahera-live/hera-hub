@@ -135,3 +135,11 @@ Basta um entre horas e dias para o passo 1 responder "sim" e a conversa ser sobr
 **Por que média e não mediana.** A queda de diamantes usa a **mediana** das três semanas porque um presente grande distorce uma semana inteira. Horas, dias, espectadores e batalhas não têm esse tipo de pico, então a **média** serve e é mais sensível. Não é descuido: é de propósito.
 
 **Por que 2 dias e não 30% nos dias válidos.** Dias válidos vão de 0 a 7. Com números pequenos, a porcentagem vira ruído: de 7 para 5 dias dá -29% e não dispararia, mas são dois dias a menos de LIVE, que é exatamente o que explica uma queda de diamantes.
+
+## Semana sem leitura própria (decisão de 19/11/2026)
+
+O app tira as semanas da diferença entre leituras. Quando um período chega numa importação só (em 18/11/2026, novembro de 01 a 17 entrou de uma vez), essa diferença joga o período inteiro numa semana e deixa as outras vazias: uma parece sem LIVE e a outra, enorme.
+
+Regra (`data/states.py:weeks_readable`): se alguma das 4 semanas que a leitura compara (a analisada e as 3 anteriores) não tem leitura própria, a fila **não gera** queda, subida nem semana irregular, a sugestão de visita não usa a queda e os sinais de risco dos Diamante pelos números não valem. Uma leitura que começa até 2 dias antes da semana ainda conta (um dia de importação perdido). O estado da semana continua aparecendo na ficha, só não vira item da fila. A régua sem LIVE não muda, porque usa o último dia com LIVE.
+
+Para corrigir um mês importado de uma vez, importe as leituras acumuladas que faltam (por exemplo, de 01/11 até cada domingo: 01/11, 08/11 e 15/11).

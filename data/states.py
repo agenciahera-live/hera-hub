@@ -94,6 +94,25 @@ def last_weeks(snaps, sunday, n=5):
     return weeks
 
 
+def weeks_readable(snaps, ws, slack_days=2):
+    """As 4 semanas que a leitura compara (a analisada e as 3 anteriores) têm leitura de cada semana?
+
+    Quando um período chega numa importação só (ex.: novembro de 01 a 17 importado de uma vez em 18/11/2026), a diferença
+    entre leituras joga tudo numa semana e deixa as outras vazias: uma parece sem LIVE e a outra, enorme. Decisão da
+    Mariana de 19/11: nesses casos a fila não gera queda, subida nem semana irregular, e os sinais de risco pelos números
+    não valem. Uma leitura que começa até 2 dias antes da semana ainda conta (um dia de importação perdido)."""
+    if ws is None:
+        return False
+    ivs = E.intervals(snaps)
+    for w in ws.weeks[1:]:
+        inside = [iv for iv in ivs if w.start <= iv.end <= w.end]
+        if inside and any(iv.start < w.start - dt.timedelta(days=slack_days) for iv in inside):
+            return False  # leitura que cobre mais de uma semana
+        if not inside and any(iv.start <= w.start and iv.end >= w.end for iv in ivs):
+            return False  # a semana inteira está dentro de uma leitura maior
+    return True
+
+
 def days_since_live(snaps, ref):
     """Dias entre a última LIVE e `ref` (a segunda depois da semana analisada). NEVER se não houve LIVE."""
     last = None

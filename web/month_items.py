@@ -18,6 +18,7 @@ import datetime as dt
 from django.utils import timezone
 
 from data import engine as E
+from data.states import weeks_readable  # a regra mora com o estado da semana; vale para a fila e para os sinais
 
 SUMMARY_DAYS = 7  # dias 1 a 7
 LESS_CONSTANT_UNTIL = 5  # dias 1 a 5: só quem foi menos constante
@@ -187,24 +188,6 @@ def number_signals(ws):
     if "Fã-clube parado" in (ws.signals or []):
         out.append("nenhum fã novo com 5h ou mais de LIVE")
     return out
-
-
-def weeks_readable(snaps, ws, slack_days=2):
-    """As 4 semanas que os sinais comparam (a analisada e as 3 anteriores) têm leitura de cada semana?
-
-    Quando um período chega numa importação só (ex.: novembro de 01 a 17 importado de uma vez), a conta joga tudo numa
-    semana e deixa as outras vazias: a semana analisada parece sem LIVE e a anterior, enorme. Nesses casos os sinais
-    pelos números não valem (decisão da conferência de 19/11). Uma leitura que começa até 2 dias antes da semana conta."""
-    if ws is None:
-        return False
-    ivs = E.intervals(snaps)
-    for w in ws.weeks[1:]:
-        inside = [iv for iv in ivs if w.start <= iv.end <= w.end]
-        if inside and any(iv.start < w.start - dt.timedelta(days=slack_days) for iv in inside):
-            return False  # leitura que cobre mais de uma semana
-        if not inside and any(iv.start <= w.start and iv.end >= w.end for iv in ivs):
-            return False  # a semana inteira está dentro de uma leitura maior
-    return True
 
 
 def talk_signals(creator, now=None):
