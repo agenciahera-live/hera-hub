@@ -172,6 +172,18 @@
         {% for x in campaign_options %}<option value="{{ x.c.pk }}" {% if campaign_pick and campaign_pick.campaign_id == x.c.pk %}selected{% endif %}>{{ x.c.name }} (até {{ x.c.end|date:"d/m" }}){% if x.status_staff %} · {{ x.status_staff|lower }}{% endif %}{% if not x.c.featured and x.c.source == "backstage" %} · fora do foco{% endif %}</option>{% endfor %}
       </select><button class="btn btn-sm btn-purple">Salvar</button></form>{% endif %}
   </section>
+  <section class="card"><h2>Resumo do mês no app <small>{{ summary_month|date:"F"|lower }}</small></h2>
+    {% if month_summary %}{% with s=month_summary %}
+    <p style="margin:0 0 4px"><small class="muted">O que o criador vê no Meu progresso (no topo do dia 1 ao 10):</small></p>
+    <p style="margin:0"><b>{{ s.headline }}</b></p>
+    <ul class="list">{% for h in s.highlights %}<li><small>📊 {{ h }}</small></li>{% endfor %}{% for t in s.tips %}<li><small>💡 {{ t }}</small></li>{% endfor %}</ul>
+    {% endwith %}
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="a" value="month_tip"><input type="hidden" name="next" value="?tab=visao">
+      <label for="month-tip">Dica da Hera para este criador <small class="muted">(entra no lugar da primeira dica automática; em branco, apaga)</small></label>
+      <textarea id="month-tip" name="text" maxlength="240" style="min-height:60px">{{ month_summary.own_tip.text|default:"" }}</textarea>
+      <button class="btn btn-sm btn-purple" style="margin-top:6px">Salvar dica</button></form>{% endif %}
+    {% else %}<p><small>Sem resumo: o mês ainda não fechou para este criador ou ele não fez LIVE no mês.</small></p>{% endif %}
+  </section>
   {% if risk %}<section class="card"><h2>Sinais de risco <small>Diamante</small>
       {% if risk.level == "conversa" %}<span class="pill pink">{{ risk.total }} sinais: conversa em até 48 horas</span>{% elif risk.level == "observar" %}<span class="pill gold">1 sinal: anotar e observar</span>{% else %}<span class="pill cyan">nenhum sinal</span>{% endif %}</h2>
     <p style="margin:0 0 4px"><b>Pelos números</b> <small class="muted">(última semana completa)</small></p>

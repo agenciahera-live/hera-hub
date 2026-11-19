@@ -20,7 +20,7 @@ from data.engine import recalculate
 from engage import plan as plan_rules
 from engage.models import Announcement
 from engage.services import notify, publish_announcement
-from web import month_items, panel
+from web import month_items, month_summary, panel
 from web.services import data_freshness
 
 
@@ -89,6 +89,8 @@ class Command(BaseCommand):
                     panel.ensure_draw(ag, today)
                 # sinais de risco dos criadores Diamante (passo 4.3): dois ou mais avisam as sócias
                 month_items.notify_risks(ag)
+                # resumo do mês no app: nos dias 2 e 3, avisa o criador no sininho que o resumo chegou
+                month_summary.notify_ready(ag)
                 fresh = data_freshness(ag)
                 if fresh is None or (timezone.now() - fresh).days >= st.stale_data_days:
                     for m in Membership.objects.filter(agency=ag, role__in=["admin", "gestora"], active=True):

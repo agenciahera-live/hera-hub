@@ -129,7 +129,8 @@ def months_since_entry(creator, today, limit=12):
               if m.diamonds or m.live_seconds]
     best = max(months, key=lambda m: m.diamonds, default=None)
     top = max([m.diamonds for m in months] + [1])
-    return [{"m": m, "pct": m.diamonds / top, "best": best is not None and m.pk == best.pk and len(months) > 1} for m in months]
+    return [{"m": m, "pct": m.diamonds / top, "best": best is not None and m.pk == best.pk and len(months) > 1,
+             "has_summary": bool(m.live_seconds or m.valid_days)} for m in months]
 
 
 def graduation_block(creator, snaps, settings_, today, phase):
@@ -199,14 +200,20 @@ def my_progress(creator):
             survey = s
             break
     pinned = [a for a in Announcement.objects.filter(agency=creator.agency, pinned=True, publish_at__lte=timezone.now()) if matches_audience(a, facts)][:1]
+    campaign = campaign_of_the_moment(creator, visible_campaigns(creator, facts, today), snaps)
+    # resumo do mês que fechou, no topo do Meu progresso do dia 1 ao 10 (pedido da Mariana de 19/11; web/month_summary.py)
+    from . import month_summary
+
+    summary = month_summary.current(creator, today, {**month_summary.extra_for(creator, today), "has_campaign": bool(campaign)})
     return {
+        "month_summary": summary,
         "creator": creator, "today": today, "month_label": month_name(today), "snap": snap, "settings": settings_,
         "phase": phase, "counting": counting, "onboarding": ob, "ever_live": ever_live,
         "next_step": next_step(ob, ever_live) if counting else "",
         "closed_rule": bool(ob and ob["met"] and ob["active"]),
         "level": level, "group": facts["group"], "phrase": phrase, "forecast": forecast, "estimate_note": ESTIMATE_NOTE,
         "graduation": graduation_block(creator, snaps, settings_, today, phase),
-        "campaign": campaign_of_the_moment(creator, visible_campaigns(creator, facts, today), snaps),
+        "campaign": campaign,
         "weeks": weeks_of_month(snaps, today), "lesson": lesson, "lesson_why": rec["why"] if rec else "", "months": months_since_entry(creator, today),
         "data_until": snap.period_end if snap else max((s.period_end for s in snaps), default=None),
         "updated_at": data_freshness(creator.agency), "survey": survey, "pinned": pinned,

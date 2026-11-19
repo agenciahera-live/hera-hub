@@ -18,7 +18,7 @@ from core.models import AgencySettings, AppEvent
 
 # nome da tela (url) -> área do app, como aparece na barra de baixo e nos cartões
 AREAS = {
-    "home": "Meu progresso", "my_level": "Meu progresso",
+    "home": "Meu progresso", "my_level": "Meu progresso", "my_month": "Meu progresso",
     "academy": "Hera Academy", "lesson": "Hera Academy",
     "campaigns": "Campanhas", "campaign": "Campanhas",
     "battles": "Batalhas", "battle_new": "Batalhas", "battle_check": "Batalhas",

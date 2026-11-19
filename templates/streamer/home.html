@@ -6,6 +6,9 @@
   <span class="freshness {% if not data_until %}stale{% endif %}" style="margin:0"><span class="dot"></span>{% if data_until %}dados até {{ data_until|date:"d/m" }}{% if updated_at %} · atualizado {{ updated_at|sp:"%d/%m às %H:%M" }}{% endif %}{% else %}sem dados ainda{% endif %}</span>
 </div>
 
+{# Resumo do mês que fechou: no topo do dia 1 ao 10 (depois, em "Meses desde a entrada") #}
+{% if month_summary %}{% with s=month_summary %}{% include "streamer/_month_summary.html" %}{% endwith %}{% endif %}
+
 {# 1. Topo, que muda com a fase #}
 {% if counting %}
 <section class="card card-hero">
@@ -118,9 +121,9 @@
 <section class="card compact-card" id="meses">
   <h3 style="margin-bottom:4px">Meses desde a entrada</h3>
   <ul class="list months">
-    {% for x in months %}<li{% if x.best %} class="best"{% endif %}><span>{{ x.m.month|date:"M/y"|lower }}</span><span class="wbar"><i style="width:{{ x.pct|width }}"></i></span><span class="num">{{ x.m.diamonds|intbr }} 💎</span><span class="pill {% if x.best %}gold{% else %}gray{% endif %}">Nível {{ x.m.tier|default:1 }}</span></li>{% endfor %}
+    {% for x in months %}<li{% if x.best %} class="best"{% endif %}><span>{% if x.has_summary %}<a href="{% url 'my_month' x.m.month.year x.m.month.month %}">{{ x.m.month|date:"M/y"|lower }}</a>{% else %}{{ x.m.month|date:"M/y"|lower }}{% endif %}</span><span class="wbar"><i style="width:{{ x.pct|width }}"></i></span><span class="num">{{ x.m.diamonds|intbr }} 💎</span><span class="pill {% if x.best %}gold{% else %}gray{% endif %}">Nível {{ x.m.tier|default:1 }}</span></li>{% endfor %}
   </ul>
-  <p style="margin:6px 0 0"><small>Em dourado, o seu melhor mês.</small></p>
+  <p style="margin:6px 0 0"><small>Em dourado, o seu melhor mês. Toque no mês para ver o resumo.</small></p>
 </section>
 {% endif %}
 

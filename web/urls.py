@@ -19,6 +19,7 @@ urlpatterns = [
     path("academy/aula/<int:pk>/", V.lesson, name="lesson"),
     path("perfil/", V.profile, name="profile"),
     path("meu-plano/", V.my_plan, name="my_plan"),
+    path("meu-mes/<int:year>/<int:month>/", V.my_month, name="my_month"),
     path("notificacoes/", V.notifications, name="notifications"),
     path("avisos/", V.announcements, name="announcements"),
     path("duvidas/", V.faq, name="faq"),

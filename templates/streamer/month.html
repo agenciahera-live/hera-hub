@@ -1,0 +1,7 @@
+{% extends "streamer/base.html" %}
+{% block title %}Seu mês · Hera{% endblock %}
+{% block content %}
+<a href="/#meses"><small>← Meu progresso</small></a>
+{% if s %}{% include "streamer/_month_summary.html" %}
+{% else %}<section class="card"><p class="empty">Este mês ainda não tem resumo.</p></section>{% endif %}
+{% endblock %}

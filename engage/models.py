@@ -568,3 +568,19 @@ class CreatorGoal(models.Model):
 
     class Meta:
         ordering = ["done_at", "created_at"]
+
+
+class MonthTip(models.Model):
+    """Dica da Hera escrita pela gestora para o resumo de um mês no app (pedido da Mariana de 19/11/2026).
+
+    Aparece no resumo do mês do criador, no lugar de uma das dicas automáticas. O criador lê a dele; só quem edita o
+    criador grava (regra também no banco). Regras em web/month_summary.py."""
+
+    creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="month_tips")
+    month = models.DateField("mês do resumo")
+    text = models.CharField("dica", max_length=240)
+    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("creator", "month")]

@@ -1,0 +1,14 @@
+{# Resumo de um mês fechado (web/month_summary.py). Recebe: s (o resumo). #}
+<section class="card month-summary">
+  <h2 style="margin:0 0 6px">Seu mês de {{ s.month_name }} 🎉</h2>
+  <p style="margin:0 0 10px"><b>{{ s.headline }}</b></p>
+  {% if s.highlights %}
+  <p style="margin:0 0 4px"><b>📊 {{ s.highlights_title }}</b></p>
+  <ul class="summary-list">{% for h in s.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if s.tips %}
+  <p style="margin:10px 0 4px"><b>💡 Ideias para {{ s.next_name }}, use o que fizer sentido para você</b></p>
+  <ul class="summary-list">{% for t in s.tips %}<li>{{ t }}</li>{% endfor %}</ul>
+  {% endif %}
+  <p style="margin:10px 0 0">Conta com a Hera para o que precisar 🙌</p>
+</section>

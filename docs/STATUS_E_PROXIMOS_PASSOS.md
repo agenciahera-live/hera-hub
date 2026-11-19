@@ -647,6 +647,21 @@ Decisões da Mariana de 19/11: **"menos constante" = menos dias válidos no mês
 | O resumo do mês não entra para quem não fez LIVE no mês nem para quem está nos 14 dias | Esses criadores já têm roteiro próprio (régua e onboarding) |
 | O aviso às sócias sai pela rotina das 6h, não na hora em que a gestora marca o sinal | A conta junta números da leitura diária e sinais da conversa; uma vez por dia basta para "conversa em até 48 horas" |
 
+### Resumo do mês no app (pedido da Mariana de 19/11, entre os passos 4.3 e 4.4)
+
+Decisões da Mariana de 19/11: o cartão fica no topo do Meu progresso **do dia 1 ao dia 10** e depois em "Meses desde a entrada"; as **dicas saem de um banco com regras** (provisório até a revisão dela); a **gestora pode escrever a própria dica** na ficha, que entra no lugar da primeira automática. Regras em `web/month_summary.py`.
+
+- **Cartão "Seu mês de outubro 🎉"** (`templates/streamer/_month_summary.html`): a mudança de nível ("Você subiu do Nível 5 para o Nível 7 e segue no grupo Diamante 💎🚀"; mesmo nível ou abaixo: "Você fechou outubro no Nível 3, no grupo Prata 💜"; primeiro mês: "Seu primeiro mês fechado com a Hera"); **Onde você se superou** (até 3 números que mais melhoraram contra o mês anterior: diamantes em %, seguidores novos, fã-clube, batalhas, dias válidos, horas; sem melhora, vira "O seu mês" com o que ele fez); **Ideias para novembro, use o que fizer sentido para você** (2 dicas); "Conta com a Hera para o que precisar 🙌".
+- **Tela de cada mês:** `/meu-mes/<ano>/<mês>/`, aberta pelo mês em "Meses desde a entrada".
+- **Ficha › Visão › "Resumo do mês no app":** o que o criador vê e o campo "Dica da Hera para este criador" (passa pelo verificador de tom; em branco, apaga). Tabela `engage_monthtip` (o criador lê a dele; só quem edita o criador grava; `web/migrations/0012`).
+- **Aviso no sininho** nos dias 2 e 3: "Seu resumo de outubro chegou 🎉" (um por mês; começa no dia 2 porque o último dia do mês chega com a leitura do dia 1).
+- **Banco de 13 dicas** com a regra de cada uma, para revisão: `HERA\creator-hub\Dicas do resumo do mes no app (para revisar).txt`.
+- **Ainda não entram:** "pessoas que mandaram presentes" e vídeos (só na leitura detalhada por criador, que ainda não existe).
+
+**Como testar:** `tests/test_resumo_do_mes.py` (9 testes). No computador da Hera, entre como `streamer01@hera.demo` e toque em "ago/26" em "Meses desde a entrada".
+
+**Conferência (19/11):** todos os testes passando e 1 pulado (o mesmo de antes). O cartão foi aberto no Chrome como streamer01; a demonstração só tinha dados para uma dica, e por isso entrou a 13ª dica (reserva), para todo criador ter 2.
+
 ### ⚠️ Logins de demonstração não podem existir em produção
 
 Estes logins têm senha conhecida (`hera-demo-2026`) e servem só para demonstração no computador da Hera:
@@ -667,6 +682,7 @@ Três proteções: os dois comandos se recusam a rodar em produção; o app não
   3. Cadência depois do D15 com a versão para quem já é da casa: NR-24H-CASA, NR-2D-CASA e NR-3D-CASA (a fila escolhe sozinha pela fase; o +5 dias é o mesmo para todos).
   4. Mural de batalhas continua sem o bloco de destaques.
 - [x] **Decisão 5 (dúvidas frequentes do roteiro), 18/11:** entram **nas duas**. Na biblioteca de mensagens já entraram 23 respostas (códigos DUV-*, etapa "Dúvidas frequentes", migração `engage/0020`), com os textos revisados; a graduação saiu e "O que é uma batalha oficial?" é a própria BAT-PEDIDO. O quadro de graduação do Meu progresso **fica** para os testes iniciais.
+- [ ] **Dicas do resumo do mês no app:** 13 dicas com regra, em `HERA\creator-hub\Dicas do resumo do mes no app (para revisar).txt`, com 3 perguntas.
 - [ ] **Mensagens do passo 4.3 (itens do mês):** 6 textos provisórios em `HERA\creator-hub\Mensagens do passo 4.3 - itens do mes (para revisar).txt`, com 2 perguntas (textos e o número de diamantes no "Quase lá").
 - [ ] **Roteiro do teste do app (passo 3.7):** `HERA\creator-hub\Roteiro do teste do app - passo 3.7 (para revisar).txt`, com 4 perguntas.
 - [ ] **Central de dúvidas (passo 3.5):** as respostas do roteiro entraram adaptadas para o criador, junto com a revisão "Tier → Nível". Falta a Mariana revisar `HERA\creator-hub\Central de duvidas - revisao do passo 3.5 (para revisar).txt` (substitui o arquivo antigo de 11/11), com 4 pontos de atenção.

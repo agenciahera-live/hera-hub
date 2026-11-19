@@ -53,6 +53,8 @@ Versões antigas da visão ficam em `docs/arquivo/` e **não valem mais**. A pas
 
 27. **Itens do mês na fila** (passo 4.3; regras em `web/month_items.py`, ligados em `COLLECTORS`). Resumo do mês nos dias 1 a 7 ("menos constante" = menos dias válidos que o mês anterior, dias 1 a 5; constantes nos dias 6 e 7), nível novo, "Quase lá" na última semana (substitui os avisos `perto_tier` e `perto_graduar` nesses dias), módulo concluído e sinais de risco dos Diamante (`RiskSignal`, vale 30 dias; dois ou mais = `risco_diamante` na fila e aviso às sócias pela rotina). Os textos MES-*, NIVEL-NOVO, QUASE-* e MODULO-OK são provisórios até a revisão da Mariana.
 
+28. **Resumo do mês no app** (pedido de 19/11/2026; `web/month_summary.py`). Cartão no topo do Meu progresso do dia 1 ao 10 e em `/meu-mes/<ano>/<mês>/`: nível ("Nível", nunca "Tier"), onde se superou (só contra o próprio mês anterior) e 2 dicas do banco `TIPS` (provisório). A dica escrita pela gestora (`MonthTip`, passa por `verificar_tom`) vence a primeira automática. Dica nova nunca sugere número de horas, dias ou horário.
+
 O verificador de tom fica em `engage/tom.py`: `verificar_tom` para as telas do criador (teste `tests/test_tom.py`) e `verificar_tom_mensagem` para as mensagens da gestão (teste `tests/test_biblioteca.py`).
 
 ## Regras que nunca podem ser quebradas

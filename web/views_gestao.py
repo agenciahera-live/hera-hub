@@ -297,6 +297,11 @@ def creator_detail(request, pk):
 
         ctx["risk"] = month_items.risk_for(c, ctx["week"], ctx["tier"], diamond_min_tier(c.agency))
         ctx["risk_kinds"] = C.RiskSignal.KINDS
+        # resumo do mês no app: o que o criador vê e a dica da Hera escrita pela gestora
+        from . import month_summary
+
+        ctx["summary_month"] = E.prev_month(today)
+        ctx["month_summary"] = month_summary.for_month(c, ctx["summary_month"], month_summary.extra_for(c, today))
     elif tab == "1a1":
         from crm import one_on_one
 
@@ -547,6 +552,20 @@ def creator_action(request, pk):
         _academy_action(request, c, a)
     elif a == "campaign_pick":
         _campaign_pick(request, c)
+    elif a == "month_tip":  # dica da Hera no resumo do mês do app (vence a primeira dica automática)
+        from engage.tom import verificar_tom
+
+        month = E.prev_month(E.tiktok_today())
+        text = request.POST.get("text", "").strip()[:240]
+        problems = verificar_tom(text)
+        if not text:
+            M.MonthTip.objects.filter(creator=c, month=month).delete()
+            messages.success(request, "Dica apagada. O resumo volta a mostrar só as dicas automáticas.")
+        elif problems:
+            messages.error(request, f"A dica não foi salva: o app do criador não usa {', '.join(problems)}.")
+        else:
+            M.MonthTip.objects.update_or_create(creator=c, month=month, defaults={"text": text, "author": request.user})
+            messages.success(request, "Dica salva. Ela aparece no resumo do mês do criador, no app.")
     elif a == "risk_signal":  # sinal de risco pela conversa (Diamante, passo 4.3); vale 30 dias
         kind = request.POST.get("kind", "")
         if kind in dict(C.RiskSignal.KINDS):

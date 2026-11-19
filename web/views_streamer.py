@@ -179,6 +179,21 @@ def announcements(request):
     return render(request, "streamer/announcements.html", {"items": items[:30]})
 
 
+@streamer_required
+def my_month(request, year, month):
+    """Resumo de um mês fechado do próprio criador (o mesmo cartão do topo do Meu progresso)."""
+    from . import month_summary
+
+    try:
+        m = dt.date(year, month, 1)
+    except ValueError:
+        raise Http404 from None
+    if m >= E.month_start(E.tiktok_today()):
+        raise Http404  # o mês corrente ainda não fechou
+    s = month_summary.for_month(request.creator, m, month_summary.extra_for(request.creator))
+    return render(request, "streamer/month.html", {"nav": "home", "s": s})
+
+
 # ---------------------------------------------------------------- Meu plano (passo 3.6)
 @streamer_required
 def my_plan(request):

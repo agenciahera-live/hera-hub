@@ -241,3 +241,8 @@ details.ask summary { font-weight: 700; color: var(--purple); }
 .daypick span { display: block; text-align: center; padding: 10px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font-weight: 600; font-size: .85rem; cursor: pointer; }
 .daypick input:checked + span { background: var(--purple); border-color: var(--purple); color: #fff; }
 .daypick input:focus-visible + span { outline: 2px solid var(--pink); outline-offset: 1px; }
+
+/* ---------- Resumo do mês no Meu progresso ---------- */
+.month-summary { border-left: 4px solid var(--gold); }
+.summary-list { margin: 0; padding-left: 18px; }
+.summary-list li { margin: 4px 0; }
