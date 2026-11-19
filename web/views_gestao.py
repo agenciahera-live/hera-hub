@@ -295,7 +295,7 @@ def creator_detail(request, pk):
 
         from . import month_items
 
-        ctx["risk"] = month_items.risk_for(c, ctx["week"], ctx["tier"], diamond_min_tier(c.agency))
+        ctx["risk"] = month_items.risk_for(c, ctx["week"], ctx["tier"], diamond_min_tier(c.agency), snaps)
         ctx["risk_kinds"] = C.RiskSignal.KINDS
         # resumo do mês no app: o que o criador vê e a dica da Hera escrita pela gestora
         from . import month_summary

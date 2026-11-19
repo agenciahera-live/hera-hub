@@ -189,6 +189,24 @@ def number_signals(ws):
     return out
 
 
+def weeks_readable(snaps, ws, slack_days=2):
+    """As 4 semanas que os sinais comparam (a analisada e as 3 anteriores) têm leitura de cada semana?
+
+    Quando um período chega numa importação só (ex.: novembro de 01 a 17 importado de uma vez), a conta joga tudo numa
+    semana e deixa as outras vazias: a semana analisada parece sem LIVE e a anterior, enorme. Nesses casos os sinais
+    pelos números não valem (decisão da conferência de 19/11). Uma leitura que começa até 2 dias antes da semana conta."""
+    if ws is None:
+        return False
+    ivs = E.intervals(snaps)
+    for w in ws.weeks[1:]:
+        inside = [iv for iv in ivs if w.start <= iv.end <= w.end]
+        if inside and any(iv.start < w.start - dt.timedelta(days=slack_days) for iv in inside):
+            return False  # leitura que cobre mais de uma semana
+        if not inside and any(iv.start <= w.start and iv.end >= w.end for iv in ivs):
+            return False  # a semana inteira está dentro de uma leitura maior
+    return True
+
+
 def talk_signals(creator, now=None):
     from crm.models import RiskSignal
 
@@ -197,17 +215,20 @@ def talk_signals(creator, now=None):
                 .select_related("author"))
 
 
-def risk_for(creator, ws, tier, diamond_tier, now=None):
-    """Sinais de risco de um criador Diamante (None para quem não é Diamante)."""
+def risk_for(creator, ws, tier, diamond_tier, snaps, now=None):
+    """Sinais de risco de um criador Diamante (None para quem não é Diamante).
+
+    Os sinais pelos números só entram quando as semanas comparadas têm leitura própria (`weeks_readable`)."""
     if (tier or 1) < diamond_tier:
         return None
-    nums = number_signals(ws)
+    readable = weeks_readable(snaps, ws)
+    nums = number_signals(ws) if readable else []
     talk = talk_signals(creator, now)
     kinds = {}
     for s in talk:
         kinds.setdefault(s.kind, s)  # o mesmo sinal marcado duas vezes conta uma vez
     total = len(nums) + len(kinds)
-    return {"numbers": nums, "talk": talk, "talk_kinds": list(kinds.values()), "total": total,
+    return {"numbers": nums, "talk": talk, "talk_kinds": list(kinds.values()), "total": total, "readable": readable,
             "level": "conversa" if total >= 2 else "observar" if total == 1 else ""}
 
 
@@ -219,7 +240,7 @@ def risk_items(ctx):
     dtier = diamond_min_tier(ctx["agency"])
     out = []
     for pk, d in ctx["info"].items():
-        r = risk_for(d["c"], d["ws"], d["tier"], dtier, ctx["now"])
+        r = risk_for(d["c"], d["ws"], d["tier"], dtier, d["snaps"], ctx["now"])
         if r and r["total"] >= 2:
             labels = r["numbers"] + [s.get_kind_display().lower() for s in r["talk_kinds"]]
             out.append(QueueItem(d["c"], "risco_diamante", 1, f"Diamante com {r['total']} sinais de risco",
@@ -242,7 +263,7 @@ def diamonds_at_risk(agency, today=None):
     for c in (Creator.objects.filter(pk__in=list(tiers)).exclude(status__in=[CreatorStatus.SAIU, CreatorStatus.ANONIMIZADO])
               .prefetch_related("snapshots")):
         snaps = list(c.snapshots.all())
-        r = risk_for(c, week_state(c, snaps, today, prev_month_diamonds=tiers[c.pk].diamonds), tiers[c.pk].tier, dtier)
+        r = risk_for(c, week_state(c, snaps, today, prev_month_diamonds=tiers[c.pk].diamonds), tiers[c.pk].tier, dtier, snaps)
         if r and r["total"]:
             out.append((c, r))
     return sorted(out, key=lambda x: (-x[1]["total"], x[0].username))

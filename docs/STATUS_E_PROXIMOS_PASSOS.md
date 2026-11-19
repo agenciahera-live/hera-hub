@@ -12,6 +12,8 @@ Situação em 18/11/2026: MVP construído; passos 1 a 3 da visão feitos em 11/1
 
 > **19/11/2026: publicados os passos 4.1 e 4.2** (commit `d1ef474`). Deploy com sucesso; as 3 migrações rodaram sem erro (`crm.0011`, `crm.0012`, `web.0010`). Em produção, o Painel das sócias abriu em menos de 1 segundo com todas as seções, e a tela 1:1 abriu com 7 criadores que precisam de 1:1 todo mês e ainda não têm 1:1 completo.
 
+> **19/11/2026: publicados o passo 4.3 e o resumo do mês no app** (commits `a061f49` e `66051c6`). 5 migrações sem erro; Dashboard (2,5 s) e painel (0,8 s) abriram em produção. **Defeito achado na conferência e corrigido em seguida (`web/month_items.py:weeks_readable`):** a lista "Diamante em risco" mostrava 4 criadores com "batalhas em queda forte (0 contra 383 por semana)". Novembro (01 a 17) foi importado de uma vez em 18/11, então a semana de 09 a 15 ficou vazia. Agora os sinais pelos números só valem quando as 4 semanas comparadas têm leitura própria. **Atenção:** o mesmo efeito vale para o estado da semana da fila (queda, subindo, sem LIVE) até a semana de 23/11, a primeira inteira com leitura diária; não foi mexido (decisão pendente da Mariana).
+
 > ⚠️ **Os logins de demonstração (`@hera.demo` e `@semana.demo`, senha `hera-demo-2026`) não podem existir em produção.** Detalhes na seção 0, "Logins de demonstração não podem existir em produção".
 
 ## 0. Plano atual (visão final de 14/11/2026)

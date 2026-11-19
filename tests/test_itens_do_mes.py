@@ -192,6 +192,29 @@ class SinaisDeRiscoTests(TestCase):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("g_panel")), "@diamante.demo")
 
+    def test_mes_importado_de_uma_vez_nao_gera_sinal_pelos_numeros(self):
+        """Caso visto em produção em 19/11: novembro (01 a 17) chegou numa importação só e a semana 09 a 15 ficou vazia,
+        o que acendia "batalhas em queda forte (0 contra 383 por semana)". Com leitura diária, os sinais voltam."""
+        from data.states import week_state
+
+        hoje = dt.date(2026, 11, 19)
+        out_, nov = dt.date(2026, 10, 1), dt.date(2026, 11, 1)
+        com_lote, diario = F.creator(self.ag, username="lote.demo"), F.creator(self.ag, username="diario.demo")
+        for c in (com_lote, diario):
+            for d in range(1, 32):  # outubro com leitura diária: 60 batalhas por semana
+                F.snapshot(c, out_, out_.replace(day=d), diamonds=10_000 * d, hours=3 * d, valid_days=d, streams=d, battles=9 * d)
+        F.snapshot(com_lote, nov, dt.date(2026, 11, 17), diamonds=170_000, hours=51, valid_days=17, streams=17, battles=153)
+        for d in range(1, 16):  # novembro diário, mas sem batalhas na semana de 09 a 15
+            F.snapshot(diario, nov, nov.replace(day=d), diamonds=10_000 * d, hours=3 * d, valid_days=d, streams=d,
+                       battles=9 * min(d, 8))
+        with system_context():
+            r_lote, r_diario = [month_items.risk_for(c, week_state(c, list(c.snapshots.all()), hoje), 5, 5, list(c.snapshots.all()))
+                                for c in (Creator.objects.get(pk=com_lote.pk), Creator.objects.get(pk=diario.pk))]
+        self.assertFalse(r_lote["readable"])
+        self.assertEqual(r_lote["numbers"], [])
+        self.assertTrue(r_diario["readable"])
+        self.assertTrue(any("batalhas em queda forte" in s for s in r_diario["numbers"]))
+
     def test_banco_isola_os_sinais(self):
         self._marcar(self.dia, "tom")
         set_context(user_id=self.outra.pk)
