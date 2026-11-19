@@ -106,6 +106,11 @@ def dashboard(request):
     shown = queue[:60]
     link_app = request.build_absolute_uri(reverse("first_access"))
     S.fill_queue_messages(shown, request.agency, link_app=link_app)
+    from .panel import pending_by_creator  # manter ou encerrar: mostra "aguardando as sócias" (passo 4.1)
+
+    pending = pending_by_creator([i.creator.pk for i in shown if i.asks_partners])
+    for i in shown:
+        i.approval = pending.get(i.creator.pk) if i.asks_partners else None
     # ausência: a gestora que avisou "Hoje não trabalho" vê o aviso no lugar da fila; quem cobre vê o que não pode esperar
     is_manager, is_admin = Role.GESTORA in request.roles, Role.ADMIN in request.roles
     away = absence.active(request.user) if is_manager else None
@@ -286,18 +291,16 @@ def creator_detail(request, pk):
 
         ctx["creator_plan"] = plan_rules.for_creator(c)
     elif tab == "1a1":
-        ctx["items"] = c.one_on_ones.prefetch_related("actions")[:20]
+        from crm import one_on_one
+
+        ctx["items"] = c.one_on_ones.prefetch_related("actions").select_related("conducted_by", "manager")[:20]
         prev = c.one_on_ones.first()
         ctx["prev_actions"] = prev.actions.all() if prev else []
-        b1 = ""
-        if snap:
-            p = E.month_paces(c, snap)
-            b1 = (f"{snap.diamonds:,} diamantes ({p['diamonds'].pct:.0%} da meta), {snap.hours:.1f}h, {snap.valid_days} dias válidos, "
-                  f"{snap.battles} batalhas até {snap.period_end:%d/%m}.").replace(",", ".")
-            if snap.lm_diamonds:
-                b1 += f" Mês passado: {snap.lm_diamonds:,} diamantes.".replace(",", ".")
-        ctx["b1_default"] = b1
+        ctx["b1_default"] = one_on_one.performance_text(c, today)  # bloco 1 preenchido pelo sistema (passo 4.2)
         ctx["today"] = timezone.localdate()
+        ctx["channels"] = C.OneOnOne.CHANNELS
+        ctx["conductors"] = User.objects.filter(memberships__agency=c.agency, memberships__active=True,
+                                                memberships__role__in=[Role.ADMIN, Role.GESTORA]).distinct().order_by("first_name", "email")
     elif tab == "onboarding":
         ctx["ob"] = E.onboarding_status(c, snaps, settings_)
         E.update_onboarding(c, snaps, settings_) if ctx["can_edit"] else None
@@ -670,17 +673,32 @@ def mark_sent(request, pk, code):
     return redirect(request.POST.get("next") or reverse("g_creator", args=[c.pk]) + "?tab=mensagens")
 
 
+@staff_required()
+def one_on_ones(request):
+    """Agenda de 1:1 (passo 4.2): quem precisa de 1:1 todo mês, os marcados e os atrasados, na carteira de quem vê."""
+    from crm import one_on_one
+
+    qs = scoped_creators(request.user).exclude(status__in=[C.CreatorStatus.SAIU, C.CreatorStatus.ANONIMIZADO])
+    ctx = one_on_one.agenda(qs, request.agency)
+    ctx["nav"] = "1a1"
+    return render(request, "gestao/one_on_ones.html", ctx)
+
+
 @require_POST
 @staff_required(Role.ADMIN, Role.GESTORA)
 def one_on_one_new(request, pk):
     c = _creator(request, pk)
     _require_edit(request, c)
     P = request.POST
+    conductor = User.objects.filter(pk=_int(P.get("conducted_by")) or 0, memberships__agency=c.agency, memberships__active=True,
+                                    memberships__role__in=[Role.ADMIN, Role.GESTORA]).first() or request.user
     with transaction.atomic():
         o = C.OneOnOne.objects.create(
-            creator=c, manager=request.user, date=P.get("date") or timezone.localdate(), tier_at=E.official_tier(c)[0],
+            creator=c, manager=request.user, conducted_by=conductor, date=_date(P.get("date")) or timezone.localdate(),
+            tier_at=E.official_tier(c)[0], channel=P.get("channel") if P.get("channel") in dict(C.OneOnOne.CHANNELS) else "",
+            print_saved=bool(P.get("print_saved")), notes=P.get("notes", "")[:5000],
             b1_performance=P.get("b1", ""), b2_constancia=P.get("b2", ""), b3_qualidade=P.get("b3", ""),
-            b4_monetizacao=P.get("b4", ""), b5_dificuldades=P.get("b5", ""), b7_next_date=P.get("b7") or None,
+            b4_monetizacao=P.get("b4", ""), b5_dificuldades=P.get("b5", ""), b7_next_date=_date(P.get("b7")),
             reviewed_previous_plan=bool(P.get("reviewed")))
         for i in range(1, 4):
             if P.get(f"action{i}"):
@@ -688,7 +706,9 @@ def one_on_one_new(request, pk):
                                             due_date=P.get(f"due{i}") or (timezone.localdate() + dt.timedelta(days=7)))
         for aid in P.getlist("prev_done"):
             C.ActionItem.objects.filter(pk=aid, creator=c).update(done=True)
-    messages.success(request, "1:1 registrado." + ("" if o.complete else " Atenção: registro incompleto (sem registro completo, o 1:1 não conta)."))
+    missing = o.missing
+    messages.success(request, "1:1 registrado." + (f" Atenção: registro incompleto, falta {', '.join(missing)}. Sem registro completo, o 1:1 não conta."
+                                                   if missing else ""))
     return redirect(reverse("g_creator", args=[c.pk]) + "?tab=1a1")
 
 
@@ -784,6 +804,49 @@ def _move_creators(request, managers):
                    body=f"Agora {'estão' if k > 1 else 'está'} com {absence.name_of(mgr)}." if mgr else "Por enquanto, sem gestora (com as sócias).")
     messages.success(request, f"{n} criador{plural} {'passaram' if n > 1 else 'passou'} para "
                               f"{('a carteira de ' + absence.name_of(mgr)) if mgr else 'a lista “sem gestora”'}. O histórico foi junto.")
+
+
+@staff_required(Role.ADMIN)
+def partners_panel(request):
+    """Painel das sócias (passo 4.1): os números da conta, a execução da gestão, as aprovações e o sorteio semanal."""
+    from . import panel
+
+    ag = request.agency
+    if request.method == "POST":
+        a = request.POST.get("a")
+        try:
+            if a == "decide":
+                ap = get_object_or_404(C.ApprovalRequest, pk=_int(request.POST.get("approval")) or 0, agency=ag)
+                panel.decide(ap, request.user, request.POST.get("decision", ""), request.POST.get("note", "").strip())
+                messages.success(request, f"Decisão registrada: {ap.decision_label}. A gestora foi avisada e a decisão está na ficha.")
+            elif a == "check":
+                sc = get_object_or_404(C.SentCheck, pk=_int(request.POST.get("check")) or 0, agency=ag)
+                panel.check_sent(sc, request.user, request.POST.get("result", ""), request.POST.get("note", "").strip())
+                messages.success(request, "Conferência registrada.")
+        except panel.PanelError as e:
+            messages.error(request, str(e))
+        anchor = {"decide": "#aprovacoes", "check": "#sorteio"}.get(a, "")
+        return redirect(reverse("g_panel") + anchor)
+    ctx = panel.overview(ag)
+    ctx.update({"nav": "panel", "decisions": dict(C.ApprovalRequest.DECISIONS), "results_choices": C.SentCheck.RESULTS[1:]})
+    return render(request, "gestao/panel.html", ctx)
+
+
+@require_POST
+@staff_required(Role.ADMIN, Role.GESTORA)
+def approval_request(request, pk, code):
+    """Na fila: "Pedir decisão às sócias" (manter ou encerrar). Quem pede é quem edita o criador."""
+    from . import panel
+
+    c = _creator(request, pk)
+    _require_edit(request, c)
+    ap, created = panel.request_decision(c, request.user, code, request.POST.get("reason", ""), request.POST.get("note", "").strip())
+    when = timezone.localtime(ap.requested_at)
+    msg = "Pedido enviado às sócias." if created else f"Já existe um pedido de {when:%d/%m} esperando as sócias."
+    if request.headers.get("HX-Request"):
+        return HttpResponse(f'<span class="pill gold">🗳️ {msg}</span>')
+    messages.success(request, msg)
+    return redirect("g_creator", c.pk)
 
 
 @staff_required(Role.ADMIN)

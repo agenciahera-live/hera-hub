@@ -8,6 +8,8 @@ Situação em 18/11/2026: MVP construído; passos 1 a 3 da visão feitos em 11/1
 >
 > **18/11/2026: parte C, passos 1 a 5 feitos.** Primeira gestora cadastrada e entrou; outubro completo e novembro (1 a 17) importados sem erro; carteiras divididas; 5 criadores conferidos contra o Backstage. Falta: rotina de importação diária combinada com a equipe; conferir em 19/11 se o serviço `rotina-diaria` rodou às 6h.
 
+> **19/11/2026: publicada a etapa 3** (passos 3.3 a 3.7, commit `0e4435e`). Deploy no Railway com sucesso; as 13 migrações rodaram sem erro (de `core.0012` a `web.0009`). O serviço `rotina-diaria` mostra "Last run succeeded" e a leitura automática do Backstage chegou às 12h30. O Dashboard de produção abriu com o menu novo "Teste do app". Ninguém recebeu código de acesso; a trava do teste está desligada até as sócias configurarem o teste. Avisos do `check --deploy` que já existiam e não impedem o app de ligar: HSTS e redirecionamento para HTTPS (o Railway já serve por HTTPS).
+
 > ⚠️ **Os logins de demonstração (`@hera.demo` e `@semana.demo`, senha `hera-demo-2026`) não podem existir em produção.** Detalhes na seção 0, "Logins de demonstração não podem existir em produção".
 
 ## 0. Plano atual (visão final de 14/11/2026)
@@ -21,7 +23,7 @@ A especificação é `docs/hera-app-visao.md`. A versão de 11/11 foi arquivada 
 | 1. Mapear o app atual | ✅ 14/11 (resultado resumido abaixo) |
 | 2. Base e fila do dia | Em andamento: passos 1 a 3 de 11/11 feitos; correções e decisões de 14/11 feitas; passos 2.1 a 2.7 feitos (aguardando aprovação) |
 | 3. App do criador (Meu progresso como tela inicial, página educacional, pedir batalha, campanha do momento; teste com ~10 criadores) | Em andamento desde 15/11: passos 3.1 e 3.2 feitos (plano dos passos abaixo, em "Etapa 3") |
-| 4. Gestão completa (batalhas com agenda, campanhas com aprovação, 1:1 com template novo, premiações, Indique e ganhe, painel das sócias) | A fazer |
+| 4. Gestão completa (batalhas com agenda, campanhas com aprovação, 1:1 com template novo, premiações, Indique e ganhe, painel das sócias) | Em andamento desde 19/11: passo 4.1 feito (plano dos passos abaixo, em "Etapa 4") |
 | 5. Crescimento do criador (conquistas, marco da 1ª LIVE, calculadora "Onde posso chegar", cursos extras, IA nos rascunhos) | A fazer |
 | 6. Login para as gestoras de Lunow e Impulse | A fazer |
 
@@ -542,6 +544,79 @@ Decisões da Mariana de 19/11: **5 criadores**, escolhidos por ela depois; os **
 | A mensagem de convite ficou no roteiro, não na biblioteca de mensagens | Regra do projeto: texto novo de mensagem só entra com a aprovação da Mariana (pergunta 1 do roteiro) |
 
 **Falta (fora do app):** publicar esta versão; cadastrar os vídeos (pelo menos os módulos 1 a 3); a Mariana escolher os 5 e revisar o roteiro.
+
+### Etapa 4: gestão completa (plano dos passos)
+
+Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em paralelo ao teste da etapa 3 (que ainda não começou).
+
+| Passo | O que entra | Situação |
+| --- | --- | --- |
+| 4.1 Painel das sócias | Números da visão, lista de aprovações (manter ou encerrar), sorteio semanal de 5 "Enviei" | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
+| 4.2 1:1 com o modelo novo | Canal e quem conduziu, bloco 1 automático, anotações, print, aviso de 30 dias, frequência mensal (Diamante e potencial) | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
+| 4.3 Itens do mês na fila | Resumo do mês, "Quase lá", nível novo, módulo concluído, sinais de risco dos Diamante | A fazer |
+| 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | A fazer |
+| 4.5 Campanhas | 3 listas, acompanhamento na fila, aprovação das campanhas da agência | A fazer (decisão: a gestora vê a posição do criador na campanha?) |
+| 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
+| 4.7 Indique e ganhe | Link, indicações, quanto ganhou | A fazer (depende do regulamento) |
+
+### Passo 4.1, o que mudou (Painel das sócias)
+
+Decisões da Mariana de 19/11: **bônus, receita e a simulação de compra de moedas ficam fora do app** (as colunas de bônus da Task continuam ignoradas); **sorteio de 5 "Enviei" por semana no total, espalhados entre as gestoras**.
+
+**Gestão › 👑 Painel das sócias** (`/gestao/painel/`, só Admin; regras em `web/panel.py`), nesta ordem:
+- **Aprovações:** pedidos esperando, com "Manter" e "Encerrar" e uma observação; as últimas decisões. A decisão vai para a linha do tempo da ficha e a gestora recebe aviso.
+- **Resultado do mês:** conta inteira, só a Hera e cada grupo parceiro: criadores, quem fez LIVE, diamantes do mês, comparação com o mesmo ponto do mês passado, projeção do fechamento e o mês passado.
+- **Execução da gestão (últimos 7 dias), por gestora:** fila concluída (com a referência de 90%), mediana de dias até o 1º "Enviei" para o novato, Enviei e Respondeu da semana, 1:1 do mês com Diamante e potencial de graduação (e quem falta), dias sem trabalhar no mês.
+- **Sorteio da semana:** 5 "Enviei" da semana anterior; "Conferi: estava lá" ou "Não encontrei", com observação; resumo das semanas anteriores.
+- **Funil do onboarding** por mês de entrada (6 meses), **Retenção** (90 dias: saída nos 15 primeiros dias com a faixa de 10% e 20%, encerramentos decididos pelas sócias, motivos de saída), **Graduação** (bateram a marca, no ritmo, precisam acelerar, último mês da janela), **Base por nível** (grupos e quem subiu ou desceu de Tier), **Hera Academy** (quem assistiu a cada módulo; novatos que viram o 1º módulo antes da 1ª LIVE), **Batalhas** (por semana, com a faixa de 6 e 3; batalhas oficiais do mês), **Recrutamento** (por recrutadora: entraram, fecharam os 14 dias, saíram nos 15 primeiros dias, graduaram) e o espaço de **Premiações e indicações** (passos 4.6 e 4.7).
+
+**Na fila do dia:** os itens de encerramento (até o D14, D15 e o último passo da régua sem LIVE) ganharam **"Pedir decisão às sócias"**, com observação. Depois do pedido, o item mostra "aguardando as sócias". Um pedido em aberto por criador. As sócias recebem aviso no sininho.
+
+**Rotina das 6h:** tira o retrato da fila de cada gestora (`QueueDay`, só os criadores com mensagem) e, na segunda, faz o sorteio. O painel também sorteia ao abrir, se o da semana ainda não existir.
+
+**Segurança:** `crm_approvalrequest` (a gestão que vê o criador lê o pedido; quem edita o criador pede; só as sócias decidem e apagam; o criador nunca lê), `crm_sentcheck` e `crm_queueday` (só as sócias e a rotina). Migração `web/0010_rls_painel_das_socias.py`.
+
+**Como testar:** `tests/test_painel.py` (10 testes). No computador da Hera, entre como `admin@hera.demo` → Painel das sócias.
+
+**Conferência (19/11):** 269 testes passando e 1 pulado (o mesmo de antes), já com a correção das batalhas. Aberto no Chrome com o banco local: o painel carregou em cerca de 5 segundos com 442 criadores. Duas correções feitas na conferência: o título do sorteio (agora "de 09/11 a 15/11") e as batalhas por semana. Elas pegavam semanas antigas e uma semana inflada quando o mês inteiro chegava numa importação só; agora entram só as 4 últimas semanas com leitura diária.
+
+**Decisões pequenas do 4.1:**
+
+| Decisão | Motivo |
+| --- | --- |
+| Fila concluída = mensagens da fila das 6h com "Enviei" ou "Adiar" no mesmo dia | "O dado mudou" (o criador abriu LIVE) não dá para medir no mesmo dia; os dias de ausência da gestora não entram |
+| O retrato da fila guarda só os IDs dos criadores com mensagem | O necessário para a conta; o texto e o motivo continuam só na fila |
+| Sorteio: uma gestora de cada vez, em ordem aleatória, até 5 | Decisão da Mariana: 5 no total, espalhados entre as gestoras |
+| Projeção do fechamento = diamantes até ontem ÷ dias passados × dias do mês | A mesma conta do ritmo; diz "estimativa, não é garantia" |
+| "Ficou depois do D15" conta só quem já passou do 15º dia | Quem ainda está nos 15 dias não pode contar como saída nem como permanência |
+| Batalhas por semana só com semanas de leitura diária | Leitura que cobre mais de uma semana jogaria tudo numa semana só |
+| O Relatórios continua para as gestoras | Cada gestora vê a própria carteira lá; o painel é das sócias |
+
+### Passo 4.2, o que mudou (1:1 com o modelo novo)
+
+Decisão da Mariana de 19/11: **o print não é enviado ao app.** A gestora guarda o print no drive dela e só marca no app "Guardei o print da conversa no meu drive". Assim não há armazenamento de arquivos nem custo novo.
+
+**Registro do 1:1 (ficha › aba 1:1):** data, **canal** (ligação, vídeo, áudio ou mensagem), **quem conduziu** (vem quem registra; dá para trocar por outra gestora ou sócia), **bloco 1 preenchido pelo sistema** (diamantes, horas, dias válidos e batalhas até ontem; o mesmo ponto do mês passado, quando há leitura daquele dia; o mês passado fechado com o Tier), blocos 2 a 5, plano com quem faz e até quando, próximo 1:1, **anotações** e a marca do print. A média de espectadores fica de fora: só existe na leitura detalhada por criador, que ainda não chega. O texto antigo do bloco 1 falava em "% da meta" e saiu.
+
+**Completo = canal, blocos 1 a 5, pelo menos 2 ações, próximo 1:1 marcado e o print guardado** (`OneOnOne.missing`). Ao salvar, a tela diz o que falta. O histórico mostra o canal, quem conduziu, o print, as anotações e o que falta.
+
+**Tela nova Gestão › 🤝 1:1** (`/gestao/1a1/`, a carteira de quem vê; regras em `crm/one_on_one.py`): quem precisa de 1:1 todo mês (grupo Diamante e potencial de graduação), com o último 1:1 completo, o próximo marcado e a situação (em dia, passou de 30 dias, nunca teve 1:1 completo); os próximos marcados; os atrasados.
+
+**Fila do dia:** item novo "1:1 do mês" (bloco 2, tarefa) para Diamante e potencial de graduação sem 1:1 completo há 30 dias ou mais e sem 1:1 marcado. O "1:1 atrasado" continua. O painel das sócias passou a contar só 1:1 completo.
+
+**Como testar:** `tests/test_um_a_um.py` (7 testes). No computador da Hera, entre como `gestora1@hera.demo` → 🤝 1:1 e abra um criador.
+
+**Conferência (19/11):** 276 testes passando e 1 pulado (o mesmo de antes). A agenda e o formulário foram abertos no Chrome com o banco local. Um teste antigo (`test_views`) foi atualizado para o modelo novo (canal, 2 ações e print).
+
+**Decisões pequenas do 4.2:**
+
+| Decisão | Motivo |
+| --- | --- |
+| Pelo menos 2 ações para o 1:1 contar | A visão pede "plano com 2 a 3 ações" |
+| "No mesmo ponto do mês passado" só aparece com a leitura daquele dia do mês passado | É fato, não estimativa; com a leitura diária, passa a aparecer sempre a partir do mês seguinte |
+| O "1:1 do mês" não entra para quem já tem 1:1 marcado | Já está combinado; se a data passar, entra o "1:1 atrasado" |
+| Quem conduziu pode ser uma gestora ou uma sócia ativa | Às vezes a sócia conduz o 1:1 de um criador Diamante |
+| O 1:1 continua só na gestão | Visão: o registro não aparece no app do criador |
 
 ### ⚠️ Logins de demonstração não podem existir em produção
 

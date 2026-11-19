@@ -25,6 +25,15 @@ def pct(v, digits=0):
 
 
 @register.filter
+def div(v, d):
+    """v ÷ d (para porcentagens na tela); — quando não dá para dividir."""
+    try:
+        return float(v) / float(d) if float(d) else None
+    except (TypeError, ValueError):
+        return None
+
+
+@register.filter
 def signed_pct(v):
     try:
         f = float(v) * 100

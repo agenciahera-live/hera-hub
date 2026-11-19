@@ -11,6 +11,13 @@
       <button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' i.creator.pk i.template %}" hx-include="#{{ p }}t{{ n }}" hx-target="#{{ p }}a{{ n }}" hx-swap="innerHTML">Enviei</button>
     </span>{% endif %}
     <a class="btn btn-sm" href="{% url 'g_creator' i.creator.pk %}">Ficha</a>
+    {% if i.asks_partners %}{% if i.approval %}<span class="pill gold" title="Pedido em {{ i.approval.requested_at|date:'d/m' }}">🗳️ aguardando as sócias</span>
+      {% elif can_defer %}<details style="display:inline-block;vertical-align:top"><summary class="btn btn-sm btn-purple">Pedir decisão às sócias</summary>
+      <form hx-post="{% url 'g_approval_request' i.creator.pk i.code %}" hx-swap="outerHTML" style="white-space:normal;margin-top:6px">
+        <input type="hidden" name="reason" value="{{ i.title }}">
+        <textarea name="note" placeholder="O que as sócias precisam saber (opcional)" maxlength="2000" style="min-height:60px"></textarea>
+        <button class="btn btn-sm btn-purple" style="margin-top:4px">Enviar o pedido</button>
+      </form></details>{% endif %}{% endif %}
     {% if can_defer %}<details style="display:inline-block;vertical-align:top"><summary class="btn btn-sm">Adiar</summary>
       <form hx-post="{% url 'g_dismiss' i.creator.pk i.code %}" hx-target="#{{ p }}{{ n }}" hx-swap="outerHTML" style="white-space:normal;margin-top:6px">
         <input type="text" name="reason" placeholder="Motivo (obrigatório)" required maxlength="240">

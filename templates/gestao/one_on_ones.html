@@ -1,0 +1,37 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}1:1 · Hera{% endblock %}
+{% block content %}
+<h1>1:1</h1>
+<p><small>Agenda de 1:1 da sua carteira. Criadores Diamante e quem tem potencial de graduação têm 1:1 todo mês. Sem registro completo, o 1:1 não conta: canal, blocos 1 a 5, pelo menos 2 ações, próximo 1:1 marcado e o print guardado no seu drive. O registro fica só na gestão.</small></p>
+
+<section class="card">
+  <h2>1:1 todo mês <small>Diamante e potencial de graduação{% if pending %} · <span class="pill pink">{{ pending }} sem 1:1 completo nos últimos {{ days }} dias</span>{% endif %}</small></h2>
+  {% if monthly %}
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Criador</th><th>Por quê</th><th>Último 1:1 completo</th><th>Próximo marcado</th><th>Situação</th></tr></thead>
+    <tbody>{% for r in monthly %}
+    <tr>
+      <td><a href="{% url 'g_creator' r.c.pk %}?tab=1a1"><b>@{{ r.c.username }}</b></a></td>
+      <td><small>{{ r.reason }}</small></td>
+      <td>{% if r.last %}{{ r.last.date|date:"d/m/Y" }} <small class="muted">({{ r.days }} dia{{ r.days|pluralize }})</small>{% else %}<small class="muted">nenhum</small>{% endif %}
+        {% if r.latest and not r.latest.complete %}<br><small class="muted">último registro incompleto ({{ r.latest.date|date:"d/m" }}): falta {{ r.latest.missing|join:", " }}</small>{% endif %}</td>
+      <td>{% if r.next %}{{ r.next|date:"d/m/Y" }}{% else %}<small class="muted">—</small>{% endif %}</td>
+      <td>{% if r.status == "em_dia" %}<span class="pill cyan">em dia</span>{% elif r.status == "atrasado" %}<span class="pill pink">passou de {{ days }} dias</span>{% else %}<span class="pill gold">nunca teve 1:1 completo</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty">Ninguém da carteira é Diamante ou tem potencial de graduação agora.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Próximos 1:1 marcados</h2>
+  <ul class="list">{% for r in scheduled %}
+    <li class="row between"><span><a href="{% url 'g_creator' r.c.pk %}?tab=1a1"><b>@{{ r.c.username }}</b></a>{% if r.reason %} <small class="muted">· {{ r.reason }}</small>{% endif %}</span><span class="num">{{ r.next|date:"d/m/Y" }}</span></li>
+  {% empty %}<li class="empty">Nenhum 1:1 marcado.</li>{% endfor %}</ul>
+</section>
+
+<section class="card">
+  <h2>Atrasados <small>a data marcada passou e não houve outro registro</small></h2>
+  <ul class="list">{% for r in late %}
+    <li class="row between"><span><a href="{% url 'g_creator' r.c.pk %}?tab=1a1"><b>@{{ r.c.username }}</b></a>{% if r.reason %} <small class="muted">· {{ r.reason }}</small>{% endif %}</span><span class="num">marcado para {{ r.next|date:"d/m/Y" }}</span></li>
+  {% empty %}<li class="empty">Nenhum atrasado.</li>{% endfor %}</ul>
+</section>
+{% endblock %}

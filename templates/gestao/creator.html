@@ -210,28 +210,37 @@
 {% if can_edit %}
 <form method="post" action="{% url 'g_1a1' c.pk %}" class="card">{% csrf_token %}
   <h2>Registrar 1:1</h2>
-  <label>Data</label><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" style="max-width:200px">
-  <label>1. Performance da semana/mês</label><textarea name="b1">{{ b1_default }}</textarea>
+  <div class="row" style="gap:12px;flex-wrap:wrap">
+    <div><label>Data</label><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" style="max-width:200px"></div>
+    <div><label>Canal</label><select name="channel" required><option value="">Escolha</option>{% for v, l in channels %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div><label>Quem conduziu</label><select name="conducted_by">{% for u in conductors %}<option value="{{ u.pk }}" {% if u.pk == request.user.pk %}selected{% endif %}>{{ u.get_full_name|default:u.email }}</option>{% endfor %}</select></div>
+  </div>
+  <label>1. Performance <small class="muted">(preenchido pelo sistema; a média de espectadores ainda não chega na leitura)</small></label><textarea name="b1">{{ b1_default }}</textarea>
   <label>2. Constância e agenda</label><textarea name="b2" placeholder="Dias que fez LIVE, falhas, atrasos"></textarea>
   <label>3. Qualidade de conteúdo</label><textarea name="b3" placeholder="Cenário, áudio, interação, retenção"></textarea>
   <label>4. Monetização</label><textarea name="b4" placeholder="Presentes, metas, campanhas ativas"></textarea>
   <label>5. Dificuldades do creator</label><textarea name="b5" placeholder="Técnicas, emocionais, agenda, burnout. Ouvir antes de sugerir."></textarea>
-  <label>6. Plano de ação (2–3 ações, responsável e prazo)</label>
-  {% for i in "123" %}<div class="row" style="gap:6px;margin-bottom:6px;flex-wrap:wrap"><input type="text" name="action{{ i }}" placeholder="Ação {{ i }}" style="flex:3;min-width:200px"><input type="text" name="owner{{ i }}" placeholder="Responsável" style="flex:1;min-width:120px"><input type="date" name="due{{ i }}" style="flex:1;min-width:140px"></div>{% endfor %}
+  <label>6. Plano de ação (2 a 3 ações, quem faz e até quando)</label>
+  {% for i in "123" %}<div class="row" style="gap:6px;margin-bottom:6px;flex-wrap:wrap"><input type="text" name="action{{ i }}" placeholder="Ação {{ i }}" style="flex:3;min-width:200px"><input type="text" name="owner{{ i }}" placeholder="Quem faz" style="flex:1;min-width:120px"><input type="date" name="due{{ i }}" style="flex:1;min-width:140px"></div>{% endfor %}
   <label>7. Próximo 1:1</label><input type="date" name="b7" style="max-width:200px">
+  <label>Anotações</label><textarea name="notes" placeholder="O que foi falado e não coube nos blocos"></textarea>
+  <label class="check" style="margin-top:10px"><input type="checkbox" name="print_saved"> Guardei o print da conversa (ou da tela da chamada) no meu drive</label>
   {% if prev_actions %}<label>Plano anterior (marque o que foi feito)</label>{% for a in prev_actions %}<label class="check"><input type="checkbox" name="prev_done" value="{{ a.pk }}" {% if a.done %}checked{% endif %}> {{ a.action }} <small>({{ a.owner }}, {{ a.due_date|date:"d/m" }})</small></label>{% endfor %}{% endif %}
   <label class="check"><input type="checkbox" name="reviewed"> Revisei o plano de ação da reunião anterior</label>
   <button class="btn btn-primary" style="margin-top:12px">Salvar 1:1</button>
+  <p style="margin-top:8px"><small>Sem registro completo, o 1:1 não conta: canal, blocos 1 a 5, pelo menos 2 ações, próximo 1:1 marcado e o print guardado. O print não é enviado ao app.</small></p>
 </form>
 {% endif %}
 </div>
 <div>
   <section class="card"><h2>Histórico de 1:1</h2>
   {% for o in items %}
-    <details style="padding:8px 0;border-top:1px solid var(--border)"><summary>{{ o.date|date:"d/m/Y" }} · Tier {{ o.tier_at|default:"—" }} {% if o.complete %}<span class="pill cyan">completo</span>{% else %}<span class="pill pink">incompleto</span>{% endif %}</summary>
+    <details style="padding:8px 0;border-top:1px solid var(--border)"><summary>{{ o.date|date:"d/m/Y" }} · {{ o.get_channel_display|default:"canal não informado" }} · Tier {{ o.tier_at|default:"—" }} {% if o.complete %}<span class="pill cyan">completo</span>{% else %}<span class="pill pink">incompleto</span>{% endif %}</summary>
+      <p><small>Conduziu: {{ o.conductor.get_full_name|default:o.conductor.email|default:"—" }} · {% if o.print_saved %}✅ print guardado no drive{% else %}⬜ print não guardado{% endif %}{% if not o.complete %} · falta: {{ o.missing|join:", " }}{% endif %}</small></p>
       <p><b>1.</b> {{ o.b1_performance }}</p><p><b>2.</b> {{ o.b2_constancia }}</p><p><b>3.</b> {{ o.b3_qualidade }}</p><p><b>4.</b> {{ o.b4_monetizacao }}</p><p><b>5.</b> {{ o.b5_dificuldades }}</p>
       <p><b>6.</b></p><ul>{% for a in o.actions.all %}<li>{% if a.done %}✅{% else %}⬜{% endif %} {{ a.action }} · {{ a.owner }} · {{ a.due_date|date:"d/m" }}</li>{% endfor %}</ul>
       <p><b>7.</b> Próximo: {{ o.b7_next_date|date:"d/m/Y"|default:"—" }}</p>
+      {% if o.notes %}<p><b>Anotações:</b> {{ o.notes|linebreaksbr }}</p>{% endif %}
     </details>
   {% empty %}<p class="empty">Nenhum 1:1 registrado.</p>{% endfor %}
   </section>

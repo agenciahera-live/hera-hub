@@ -74,6 +74,10 @@ def timeline(creator, limit=60):
         nxt = moves[n + 1] if n + 1 < len(moves) else None
         if x.valid_to and (nxt is None or nxt.valid_from > x.valid_to):
             out.append(Entry(x.valid_to, "🗂️", "Carteira: sem gestora", f"Saiu da carteira de {_name(x.manager)}."))
+    for x in creator.approvals.select_related("requested_by", "decided_by")[:limit]:  # pedidos de decisão às sócias (passo 4.1)
+        out.append(Entry(x.requested_at, "🗳️", f"Pedido às sócias: {x.get_kind_display().lower()}", x.note or x.reason, x.requested_by))
+        if x.decided_at:
+            out.append(Entry(x.decided_at, "🗳️", f"Decisão das sócias: {x.decision_label}", x.decision_note, x.decided_by))
     for x in creator.access_codes.select_related("created_by")[:limit]:
         out.append(Entry(x.created_at, "🔑", "Código de acesso ao app gerado", "", x.created_by))
         if x.used_at:

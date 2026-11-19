@@ -1,0 +1,163 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Painel das sócias · Hera{% endblock %}
+{% block content %}
+<h1>Painel das sócias</h1>
+<p><small>Se o método está sendo aplicado e se está dando resultado, sem ninguém montar nada. Os números saem de "Dados do criador" (dados até ontem). Só as sócias veem esta tela. Bônus, receita e compra de moedas ficam fora do app (decisão de 19/11).</small></p>
+
+{# ------------------------------------------------------------ aprovações #}
+<section class="card" id="aprovacoes">
+  <h2>Aprovações {% if approvals %}<span class="pill pink">{{ approvals|length }} esperando</span>{% endif %}</h2>
+  {% if approvals %}
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Pedido</th><th>Quem pediu</th><th>Decisão</th></tr></thead>
+    <tbody>{% for ap in approvals %}
+    <tr>
+      <td><b>{{ ap.get_kind_display }}</b>{% if ap.creator %}: <a href="{% url 'g_creator' ap.creator.pk %}">@{{ ap.creator.username }}</a>{% endif %}
+        {% if ap.reason %}<br><small>{{ ap.reason }}</small>{% endif %}{% if ap.note %}<br><small class="muted">“{{ ap.note }}”</small>{% endif %}</td>
+      <td><small>{{ ap.requested_by.get_full_name|default:ap.requested_by.email|default:"—" }}<br>{{ ap.requested_at|sp:"%d/%m às %H:%M" }}</small></td>
+      <td><form method="post" class="row" style="gap:6px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="a" value="decide"><input type="hidden" name="approval" value="{{ ap.pk }}">
+        <input type="text" name="note" placeholder="Observação (opcional)" maxlength="2000" style="min-width:180px;flex:1">
+        {% for value, label in decisions|get:ap.kind %}<button class="btn btn-sm {% if value == 'encerrar' %}{% else %}btn-purple{% endif %}" name="decision" value="{{ value }}">{{ label }}</button>{% endfor %}
+      </form></td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty">Nenhum pedido esperando.</p>{% endif %}
+  <p><small>A gestora pede pela fila do dia, nos itens de encerramento (até o D14, D15 e 30 dias sem LIVE). Qualquer uma das sócias decide; a decisão vai para a linha do tempo da ficha e a gestora é avisada. Campanha nova e premiação entram nesta lista nos passos 4.5 e 4.6.</small></p>
+  {% if decided %}<details><summary><small>Últimas decisões</small></summary><ul class="list">{% for ap in decided %}
+    <li><small><b>{{ ap.decision_label }}</b> · {% if ap.creator %}@{{ ap.creator.username }}{% else %}{{ ap.get_kind_display }}{% endif %} · {{ ap.decided_at|sp:"%d/%m" }} por {{ ap.decided_by.first_name|default:ap.decided_by.email }}{% if ap.decision_note %} · “{{ ap.decision_note }}”{% endif %}</small></li>{% endfor %}</ul></details>{% endif %}
+</section>
+
+{# ------------------------------------------------------------ resultado do mês #}
+<section class="card">
+  <h2>Resultado do mês <small>dados até {{ results.0.end_ref|date:"d/m"|default:"—" }}</small></h2>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th></th><th>Criadores</th><th>Fizeram LIVE no mês</th><th>Diamantes no mês</th><th>vs. mesmo ponto do mês passado</th><th>Projeção do fechamento</th><th>Mês passado</th></tr></thead>
+    <tbody>{% for b in results %}
+    <tr><td><b>{{ b.name }}</b></td><td class="num">{{ b.n }}</td><td class="num">{{ b.with_live }}</td><td class="num">{{ b.diamonds|intbr }}</td>
+      <td>{% if b.change is not None %}<b class="{% if b.change >= 0 %}up{% else %}down{% endif %}">{{ b.change|signed_pct }}</b>{% else %}—{% endif %}</td>
+      <td class="num">{% if b.forecast %}{{ b.forecast|intbr }}{% else %}—{% endif %}</td><td class="num">{{ b.last_total|intbr }}</td></tr>{% endfor %}</tbody></table></div>
+  <p><small>A projeção é o ritmo do mês até ontem levado até o último dia. Estimativa, não é garantia.</small></p>
+</section>
+
+{# ------------------------------------------------------------ execução da gestão #}
+<section class="card">
+  <h2>Execução da gestão <small>últimos 7 dias</small></h2>
+  {% if execution %}
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Gestora</th><th>Fila concluída</th><th>1º contato com o novato</th><th>Enviei / Respondeu</th><th>1:1 no mês</th><th>Dias sem trabalhar no mês</th></tr></thead>
+    <tbody>{% for r in execution %}
+    <tr>
+      <td><b>{{ r.name }}</b><br><small>{{ r.n }} criador{{ r.n|pluralize:"es" }}</small></td>
+      <td>{% if r.queue_pct is not None %}<span class="pill {% if r.queue_band == 'bom' %}cyan{% elif r.queue_band == 'ruim' %}pink{% else %}gold{% endif %}">{{ r.queue_pct|pct }}</span>
+          <br><small>{{ r.queue_done }} de {{ r.queue_total }} mensagens em {{ r.queue_days }} dia{{ r.queue_days|pluralize }}{% if r.overflow %} · {{ r.overflow }} acima do teto{% endif %}</small>
+          {% else %}<small class="muted">sem retrato da fila ainda</small>{% endif %}</td>
+      <td>{% if r.first_contact_days is not None %}{{ r.first_contact_days|floatformat:1 }} dia{{ r.first_contact_days|pluralize }}<br><small>mediana de {{ r.newcomers }} novato{{ r.newcomers|pluralize }} (30 dias)</small>{% else %}<small class="muted">sem novato com contato</small>{% endif %}</td>
+      <td class="num">{{ r.sent_week }} / {{ r.replies_week }}</td>
+      <td>{{ r.one_on_one_done }} de {{ r.one_on_one_need }}{% if r.one_on_one_missing %}<br><small class="muted">faltam: {% for u in r.one_on_one_missing|slice:":6" %}@{{ u }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if r.one_on_one_missing|length > 6 %}…{% endif %}</small>{% endif %}</td>
+      <td>{% if r.skipped %}{{ r.skipped|length }}<br><small>{% for d in r.skipped %}{{ d|date:"d/m" }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>{% else %}<small class="muted">nenhum</small>{% endif %}</td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty">Nenhuma gestora ativa.</p>{% endif %}
+  <p><small><b>Fila concluída:</b> das mensagens que estavam na fila de manhã (retrato das 6h), quantas tiveram “Enviei” ou “Adiar” no mesmo dia; referência da visão: acima de 90%. Dias de ausência não entram na conta. <b>1:1:</b> criadores Diamante e com potencial de graduação, que têm 1:1 todo mês.</small></p>
+</section>
+
+{# ------------------------------------------------------------ sorteio #}
+<section class="card" id="sorteio">
+  <h2>Sorteio da semana <small>5 “Enviei” de {{ draw_from|date:"d/m" }} a {{ draw_to|date:"d/m" }}</small></h2>
+  {% if draw %}
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Criador</th><th>Enviei</th><th>Mensagem</th><th>Conferência</th></tr></thead>
+    <tbody>{% for sc in draw %}
+    <tr>
+      <td><a href="{% url 'g_creator' sc.contact.creator.pk %}"><b>@{{ sc.contact.creator.username }}</b></a></td>
+      <td><small>{{ sc.manager.get_full_name|default:sc.manager.email|default:"—" }}<br>{{ sc.contact.sent_at|sp:"%d/%m às %H:%M" }}</small></td>
+      <td><small>{{ sc.contact.template_code|default:"mensagem livre" }}</small>{% if sc.contact.body %}<details><summary><small>ver texto</small></summary><pre class="msg">{{ sc.contact.body }}</pre></details>{% endif %}</td>
+      <td>{% if sc.result %}<span class="pill {% if sc.result == 'estava' %}cyan{% else %}pink{% endif %}">{{ sc.get_result_display }}</span><br><small>{{ sc.checked_by.first_name|default:sc.checked_by.email }} · {{ sc.checked_at|sp:"%d/%m" }}{% if sc.note %} · {{ sc.note }}{% endif %}</small>
+        {% else %}<form method="post" class="row" style="gap:6px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="a" value="check"><input type="hidden" name="check" value="{{ sc.pk }}">
+          <input type="text" name="note" placeholder="Observação (opcional)" maxlength="240" style="min-width:140px;flex:1">
+          {% for value, label in results_choices %}<button class="btn btn-sm{% if value == 'estava' %} btn-purple{% endif %}" name="result" value="{{ value }}">{{ label }}</button>{% endfor %}
+        </form>{% endif %}</td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty">Nenhum “Enviei” na semana passada para sortear.</p>{% endif %}
+  <p><small>Toda segunda o painel sorteia 5 envios da semana anterior, espalhados entre as gestoras. Abra o grupo individual do criador e confira se a mensagem está lá.</small></p>
+  {% if draw_history|length > 1 %}<p><small>Semanas anteriores: {% for h in draw_history|slice:"1:" %}{{ h.week|date:"d/m" }}: {{ h.found }} de {{ h.n }} conferidos{% if h.missing %}, {{ h.missing }} não encontrado{{ h.missing|pluralize }}{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</small></p>{% endif %}
+</section>
+
+{# ------------------------------------------------------------ funil e retenção #}
+<section class="card">
+  <h2>Funil do onboarding <small>por mês de entrada</small></h2>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Entrada</th><th>Entrou</th><th>Fez a 1ª LIVE</th><th>Fechou 5 dias e 15h</th><th>Ficou depois do D15</th><th>Graduou</th></tr></thead>
+    <tbody>{% for r in funnel %}
+    <tr><td><b>{{ r.month|date:"M/y"|lower }}</b></td><td class="num">{{ r.joined }}</td>
+      <td class="num">{{ r.first_live }}{% if r.joined %} <small class="muted">({{ r.first_live|div:r.joined|pct }})</small>{% endif %}</td>
+      <td class="num">{{ r.rule }}{% if r.joined %} <small class="muted">({{ r.rule|div:r.joined|pct }})</small>{% endif %}</td>
+      <td class="num">{% if r.past15 %}{{ r.stayed }} de {{ r.past15 }} <small class="muted">({{ r.stayed_pct|pct }})</small>{% else %}<small class="muted">ainda no D15</small>{% endif %}</td>
+      <td class="num">{{ r.graduated }}</td></tr>{% endfor %}</tbody></table></div>
+  <p><small>“Ficou depois do D15” conta só quem já passou do 15º dia. Regra do TikTok nos primeiros 14 dias: 5 dias válidos e 15h.</small></p>
+</section>
+
+<section class="card">
+  <h2>Retenção <small>entradas dos últimos {{ retention.days }} dias</small></h2>
+  <p>Saída nos 15 primeiros dias: <b>{{ retention.early }}</b> de {{ retention.joined }}
+    {% if retention.early_pct is not None %}<span class="pill {% if retention.early_band == 'bom' %}cyan{% elif retention.early_band == 'ruim' %}pink{% else %}gold{% endif %}">{{ retention.early_pct|pct }}</span>{% endif %}
+    <small class="muted">(abaixo de 10% é bom, acima de 20% é ruim)</small></p>
+  <p>Encerrados com decisão das sócias: <b>{{ retention.closed_30 }}</b> por 30 dias sem LIVE · <b>{{ retention.closed_onboarding }}</b> no onboarding</p>
+  <p style="margin-bottom:4px"><b>Motivos de saída</b> <small class="muted">({{ retention.exits }} saída{{ retention.exits|pluralize }} no período)</small></p>
+  <ul class="list">{% for label, n in retention.reasons %}<li class="row between"><span>{{ label }}</span><span class="num">{{ n }}</span></li>{% empty %}<li class="empty">Nenhuma saída no período.</li>{% endfor %}</ul>
+</section>
+
+{# ------------------------------------------------------------ graduação e base #}
+<section class="card">
+  <h2>Graduação <small>{{ graduation.target|intbr }} 💎 em um mês, dentro da janela (regra do TikTok)</small></h2>
+  <p>{{ graduation.window }} criador{{ graduation.window|pluralize:"es" }} na janela ·
+    <b>{{ graduation.reached|length }}</b> bateram a marca no mês · <b>{{ graduation.on_pace|length }}</b> no ritmo · <b>{{ graduation.speed_up|length }}</b> precisam acelerar · <b>{{ graduation.last_month|length }}</b> no último mês da janela</p>
+  <div class="grid-2">
+    <div><p style="margin:0 0 4px"><b>Bateram a marca</b></p><ul class="list">{% for r in graduation.reached %}<li><small><a href="{% url 'g_creator' r.creator.pk %}">@{{ r.creator.username }}</a> · {{ r.diamonds|intbr }} 💎{% if r.status == 'conferir' %} · <span class="pill gold">conferir no Backstage</span>{% endif %}</small></li>{% empty %}<li class="empty">Ninguém ainda.</li>{% endfor %}</ul></div>
+    <div><p style="margin:0 0 4px"><b>Último mês da janela</b></p><ul class="list">{% for r in graduation.last_month %}<li><small><a href="{% url 'g_creator' r.creator.pk %}">@{{ r.creator.username }}</a> · {{ r.diamonds|intbr }} 💎 · {{ r.status_label }}</small></li>{% empty %}<li class="empty">Ninguém.</li>{% endfor %}</ul></div>
+  </div>
+  <p><small>O radar completo, criador por criador, está em 🚀 Graduação.</small></p>
+</section>
+
+<section class="card">
+  <h2>Base por nível <small>mês fechado: {{ base.month|date:"M/y"|lower }}</small></h2>
+  <div class="kpis">{% for g in base.groups %}<div class="kpi"><b class="num">{{ g.n }}</b><span>{{ g.name }} ({{ g.range }})</span></div>{% endfor %}</div>
+  <div class="grid-2" style="margin-top:10px">
+    <div><p style="margin:0 0 4px"><b>Subiram de Tier</b> <small class="muted">{{ base.up|length }}</small></p><ul class="list">{% for u, a, b in base.up|slice:":15" %}<li><small>@{{ u }} · T{{ a }} → T{{ b }}</small></li>{% empty %}<li class="empty">Ninguém.</li>{% endfor %}</ul></div>
+    <div><p style="margin:0 0 4px"><b>Desceram de Tier</b> <small class="muted">{{ base.down|length }}</small></p><ul class="list">{% for u, a, b in base.down|slice:":15" %}<li><small>@{{ u }} · T{{ a }} → T{{ b }}</small></li>{% empty %}<li class="empty">Ninguém.</li>{% endfor %}</ul></div>
+  </div>
+</section>
+
+{# ------------------------------------------------------------ Hera Academy, batalhas, recrutamento #}
+<section class="card">
+  <h2>Hera Academy <small>{{ academy.with_login }} criador{{ academy.with_login|pluralize:"es" }} com acesso ao app</small></h2>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Módulo</th><th>Aulas</th><th>Assistiram pelo menos uma</th><th>Assistiram todas</th></tr></thead>
+    <tbody>{% for m in academy.modules %}<tr><td>{{ m.title }}</td><td class="num">{{ m.lessons }}</td><td class="num">{{ m.watched }}</td><td class="num">{{ m.finished }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="empty">Nenhum módulo cadastrado. Cadastre em 🎓 Hera Academy.</td></tr>{% endfor %}</tbody></table></div>
+  {% if academy.first_module %}<p><small>Novatos (últimos 60 dias) que viram “{{ academy.first_module }}” antes da 1ª LIVE: <b>{{ academy.before_first_live }}</b> de {{ academy.newcomers_live }}.</small></p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Batalhas</h2>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Semana</th><th>Criadores com LIVE</th><th>Batalhas por criador</th><th>Com 6 ou mais</th><th>Com menos de 3</th></tr></thead>
+    <tbody>{% for w in battles.weeks %}<tr><td>{{ w.week|date:"d/m" }}</td><td class="num">{{ w.creators }}</td>
+      <td><span class="pill {% if w.band == 'bom' %}cyan{% elif w.band == 'ruim' %}pink{% else %}gold{% endif %}">{{ w.avg|floatformat:1 }}</span></td>
+      <td class="num">{{ w.good }}</td><td class="num">{{ w.bad }}</td></tr>
+    {% empty %}<tr><td colspan="5" class="empty">Sem dados de batalha nas últimas semanas.</td></tr>{% endfor %}</tbody></table></div>
+  <p><small>Referência: 6 ou mais por semana é bom, menos de 3 é ruim. Só entram as semanas com leitura diária: quando o mês chega numa importação só, não dá para separar as semanas. Batalhas oficiais neste mês: <b>{{ battles.official_confirmed }}</b> confirmada{{ battles.official_confirmed|pluralize }} · <b>{{ battles.official_done }}</b> já {{ battles.official_done|pluralize:"aconteceu,aconteceram" }} · <b>{{ battles.official_pending }}</b> pedido{{ battles.official_pending|pluralize }} esperando a gestão.</small></p>
+</section>
+
+<section class="card">
+  <h2>Recrutamento <small>entradas desde {{ recruitment.since|date:"M/y"|lower }}</small></h2>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Recrutadora</th><th>Entraram</th><th>Fecharam os 14 dias</th><th>Saíram nos 15 primeiros dias</th><th>Graduaram</th></tr></thead>
+    <tbody>{% for r in recruitment.rows %}<tr><td>{{ r.name }}</td><td class="num">{{ r.joined }}</td><td class="num">{{ r.rule }}</td><td class="num">{{ r.left15 }}</td><td class="num">{{ r.graduated }}</td></tr>
+    {% empty %}<tr><td colspan="5" class="empty">Nenhum criador com recrutadora registrada na ficha.</td></tr>{% endfor %}</tbody></table></div>
+  <p><small>Qualidade de quem entra, não só quantidade. A recrutadora vem do quadro Cadastro da ficha.</small></p>
+</section>
+
+<section class="card">
+  <h2>Premiações e indicações</h2>
+  <p class="empty">Entram nos passos 4.6 (premiações) e 4.7 (Indique e ganhe).</p>
+</section>
+{% endblock %}

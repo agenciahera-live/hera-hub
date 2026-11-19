@@ -7,7 +7,8 @@
 - conclui saídas cujo aviso prévio terminou;
 - anonimiza dados pessoais de quem saiu há mais tempo que o configurado (LGPD);
 - avisa as sócias (admin) e a gestão quando a importação diária está atrasada;
-- cria os lembretes que cada criador ligou no Meu plano (engage/plan.py).
+- cria os lembretes que cada criador ligou no Meu plano (engage/plan.py);
+- tira o retrato da fila de cada gestora e, na segunda, sorteia 5 "Enviei" para as sócias (web/panel.py).
 """
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -19,6 +20,7 @@ from data.engine import recalculate
 from engage import plan as plan_rules
 from engage.models import Announcement
 from engage.services import notify, publish_announcement
+from web import panel
 from web.services import data_freshness
 
 
@@ -81,6 +83,10 @@ class Command(BaseCommand):
                 recalculate(ag)
                 # Meu plano: os lembretes que cada criador ligou, no sininho do app (passo 3.6)
                 plan_rules.daily_reminders(ag, today)
+                # painel das sócias (passo 4.1): retrato da fila de cada gestora e, na segunda, o sorteio de 5 "Enviei"
+                panel.snapshot_queue(ag, today)
+                if today.weekday() == 0:
+                    panel.ensure_draw(ag, today)
                 fresh = data_freshness(ag)
                 if fresh is None or (timezone.now() - fresh).days >= st.stale_data_days:
                     for m in Membership.objects.filter(agency=ag, role__in=["admin", "gestora"], active=True):

@@ -47,6 +47,10 @@ Versões antigas da visão ficam em `docs/arquivo/` e **não valem mais**. A pas
 
 24. **Teste do app** (passo 3.7; tela `/gestao/teste-do-app/`, só Admin; regras em `web/app_test.py`). Quem participa = `Creator.app_tester`; datas e trava em `AgencySettings.app_test_*`. Com `app_test_only_testers` ligado, **só quem participa recebe código de acesso** (`crm/first_access.py:new_code`): não tire essa trava sem decisão da Mariana. O uso do app é registrado em `streamer_required` (`log_use`: um `app_open` e um `area:...` por área, por dia). A pesquisa do fim é `Survey.only_app_testers=True`, identificada.
 
+25. **Painel das sócias** (passo 4.1; `/gestao/painel/`, só Admin; regras em `web/panel.py`). Bônus, receita e compra de moedas **ficam fora do app** (decisão de 19/11/2026): não guarde as colunas de bônus da Task sem nova decisão. Pedido de decisão às sócias = `ApprovalRequest` (manter ou encerrar agora; campanha e premiação nos passos 4.5 e 4.6): a gestora pede pela fila (`QueueItem.asks_partners`, `PARTNER_DECISION_CODES`), só Admin decide (também no banco). Sorteio semanal = `SentCheck` (5 no total, uma gestora por vez); retrato da fila das 6h = `QueueDay`. Os dois só Admin e sistema.
+
+26. **1:1** (passo 4.2; regras em `crm/one_on_one.py`; agenda em `/gestao/1a1/`). **O print não é enviado ao app** (decisão de 19/11/2026): a gestora guarda no drive dela e marca `print_saved`; não crie upload de print sem nova decisão. Completo = canal, blocos 1 a 5, 2 ações ou mais, próximo 1:1 e `print_saved` (`OneOnOne.missing`); só 1:1 completo conta na fila e no painel. Quem precisa de 1:1 todo mês: `monthly_reason` (grupo Diamante ou potencial de graduação), usado pela agenda, pela fila (`1a1_mes`) e pelo painel.
+
 O verificador de tom fica em `engage/tom.py`: `verificar_tom` para as telas do criador (teste `tests/test_tom.py`) e `verificar_tom_mensagem` para as mensagens da gestão (teste `tests/test_biblioteca.py`).
 
 ## Regras que nunca podem ser quebradas

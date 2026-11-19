@@ -106,9 +106,11 @@ class ViewTests(TestCase):
 
     def test_one_on_one_with_7_blocks_and_action_plan(self):
         self.client.force_login(self.gx)
+        # modelo novo (passo 4.2): canal, pelo menos 2 ações e o print guardado no drive da gestora
         r = self.client.post(reverse("g_1a1", args=[self.a.pk]), {
-            "b1": "ok", "b2": "ok", "b3": "ok", "b4": "ok", "b5": "ok", "b7": "2026-10-10",
-            "action1": "2 batalhas no sábado", "owner1": "streamer", "due1": "2026-10-05"})
+            "channel": "ligacao", "b1": "ok", "b2": "ok", "b3": "ok", "b4": "ok", "b5": "ok", "b7": "2026-10-10",
+            "action1": "2 batalhas no sábado", "owner1": "streamer", "due1": "2026-10-05",
+            "action2": "Ver a aula de interação", "owner2": "streamer", "print_saved": "on"})
         self.assertEqual(r.status_code, 302)
         with system_context():
             o = OneOnOne.objects.get(creator=self.a)

@@ -6,10 +6,12 @@
     <nav aria-label="Gestão">
       <a href="{% url 'g_dashboard' %}" class="{% if nav == 'dash' %}on{% endif %}">📊 Dashboard</a>
       <a href="{% url 'g_creators' %}" class="{% if nav == 'creators' %}on{% endif %}">👥 Creators</a>
-      {% if 'admin' in hera_roles %}<a href="{% url 'g_portfolios' %}" class="{% if nav == 'port' %}on{% endif %}">🗂️ Carteiras</a>
+      {% if 'admin' in hera_roles %}<a href="{% url 'g_panel' %}" class="{% if nav == 'panel' %}on{% endif %}">👑 Painel das sócias</a>
+      <a href="{% url 'g_portfolios' %}" class="{% if nav == 'port' %}on{% endif %}">🗂️ Carteiras</a>
       <a href="{% url 'g_app_test' %}" class="{% if nav == 'teste' %}on{% endif %}">🧪 Teste do app</a>{% endif %}
       <a href="{% url 'g_onboarding' %}" class="{% if nav == 'onb' %}on{% endif %}">🌱 Onboarding</a>
       <a href="{% url 'g_graduation' %}" class="{% if nav == 'grad' %}on{% endif %}">🚀 Graduação</a>
+      <a href="{% url 'g_1a1_agenda' %}" class="{% if nav == '1a1' %}on{% endif %}">🤝 1:1</a>
       <a href="{% url 'g_campaigns' %}" class="{% if nav == 'camp' %}on{% endif %}">🏆 Campanhas</a>
       <a href="/gestao/admin/engage/course/">🎓 Hera Academy</a>
       <a href="{% url 'g_content' %}" class="{% if nav == 'content' %}on{% endif %}">📣 Conteúdos</a>

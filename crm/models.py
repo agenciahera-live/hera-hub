@@ -200,10 +200,20 @@ class Note(models.Model):
 
 
 class OneOnOne(models.Model):
-    """Registro de 1:1 com os 7 blocos do Playbook."""
+    """Registro de 1:1 com os 7 blocos do Playbook e o cabeçalho da visão (passo 4.2; regras em crm/one_on_one.py).
+
+    O print da conversa não é enviado ao app (decisão de 19/11/2026): a gestora guarda no drive dela e marca
+    `print_saved`. Sem registro completo, o 1:1 não conta."""
+
+    CHANNELS = [("ligacao", "Ligação"), ("video", "Vídeo"), ("audio", "Áudio"), ("mensagem", "Mensagem")]
+    MIN_ACTIONS = 2  # visão: plano com 2 a 3 ações
 
     creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="one_on_ones")
-    manager = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    manager = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)  # quem registrou
+    conducted_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="quem conduziu")
+    channel = models.CharField("canal", max_length=10, choices=CHANNELS, blank=True)
+    print_saved = models.BooleanField("guardei o print da conversa no meu drive", default=False)
+    notes = models.TextField("anotações", blank=True)
     date = models.DateField(default=timezone.localdate)
     tier_at = models.PositiveSmallIntegerField(null=True, blank=True)
     b1_performance = models.TextField("1. Performance da semana/mês", blank=True)
@@ -219,9 +229,29 @@ class OneOnOne(models.Model):
         ordering = ["-date", "-id"]
 
     @property
-    def complete(self):
+    def missing(self):
+        """O que falta para o 1:1 contar (vazio = completo)."""
+        out = []
+        if not self.channel:
+            out.append("canal")
+        names = ["1. Performance", "2. Constância", "3. Qualidade", "4. Monetização", "5. Dificuldades"]
         blocks = [self.b1_performance, self.b2_constancia, self.b3_qualidade, self.b4_monetizacao, self.b5_dificuldades]
-        return all(b.strip() for b in blocks) and self.b7_next_date is not None and self.actions.exists()
+        out += [n for n, b in zip(names, blocks) if not (b or "").strip()]
+        if len(self.actions.all()) < self.MIN_ACTIONS:
+            out.append(f"6. Plano ({self.MIN_ACTIONS} ações ou mais)")
+        if self.b7_next_date is None:
+            out.append("7. Próximo 1:1")
+        if not self.print_saved:
+            out.append("print guardado")
+        return out
+
+    @property
+    def complete(self):
+        return not self.missing
+
+    @property
+    def conductor(self):
+        return self.conducted_by or self.manager
 
 
 class ActionItem(models.Model):
@@ -459,3 +489,71 @@ class AlertDismissal(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     until = models.DateTimeField()
     by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+
+
+# ------------------------------------------------------------------ painel das sócias (etapa 4, passo 4.1)
+class ApprovalRequest(models.Model):
+    """Pedido de decisão às sócias (visão, princípio 9 e "As aprovações viram uma lista no painel").
+
+    Neste passo: manter ou encerrar um criador, pedido pela gestora a partir da fila. Campanha nova e premiação
+    entram nos passos 4.5 e 4.6 (por isso o criador pode ficar vazio). Só as sócias decidem; nada é apagado."""
+
+    KINDS = [("manter_encerrar", "Manter ou encerrar"), ("campanha", "Campanha nova"), ("premiacao", "Premiação")]
+    DECISIONS = {"manter_encerrar": [("manter", "Manter"), ("encerrar", "Encerrar")]}
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="approvals")
+    creator = models.ForeignKey(Creator, null=True, blank=True, on_delete=models.CASCADE, related_name="approvals")
+    kind = models.CharField(max_length=20, choices=KINDS, default="manter_encerrar")
+    reason = models.CharField("motivo (item da fila)", max_length=160, blank=True)
+    item_code = models.CharField(max_length=40, blank=True)
+    note = models.TextField("observação de quem pediu", blank=True)
+    requested_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    requested_at = models.DateTimeField(default=timezone.now)
+    decision = models.CharField(max_length=20, blank=True)
+    decision_note = models.TextField("observação da decisão", blank=True)
+    decided_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    @property
+    def pending(self):
+        return not self.decided_at
+
+    @property
+    def decision_label(self):
+        return dict(self.DECISIONS.get(self.kind, [])).get(self.decision, self.decision)
+
+
+class SentCheck(models.Model):
+    """Sorteio semanal de 5 "Enviei" para as sócias conferirem no grupo individual (visão, "Conferência por sorteio")."""
+
+    RESULTS = [("", "A conferir"), ("estava", "Conferi: estava lá"), ("nao_achei", "Não encontrei")]
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="sent_checks")
+    week = models.DateField("segunda da semana do sorteio")
+    contact = models.ForeignKey("Contact", on_delete=models.CASCADE, related_name="checks")
+    manager = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+", verbose_name="quem marcou Enviei")
+    result = models.CharField(max_length=12, choices=RESULTS, blank=True)
+    note = models.CharField(max_length=240, blank=True)
+    checked_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    checked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = [("week", "contact")]
+        ordering = ["week", "id"]
+
+
+class QueueDay(models.Model):
+    """Retrato da fila do dia de cada gestora, tirado pela rotina das 6h, para o painel medir a fila concluída.
+
+    Guarda só os criadores com mensagem na fila (o @ não sai daqui); concluir = "Enviei" ou "Adiar" no mesmo dia."""
+
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="queue_days")
+    manager = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    day = models.DateField()
+    creator_ids = models.JSONField(default=list)
+    items = models.PositiveIntegerField("itens na fila (mensagens e tarefas)", default=0)
+    overflow = models.PositiveIntegerField("mensagens acima do teto", default=0)
+
+    class Meta:
+        unique_together = [("agency", "manager", "day")]

@@ -139,6 +139,7 @@ ITEM_TYPES = {
     "visita": (2, "Sugestão de visita (até 3 por dia)"),
     "lembrete": (2, "Lembrete com data"),
     "1a1_atrasado": (2, "1:1 atrasado"),
+    "1a1_mes": (2, "1:1 do mês: Diamante e potencial de graduação sem 1:1 completo há 30 dias (passo 4.2)"),
     "plano_vencido": (2, "Plano de ação vencido"),
     "campanha": (2, "Acompanhamento de campanha: a construir (depende da leitura de campanhas)"),
     "rodada_batalhas": (2, "Rodada de batalhas oficiais do dia 8: a construir (módulo de batalhas)"),
@@ -172,6 +173,12 @@ URGENT_CODES = {
 }
 
 
+# Itens em que a decisão de manter ou encerrar é das sócias (visão, princípio 9). Na fila aparece o botão
+# "Pedir decisão às sócias", que leva o pedido para a lista de aprovações do painel. A régua dos 30 dias sem LIVE
+# é marcada onde o item nasce (o último passo da régua vem de Configurações).
+PARTNER_DECISION_CODES = {"onboarding_encerrar", "onboarding_encerrar15"}
+
+
 def item_kind(code):
     """Tipo do item pelo código ("regua_14" → "regua", "aniversario_30" → "aniversario")."""
     return code if code in ITEM_TYPES else code.rsplit("_", 1)[0]
@@ -190,11 +197,13 @@ class QueueItem:
     vars: dict = field(default_factory=dict)  # variáveis só deste item (ex.: nome da próxima aula)
     state: object = None  # estado da semana do criador, para dar contexto
     urgent: bool = False  # não pode esperar: na ausência da gestora, vai para quem cobre (ver URGENT_CODES)
+    asks_partners: bool = False  # manter ou encerrar: a gestora pede a decisão das sócias (passo 4.1, PARTNER_DECISION_CODES)
     block: int = field(init=False, default=2)  # vem de ITEM_TYPES, pelo código
 
     def __post_init__(self):
         self.block = ITEM_TYPES[item_kind(self.code)][0]
         self.urgent = self.urgent or self.code in URGENT_CODES
+        self.asks_partners = self.asks_partners or self.code in PARTNER_DECISION_CODES
 
     @property
     def is_message(self):
@@ -515,6 +524,13 @@ def _onboarding_items(ctx):
     return out
 
 
+def _monthly_1a1_items(ctx):
+    """1:1 do mês (passo 4.2): regra em crm/one_on_one.py."""
+    from crm.one_on_one import queue_items
+
+    return queue_items(ctx)
+
+
 def _to_build(_ctx):
     """Tipo já declarado em ITEM_TYPES que ainda não gera itens (depende de módulo que não existe)."""
     return []
@@ -526,6 +542,7 @@ COLLECTORS = {
     "onboarding": _onboarding_items,
     "restricao": _restriction_items,
     "visita": _visit_items,
+    "1a1_mes": _monthly_1a1_items,
     "campanha": _to_build,          # dia seguinte à abertura, metade, véspera do fechamento, dia seguinte ao fim
     "rodada_batalhas": _to_build,   # dia 8: batalhas oficiais do mês seguinte para Ouro e Diamante
     "resumo_mes": _to_build,        # dias 1 a 7: primeiro quem foi menos constante
@@ -603,6 +620,8 @@ def action_queue(creators, agency, today=None, now=None, raw=False):
                 }.get(stage, "Contato da régua de quem está sem LIVE, sem cobrança.")
                 add(f"regua_{stage}", 1 if stage == steps[-1] else 2, f"Sem LIVE há {dwl} dias (régua: {stage} dias)",
                     f"Última LIVE em {last_live:%d/%m}, pela última leitura. {how}", f"REG-{stage:02d}")
+                if stage == steps[-1] and mine and mine[-1].code == f"regua_{stage}":
+                    mine[-1].asks_partners = True  # encerramento dos 30 dias: "Pedir decisão às sócias" (passo 4.1)
         # aniversário: no dia, e convite 30 dias antes (fica na fila por uma semana)
         delta = _birthday_delta(getattr(c, "private", None), today)
         if delta == 0 and not sent_since("ANIV-DIA", today):
