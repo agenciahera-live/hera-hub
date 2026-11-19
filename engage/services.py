@@ -22,10 +22,13 @@ def creator_facts(creator, today=None):
 
     tier, _ = official_tier(creator, today)
     g = creator.group_history.filter(until__isnull=True).first()
-    return {"tier": tier, "group": g.group_name if g else FIRST_MONTH, "partner": creator.partner_group_id}
+    return {"tier": tier, "group": g.group_name if g else FIRST_MONTH, "partner": creator.partner_group_id,
+            "app_tester": creator.app_tester}
 
 
 def matches_audience(obj, facts):
+    if getattr(obj, "only_app_testers", False) and not facts.get("app_tester"):
+        return False  # pesquisa do teste do app (passo 3.7): só quem participa
     if obj.audience_tiers and facts["tier"] not in [int(t) for t in obj.audience_tiers]:
         return False
     if obj.audience_groups and facts["group"] not in obj.audience_groups:

@@ -53,7 +53,11 @@ def new_code(creator, by=None, now=None):
     if creator.status in LEFT:
         raise AccessError("Este criador saiu da agência: não é possível gerar código de acesso.")
     now = now or timezone.now()
-    days = AgencySettings.objects.get(agency=creator.agency).access_code_days
+    st = AgencySettings.objects.get(agency=creator.agency)
+    if st.app_test_only_testers and not creator.app_tester:
+        raise AccessError("Durante o teste do app, só quem participa do teste recebe código de acesso. "
+                          "As sócias marcam quem participa em Gestão › Teste do app.")
+    days = st.access_code_days
     with transaction.atomic():
         creator.access_codes.filter(used_at__isnull=True, revoked_at__isnull=True).update(revoked_at=now)
         code = "".join(secrets.choice(AccessCode.ALPHABET) for _ in range(AccessCode.LENGTH))

@@ -232,3 +232,12 @@ details.course .course-bar { grid-column: 1 / -1; height: 6px; }
 details.ask summary { font-weight: 700; color: var(--purple); }
 @media (prefers-color-scheme: dark) { details.ask summary { color: #d9b8f5; } }
 .tiles.cats .tile { padding-top: 12px; padding-bottom: 12px; }
+
+/* ---------- Meu plano (passo 3.6) ---------- */
+[x-cloak] { display: none !important; }
+.daypick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.daypick label { margin: 0; }
+.daypick input { position: absolute; opacity: 0; pointer-events: none; }
+.daypick span { display: block; text-align: center; padding: 10px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font-weight: 600; font-size: .85rem; cursor: pointer; }
+.daypick input:checked + span { background: var(--purple); border-color: var(--purple); color: #fff; }
+.daypick input:focus-visible + span { outline: 2px solid var(--pink); outline-offset: 1px; }

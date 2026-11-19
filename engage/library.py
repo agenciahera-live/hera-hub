@@ -8,8 +8,11 @@ Dois usos:
 from . import playbook
 
 
-def sync_defaults(agency, overwrite=False, MessageTemplate=None, MessageVersion=None):
-    """Devolve (criados, atualizados). As classes podem vir de uma migração (modelos históricos)."""
+def sync_defaults(agency, overwrite=False, MessageTemplate=None, MessageVersion=None, only_codes=None):
+    """Devolve (criados, atualizados). As classes podem vir de uma migração (modelos históricos).
+
+    `only_codes`: com overwrite, troca só esses códigos (revisão pontual). Os outros, que a agência pode ter editado
+    pela tela, ficam como estão; os que faltam continuam sendo criados."""
     if MessageTemplate is None:
         from .models import MessageTemplate, MessageVersion
     created = updated = 0
@@ -21,11 +24,13 @@ def sync_defaults(agency, overwrite=False, MessageTemplate=None, MessageVersion=
         if row is None:
             MessageTemplate.objects.create(agency=agency, code=m["code"], variant=m["variant"], **fields)
             created += 1
+        elif overwrite and only_codes is not None and m["code"] not in only_codes:
+            MessageTemplate.objects.filter(pk=row.pk).update(order=order)  # só a posição na lista acompanha
         elif overwrite:
             if row.body != m["body"] or row.title != m["title"]:
                 MessageVersion.objects.create(template_id=row.pk, title=row.title, body=row.body)
                 updated += 1
             MessageTemplate.objects.filter(pk=row.pk).update(**fields)  # update() não dispara o sinal: a versão já foi guardada acima
-    if overwrite:
+    if overwrite and only_codes is None:
         MessageTemplate.objects.filter(agency=agency, code__in=playbook.RETIRED).delete()
     return created, updated

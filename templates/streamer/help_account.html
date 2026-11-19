@@ -1,0 +1,29 @@
+{% extends "streamer/base.html" %}
+{% block title %}Minha conta · Hera{% endblock %}
+{% block content %}
+<a href="{% url 'faq' %}"><small>← Ajuda</small></a>
+<h1>Minha conta foi restringida ou banida</h1>
+<p>Calma, a gente resolve junto 💜 Conte o que aconteceu: o aviso vai direto para a Hera, na frente das outras mensagens.</p>
+{% if sent %}<ul class="messages"><li>Você já avisou a Hera em {{ sent.created_at|date:"d/m" }}. Se aconteceu mais alguma coisa, pode avisar de novo aqui.</li></ul>{% endif %}
+<form method="post" class="card">{% csrf_token %}
+  <fieldset style="border:0;padding:0;margin:0">
+    <legend style="padding:0;font-weight:600">O que aconteceu?</legend>
+    {% for v, l in kinds %}<label class="check"><input type="radio" name="kind" value="{{ v }}" {% if forloop.first %}checked{% endif %} required> {{ l }}</label>{% endfor %}
+  </fieldset>
+  <label for="when">Quando aconteceu?</label><input id="when" type="date" name="when" max="{{ today|date:'Y-m-d' }}" value="{{ today|date:'Y-m-d' }}">
+  <label for="what">O que apareceu na tela?</label>
+  <textarea id="what" name="what" placeholder="Copie a mensagem do TikTok, se puder"></textarea>
+  <fieldset style="border:0;padding:0;margin:12px 0 0">
+    <legend style="padding:0;font-weight:600">Você já fez o recurso pelo app do TikTok?</legend>
+    <label class="check"><input type="radio" name="appeal" value="sim"> Sim</label>
+    <label class="check"><input type="radio" name="appeal" value="nao"> Ainda não</label>
+    <label class="check"><input type="radio" name="appeal" value="nao_sei" checked> Não sei</label>
+  </fieldset>
+  <button class="btn btn-primary btn-block" style="margin-top:12px">Avisar a Hera</button>
+</form>
+<section class="card compact-card">
+  <h3 style="margin:0 0 6px">Enquanto isso</h3>
+  <p style="margin:0">Mande no seu grupo com a Hera um print da mensagem que apareceu. Como agência, a Hera tem um canal com o suporte do TikTok para entender o motivo e, quando cabe, pedir revisão.</p>
+  {% if manager_link and manager_link != "/duvidas/#perguntar" %}<a class="btn btn-wa btn-block" style="margin-top:8px" href="{{ manager_link }}" target="_blank" rel="noopener">Abrir meu grupo com a Hera</a>{% endif %}
+</section>
+{% endblock %}

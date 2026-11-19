@@ -11,15 +11,17 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.access import staff_roles
-from core.models import AppEvent, Consent
+from core.models import AgencySettings, Consent
 from crm.models import Creator, CreatorPrivate, CreatorStatus
 from data import engine as E
 from engage import academy as academy_rules
+from engage import battles as battle_rules
 from engage import models as M
 from engage.services import notify, creator_facts, faq_search, matches_audience, render_faq_answer, whatsapp_link
 
 from . import progress as P
 from . import services as S
+from .app_test import log_use
 
 
 LEFT_STATUSES = (CreatorStatus.SAIU, CreatorStatus.ANONIMIZADO)
@@ -44,17 +46,10 @@ def streamer_required(view):
         if creator.partner_group_id and not creator.partner_group.streamer_access_enabled:
             return render(request, "streamer/no_access.html", {"partner": creator.partner_group}, status=403)
         request.creator = creator
+        log_use(request)  # quem abriu o app no dia e quais áreas usou (passo 3.7, web/app_test.py)
         return view(request, *args, **kwargs)
 
     return wrapper
-
-
-def _log_open(request):
-    last = request.session.get("hera_open")
-    today = timezone.localdate().isoformat()
-    if last != today:
-        AppEvent.objects.create(user=request.user, event="app_open")
-        request.session["hera_open"] = today
 
 
 @login_required
@@ -67,7 +62,6 @@ def root(request):
 @streamer_required
 def home(request):
     """Meu progresso: a tela inicial do app (visão). A lógica fica em web/progress.py."""
-    _log_open(request)
     ctx = P.my_progress(request.creator)
     ctx["nav"] = "home"
     return render(request, "streamer/home.html", ctx)
@@ -93,24 +87,25 @@ def campaigns(request):
     c = request.creator
     today = E.tiktok_today()
     facts = creator_facts(c)
-    active = S.visible_campaigns(c, facts, today)
-    past = [x for x in M.Campaign.objects.filter(agency=c.agency, published=True, end__lt=today).exclude(source="backstage", featured=False).order_by("-end")[:5] if matches_audience(x, facts)]
-    tab = "hera" if request.GET.get("aba") == "hera" else "oficiais"
-    official = [x for x in active if not x["c"].tracked_in_app]
-    internal = [x for x in active if x["c"].tracked_in_app]
-    return render(request, "streamer/campaigns.html", {"nav": "camp", "tab": tab, "official": official, "internal": internal,
-                                                        "items": internal if tab == "hera" else official, "past": past})
+    # passo 3.4: uma lista só, com as campanhas em que o criador participa; a campanha do momento vem primeiro
+    from engage import campaigns as campaign_rules
+
+    items = S.visible_campaigns(c, facts, today)
+    moment = campaign_rules.campaign_of_the_moment(c, items)
+    if moment:
+        items = [moment["item"]] + [x for x in items if x is not moment["item"]]
+    past = [x for x in M.Campaign.objects.filter(agency=c.agency, published=True, end__lt=today, end__gte=today - dt.timedelta(days=45))
+            .exclude(source="backstage", featured=False).order_by("-end")
+            if x.participants.filter(creator=c).exists() or (not x.read_at and not x.participants.exists() and matches_audience(x, facts))][:5]
+    return render(request, "streamer/campaigns.html", {"nav": "camp", "items": items, "moment": moment["item"] if moment else None, "past": past})
 
 
 @streamer_required
 def campaign(request, pk):
     c = request.creator
     camp = get_object_or_404(M.Campaign, pk=pk, agency=c.agency, published=True)
-    if camp.source == "backstage" and not camp.featured:
-        raise Http404
-    facts = creator_facts(c)
-    has_manual = camp.participants.exists()
-    if (has_manual and not camp.participants.filter(creator=c).exists()) or (not has_manual and not matches_audience(camp, facts)):
+    # a mesma regra da lista (engage/campaigns.py): só campanha em que o criador participa e que a gestão oferece
+    if camp.pk not in {x["c"].pk for x in S.visible_campaigns(c, creator_facts(c), E.tiktok_today())}:
         raise Http404
     if camp.tiktok_url:
         return redirect(camp.tiktok_url)  # o card abre direto a campanha no TikTok
@@ -184,6 +179,45 @@ def announcements(request):
     return render(request, "streamer/announcements.html", {"items": items[:30]})
 
 
+# ---------------------------------------------------------------- Meu plano (passo 3.6)
+@streamer_required
+def my_plan(request):
+    """Meu plano: dias de LIVE, objetivos e lembretes escolhidos pelo criador (regras em engage/plan.py).
+
+    Só mexe no plano do criador logado; objetivo de outra pessoa dá 404 (e o banco também barra)."""
+    from engage import plan as plan_rules
+
+    c = request.creator
+    if request.method == "POST":
+        a = request.POST.get("a")
+        try:
+            if a == "days":
+                plan_rules.save_days(c, request.POST.getlist("day"))
+                messages.success(request, "Dias salvos. 💜")
+            elif a == "reminders":
+                plan_rules.save_reminders(c, set(request.POST.getlist("on")))
+                messages.success(request, "Lembretes salvos.")
+            elif a == "goal_add":
+                lv = request.POST.get("level", "")
+                plan_rules.add_goal(c, request.POST.get("kind", ""), int(lv) if lv.isdigit() else None, request.POST.get("text", ""))
+                messages.success(request, "Objetivo anotado. 💜")
+            elif a in ("goal_done", "goal_undo", "goal_delete"):
+                g = get_object_or_404(M.CreatorGoal, pk=request.POST.get("goal") or 0, creator=c)
+                if a == "goal_delete":
+                    g.delete()
+                else:
+                    g.done_at = timezone.now() if a == "goal_done" else None
+                    g.save(update_fields=["done_at"])
+                    if a == "goal_done":
+                        messages.success(request, "Parabéns! 🎉")
+        except plan_rules.PlanError as e:
+            messages.error(request, str(e))
+        return redirect("my_plan")
+    ctx = plan_rules.for_creator(c)
+    ctx["nav"] = "home"
+    return render(request, "streamer/plan.html", ctx)
+
+
 # ---------------------------------------------------------------- dúvidas (Q&A)
 @streamer_required
 def faq(request):
@@ -191,7 +225,8 @@ def faq(request):
     cats = {}
     for it in M.FaqItem.objects.filter(agency=c.agency, active=True).order_by("category", "id"):
         cats.setdefault(it.category, []).append(it)
-    icons = {"Dia válido": "📅", "Regras da plataforma": "🎯", "Tier": "🏅", "Batalhas": "⚔️", "Campanhas": "🏆", "Regras de LIVE": "🚫",
+    icons = {"Dia válido": "📅", "Regras do TikTok": "🎯", "Regras da plataforma": "🎯", "Nível": "🏅", "Tier": "🏅", "Batalhas": "⚔️",
+             "Campanhas": "🏆", "Regras de LIVE": "🚫", "Público e fã-clube": "💜", "Dinheiro e saque": "💰", "A Hera e os grupos": "👥",
              "Saída": "🚪", "Suporte": "🕘", "Benefícios": "🎁", "Hera Academy": "🎓", "Academy": "🎓"}
     cat = request.GET.get("cat")
     return render(request, "streamer/faq.html", {"cats": [{"name": k, "items": v, "icon": icons.get(k, "❓")} for k, v in cats.items()],
@@ -219,22 +254,61 @@ def faq_feedback(request, pk):
     return HttpResponse('<small class="muted">Valeu por avisar! Vamos melhorar essa resposta.</small>')
 
 
+ASK_TITLES = {"duvida": "mandou uma dúvida pelo app", "conversa": "pediu uma conversa pelo app",
+              "saida": "quer conversar sobre sair da agência"}
+
+
 @require_POST
 @streamer_required
 def ask_manager(request):
+    """Ajuda › Falar com a Hera: dúvida, pedido de conversa ou conversa sobre a saída. Entra na fila do dia."""
     c = request.creator
+    kind = request.POST.get("kind") if request.POST.get("kind") in ASK_TITLES else "duvida"
     q = request.POST.get("question", "").strip()[:1000]
-    if not q:
+    if not q and kind == "duvida":
         return redirect("faq")
-    M.SupportTicket.objects.create(creator=c, question=q)
+    if not q:
+        q = {"conversa": "Quero conversar com a Hera.", "saida": "Quero conversar sobre sair da agência."}[kind]
+    M.SupportTicket.objects.create(creator=c, kind=kind, question=q)
     mgr = c.current_manager()
     phone = ""
     if mgr:
         m = mgr.memberships.filter(agency=c.agency).exclude(phone="").first()
         phone = m.phone if m else ""
-        notify(user=mgr, kind="duvida", title=f"@{c.username} mandou uma dúvida pelo app", body=q[:200], url=f"/gestao/creators/{c.pk}/")
-    link = whatsapp_link(phone or c.agency.whatsapp_support, f"Oi! Tenho uma dúvida: {q}")
-    return render(request, "streamer/ask_sent.html", {"link": link, "q": q})
+        notify(user=mgr, kind="duvida", title=f"@{c.username} {ASK_TITLES[kind]}", body=q[:200], url=f"/gestao/creators/{c.pk}/")
+    intro = {"duvida": "Oi! Tenho uma dúvida:", "conversa": "Oi! Queria conversar:", "saida": "Oi! Queria conversar sobre sair da agência:"}[kind]
+    link = whatsapp_link(phone or c.agency.whatsapp_support, f"{intro} {q}")
+    return render(request, "streamer/ask_sent.html", {"link": link, "q": q, "kind": kind})
+
+
+@streamer_required
+def help_account(request):
+    """Ajuda › Minha conta foi restringida ou banida: o aviso abre o caso e vai para o topo da fila (crm/account_report.py)."""
+    from crm import account_report
+    from crm.models import AccountCase
+
+    c = request.creator
+    if request.method == "POST":
+        when = None
+        try:
+            when = dt.date.fromisoformat(request.POST.get("when", ""))
+        except ValueError:
+            pass
+        account_report.report(c, request.POST.get("kind", ""), when, request.POST.get("what", "")[:1500], request.POST.get("appeal", ""))
+        return render(request, "streamer/help_account_sent.html", {"nav": "faq"})
+    sent = M.SupportTicket.objects.filter(creator=c, kind="restricao", status="aberto").order_by("-created_at").first()
+    return render(request, "streamer/help_account.html", {"nav": "faq", "kinds": AccountCase.KINDS, "today": timezone.localdate(), "sent": sent})
+
+
+@streamer_required
+def help_exit(request):
+    """Ajuda › Sair da agência: as regras de saída (Hera e TikTok) e os casos de inelegibilidade, pela data de entrada."""
+    c = request.creator
+    st = AgencySettings.objects.get(agency=c.agency)
+    day = c.days_in_agency(timezone.localdate())
+    return render(request, "streamer/help_exit.html", {"nav": "faq", "day": day, "free_days": st.free_exit_days,
+                                                        "early": day is not None and day <= st.free_exit_days,
+                                                        "wait_days": st.return_wait_days})
 
 
 # ---------------------------------------------------------------- benefícios
@@ -294,51 +368,51 @@ def survey(request, pk):
 # ---------------------------------------------------------------- batalhas
 @streamer_required
 def battles(request):
-    items = M.BattleRequest.objects.filter(creator=request.creator)[:20]
-    return render(request, "streamer/battles.html", {"items": items, "nav": "battles"})
+    """Minhas batalhas: a próxima confirmada com o checklist do dia, os pedidos em aberto e o histórico (passo 3.3)."""
+    ctx = battle_rules.for_creator(request.creator)
+    ctx["nav"] = "battles"
+    return render(request, "streamer/battles.html", ctx)
+
+
+@require_POST
+@streamer_required
+def battle_check(request, pk):
+    """Marca ou desmarca um item do checklist. Só a batalha confirmada do próprio criador (as outras dão 404)."""
+    b = get_object_or_404(M.BattleRequest, pk=pk, creator=request.creator, status="aprovada")
+    try:
+        battle_rules.toggle_check(b, request.POST.get("item", ""))
+    except battle_rules.BattleError:
+        raise Http404 from None
+    b.save(update_fields=["checklist_done"])
+    if request.headers.get("HX-Request"):
+        return render(request, "streamer/_battle_checklist.html", {"b": b, "cl": battle_rules.checklist(b)})
+    return redirect("battles")
 
 
 @streamer_required
 def battle_new(request):
+    """Pedido de batalha oficial pelo modelo do roteiro (BAT-PEDIDO), com a antecedência mínima da agência."""
     c = request.creator
-    error = None
+    settings_ = AgencySettings.objects.get(agency=c.agency)
+    error, data = None, {}
     if request.method == "POST":
+        data = request.POST
         try:
-            # Um tipo só ("batalha agendada"). Quem batalha com quem é a Hera que avalia e sugere depois.
-            rounds = int(request.POST.get("rounds") or 1)
-            if rounds not in dict(M.BattleRequest.ROUNDS):
-                raise ValueError("rounds")
-            b = M.BattleRequest(
-                creator=c, kind="oficial", date=dt.date.fromisoformat(request.POST["date"]),
-                time=dt.time.fromisoformat(request.POST["time"]), rounds=rounds,
-                goal_diamonds=int(request.POST["goal_diamonds"]) if request.POST.get("goal_diamonds") else None,
-                notes=request.POST.get("notes", "")[:1000],
-            )
-            # outras opções de dia e hora que o criador oferece (linhas vazias são ignoradas)
-            seen = {(b.date, b.time)}
-            for d_txt, t_txt in zip(request.POST.getlist("alt_date"), request.POST.getlist("alt_time")):
-                if not d_txt and not t_txt:
-                    continue
-                d, t = dt.date.fromisoformat(d_txt), dt.time.fromisoformat(t_txt)
-                if d < timezone.localdate():
-                    raise ValueError("data no passado")
-                if (d, t) not in seen and len(b.other_options) < M.BattleRequest.MAX_OTHER_OPTIONS:
-                    seen.add((d, t))
-                    b.other_options.append({"date": d.isoformat(), "time": t.strftime("%H:%M")})
-            if b.date < timezone.localdate():
-                raise ValueError("data no passado")
+            b = battle_rules.build_request(c, settings_, request.POST)
+        except battle_rules.BattleError as e:
+            error = str(e)
+        else:
             b.save()
             mgr = c.current_manager()
             if mgr:
-                notify(user=mgr, kind="batalha", title=f"@{c.username} pediu uma batalha", url="/gestao/batalhas/")
+                notify(user=mgr, kind="batalha", title=f"@{c.username} pediu uma batalha oficial", url="/gestao/batalhas/")
             messages.success(request, "Pedido enviado! A Hera avisa no seu grupo e aqui no app quando a batalha estiver confirmada. 💜")
             return redirect("battles")
-        except (KeyError, ValueError):
-            error = "Confira os dias e as horas."
     # o botão da aula só aparece se a aula já abriu para este criador (Hera Academy)
     battle_lesson = next((l for l in academy_rules.open_lessons(academy_rules.modules(c)) if l.about_battles), None)
-    return render(request, "streamer/battle_new.html", {"nav": "battles", "error": error, "today": timezone.localdate(), "battle_lesson": battle_lesson,
-                                                         "rounds": M.BattleRequest.ROUNDS, "max_options": M.BattleRequest.MAX_OTHER_OPTIONS})
+    return render(request, "streamer/battle_new.html", {
+        "nav": "battles", "error": error, "data": data, "battle_lesson": battle_lesson, "rounds": M.BattleRequest.ROUNDS_ASK,
+        "first_date": battle_rules.earliest_date(settings_), "notice_days": settings_.battle_notice_days})
 
 
 # ---------------------------------------------------------------- primeiro acesso

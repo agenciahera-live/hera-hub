@@ -1,0 +1,61 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block title %}Teste do app · Hera{% endblock %}
+{% block content %}
+<h1>Teste do app</h1>
+<p><small>O app do criador é testado com poucos criadores antes de abrir para todos. Aqui as sócias escolhem quem participa, marcam as datas e acompanham quem está usando. Só as sócias veem esta tela.</small></p>
+
+<section class="card">
+  <h2>Datas e código de acesso
+    {% if status == "andamento" %}<span class="pill cyan">em andamento</span>{% elif status == "antes" %}<span class="pill gold">começa em {{ st.app_test_start|date:"d/m" }}</span>{% elif status == "terminou" %}<span class="pill gray">terminou</span>{% else %}<span class="pill gray">sem datas</span>{% endif %}</h2>
+  <form method="post" class="row" style="gap:12px;flex-wrap:wrap;align-items:flex-end">{% csrf_token %}<input type="hidden" name="a" value="dates">
+    <div><label for="start">Início</label><input id="start" type="date" name="start" value="{{ st.app_test_start|date:'Y-m-d' }}"></div>
+    <div><label for="end">Fim</label><input id="end" type="date" name="end" value="{{ st.app_test_end|date:'Y-m-d' }}"></div>
+    <label class="check" style="margin-bottom:10px"><input type="checkbox" name="only_testers" {% if st.app_test_only_testers %}checked{% endif %}> Só quem participa do teste recebe código de acesso</label>
+    <button class="btn btn-purple" style="margin-bottom:6px">Salvar</button>
+  </form>
+  <p><small>Combinado para o teste: de 2 semanas a 1 mês. {% if st.app_test_only_testers %}<b>A trava está ligada:</b> a ficha de quem não participa não gera código de acesso.{% else %}<b>A trava está desligada:</b> qualquer gestora consegue gerar código de acesso para qualquer criador da carteira.{% endif %}</small></p>
+</section>
+
+<section class="card">
+  <h2>Quem participa <small>{{ sum.n }} criador{{ sum.n|pluralize:"es" }} (combinado: {{ sum.suggested }})</small></h2>
+  <form method="post" class="row" style="gap:8px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="a" value="add">
+    <input type="text" name="handle" placeholder="@ do criador" aria-label="@ do criador" style="max-width:280px">
+    <button class="btn btn-purple">Colocar no teste</button>
+  </form>
+  <p style="margin-top:8px"><small>Depois de colocar no teste, a gestora da carteira gera o código de acesso na ficha (quadro “Acesso ao app”) e envia no grupo individual.</small></p>
+  {% if rows %}
+  <p><b>{{ sum.with_login }}</b> de {{ sum.n }} já entraram no app · <b>{{ sum.opened_week }}</b> abriram o app nesta semana (desde {{ monday|date:"d/m" }}){% if survey %} · <b>{{ sum.answered }}</b> responderam a pesquisa{% endif %}</p>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>Criador</th><th>Gestora</th><th>Acesso ao app</th><th>Dias com o app aberto</th><th>Áreas usadas nesta semana</th><th>Pesquisa</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><a href="{% url 'g_creator' r.c.pk %}"><b>@{{ r.c.username }}</b></a><br><small>{{ r.c.display_name }}</small></td>
+      <td>{% if r.manager %}{{ r.manager.get_full_name|default:r.manager.email }}{% else %}<small class="muted">sem gestora</small>{% endif %}</td>
+      <td>{% if r.first_access %}<span class="pill cyan">entrou em {{ r.first_access|date:"d/m" }}</span>
+          {% elif r.has_login %}<span class="pill cyan">já tinha login</span>
+          {% elif r.code %}<span class="pill gold">código gerado em {{ r.code.created_at|date:"d/m" }}</span><br><small>ainda não entrou</small>
+          {% else %}<span class="pill gray">sem código</span>{% endif %}</td>
+      <td>{% if r.has_login %}<b class="num">{{ r.days_week }}</b> nesta semana{% if r.days_test is not None %}<br><small>{{ r.days_test }} desde o início do teste</small>{% endif %}
+          {% if r.last_open %}<br><small>última vez: {{ r.last_open|sp:"%d/%m às %H:%M" }}</small>{% endif %}{% else %}—{% endif %}</td>
+      <td>{% if r.areas_week %}<small>{{ r.areas_week|join:", " }}</small>{% else %}<small class="muted">nenhuma</small>{% endif %}
+          {% if r.areas_test and r.areas_test != r.areas_week %}<br><small class="muted">no teste: {{ r.areas_test|join:", " }}</small>{% endif %}</td>
+      <td>{% if not survey %}—{% elif r.answered %}<span class="pill cyan">respondeu</span>{% else %}<small class="muted">ainda não</small>{% endif %}</td>
+      <td><form method="post">{% csrf_token %}<input type="hidden" name="a" value="remove"><input type="hidden" name="creator" value="{{ r.c.pk }}"><button class="btn btn-sm">Tirar do teste</button></form></td>
+    </tr>{% endfor %}
+    </tbody></table></div>
+  {% else %}<p class="empty">Ninguém no teste ainda. Coloque os criadores pelo @.</p>{% endif %}
+  <p><small>Um dia conta quando o criador abre qualquer tela do app. As áreas são as da barra de baixo, mais o Meu plano.</small></p>
+</section>
+
+<section class="card">
+  <h2>Pesquisa do fim do teste</h2>
+  {% if survey %}
+  <p><b>{{ survey.title }}</b><br><small>Identificada · só para quem participa do teste · abre em {{ survey.opens_at|sp:"%d/%m às %H:%M" }}{% if survey.closes_at %} e fecha em {{ survey.closes_at|sp:"%d/%m" }}{% endif %}. Aparece no fim da tela inicial do criador.</small></p>
+  <p><a class="btn btn-sm" href="{% url 'g_survey' survey.pk %}">Ver as respostas</a> <a class="btn btn-sm" href="/gestao/admin/engage/survey/{{ survey.pk }}/change/">Editar perguntas e datas</a></p>
+  {% else %}
+  <p><small>São 5 perguntas, uma por tela, com o nome de quem respondeu. Ela abre no último dia do teste{% if st.app_test_end %} ({{ st.app_test_end|date:"d/m" }}){% endif %} e fica aberta por 7 dias.</small></p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="a" value="survey"><button class="btn btn-purple">Criar a pesquisa</button></form>
+  {% endif %}
+</section>
+{% endblock %}

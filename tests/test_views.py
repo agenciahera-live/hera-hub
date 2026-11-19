@@ -3,6 +3,7 @@ import datetime as dt
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from core.access import assign_manager
 from core.rls import set_context, system_context
@@ -166,7 +167,7 @@ class ViewTests(TestCase):
         r = self.client.get(reverse("faq_search"), {"q": "como marco um pk"})
         self.assertContains(r, "batalha")
         r = self.client.get(reverse("faq_search"), {"q": "dia valdo"})  # erro de digitação
-        self.assertContains(r, "60 minutos")
+        self.assertContains(r, "pelo menos 1 hora de LIVE")
         r = self.client.get(reverse("faq_search"), {"q": "receita de bolo de cenoura"})
         self.assertContains(r, "Não encontrei")
         self.assertTrue(FaqSearch.objects.filter(results=0).exists())
@@ -180,36 +181,29 @@ class ViewTests(TestCase):
         self.assertNotContains(self.client.get("/gestao/duvidas/"), "Como troco meu @?")
 
     def test_battle_request_flow(self):
+        """O pedido segue o modelo oficial (BAT-PEDIDO); as regras detalhadas estão em tests/test_batalha_oficial.py."""
         self.client.force_login(self.ua)
-        d = (dt.date.today() + dt.timedelta(days=3)).isoformat()
-        d2 = (dt.date.today() + dt.timedelta(days=4)).isoformat()
-        d3 = (dt.date.today() + dt.timedelta(days=5)).isoformat()
-        r = self.client.post(reverse("battle_new"), {"date": d, "time": "20:30", "goal_diamonds": "20000", "rounds": "3",
-                                                     "alt_date": [d2, "", d3, d], "alt_time": ["19:00", "", "20:00", "20:30"]})
+        d = (timezone.localdate() + dt.timedelta(days=8)).isoformat()
+        d2 = (timezone.localdate() + dt.timedelta(days=10)).isoformat()
+        r = self.client.post(reverse("battle_new"), {"date": d, "date2": d2, "time": "20:30", "goal_diamonds": "20000", "rounds": "3",
+                                                     "other_agency": "sim", "banner": "nao"})
         self.assertEqual(r.status_code, 302)
         with system_context():
             b = BattleRequest.objects.get(creator=self.a)
-        # 3 rounds e duas outras opções de dia e hora (linha vazia e opção repetida são ignoradas)
         self.assertEqual(b.rounds, 3)
-        self.assertEqual(b.other_options, [{"date": d2, "time": "19:00"}, {"date": d3, "time": "20:00"}])
+        self.assertEqual(b.other_options, [{"date": d2, "time": "20:30"}])
         meus = self.client.get(reverse("battles"))
         self.assertContains(meus, "3 rounds")
-        self.assertContains(meus, f"ou {dt.date.fromisoformat(d2):%d/%m} às 19:00")
-        # opção no passado ou rounds inválido não gravam
-        ontem = (dt.date.today() - dt.timedelta(days=1)).isoformat()
-        self.assertEqual(self.client.post(reverse("battle_new"), {"date": d, "time": "20:30", "alt_date": [ontem], "alt_time": ["20:00"]}).status_code, 200)
-        self.assertEqual(self.client.post(reverse("battle_new"), {"date": d, "time": "20:30", "rounds": "2"}).status_code, 200)
-        with system_context():
-            self.assertEqual(BattleRequest.objects.filter(creator=self.a).count(), 1)
-        # um tipo só, sem escolha de oponente nem pedido de divulgação
-        self.assertEqual(b.get_kind_display(), "Batalha agendada")
+        self.assertContains(meus, f"ou {dt.date.fromisoformat(d2):%d/%m} às 20:30")
+        # um tipo só, sem escolha de oponente nem pedido de divulgação; o app não sugere hora
+        self.assertEqual(b.get_kind_display(), "Batalha oficial")
         self.assertIsNone(b.opponent)
         self.assertFalse(b.promote)
         form = self.client.get(reverse("battle_new"))
-        self.assertContains(form, "Batalha agendada")
-        for campo in ['name="kind"', 'name="opponent"', 'name="opponent_text"', 'name="promote"', 'name="duration_min"', "opcional"]:
+        self.assertContains(form, "Batalha oficial")
+        for campo in ['name="kind"', 'name="opponent"', 'name="opponent_text"', 'name="promote"', 'name="duration_min"', "Pico de audiência", 'value="20:00"']:
             self.assertNotContains(form, campo)
-        for campo in ['name="alt_date"', 'name="alt_time"', "Adicionar outro dia e hora", "1 round", "3 rounds"]:
+        for campo in ['name="date2"', 'name="other_agency"', 'name="banner"', "1 round", "3 rounds", "Tanto faz"]:
             self.assertContains(form, campo)
         # botão para a aula que explica a batalha oficial: só aparece quando existe uma aula marcada
         from engage.models import Course, Lesson
@@ -223,7 +217,10 @@ class ViewTests(TestCase):
         self.assertContains(form, "Entenda a batalha oficial em 8 min")
         self.assertContains(form, reverse("lesson", args=[aula.pk]))
         self.client.force_login(self.gx)
-        self.client.post("/gestao/batalhas/", {"id": b.pk, "status": "aprovada", "reply": "Combinado!"})
+        self.client.post("/gestao/batalhas/", {"id": b.pk, "status": "aprovada", "reply": "Combinado!"})  # confirmar só com oponente
+        with system_context():
+            self.assertEqual(BattleRequest.objects.get(pk=b.pk).status, "pendente")
+        self.client.post("/gestao/batalhas/", {"id": b.pk, "a": "confirm", "choice": "0", "final_rounds": "3", "opponent": "@rival.demo"})
         with system_context():
             self.assertEqual(BattleRequest.objects.get(pk=b.pk).status, "aprovada")
 
@@ -359,7 +356,7 @@ class CampaignAndShortcutTests(TestCase):
     def test_home_shows_help_and_battle_shortcuts(self):
         self.client.force_login(self.u)
         r = self.client.get("/")
-        self.assertContains(r, "Dúvidas")
+        self.assertContains(r, "Ajuda")  # passo 3.5: a barra de baixo chama a tela de Ajuda
         self.assertContains(r, "Pedir batalha")
         self.assertContains(r, reverse("faq"))
         self.assertContains(r, reverse("battle_new"))

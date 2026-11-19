@@ -1,0 +1,66 @@
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}Meu plano · Hera{% endblock %}
+{% block content %}
+<a href="/"><small>← Meu progresso</small></a>
+<h1>Meu plano</h1>
+<p class="hint" style="margin:0 2px 12px">Tudo aqui é escolha sua e muda quando você quiser. Nada é obrigatório.</p>
+
+<form method="post" class="card">{% csrf_token %}<input type="hidden" name="a" value="days">
+  <h2 style="margin-bottom:4px">Meus dias de LIVE</h2>
+  <p style="margin:0 0 10px"><small>Marque os dias em que você pretende fazer LIVE.</small></p>
+  <div class="daypick">
+    {% for d in days %}<label title="{{ d.name }}"><input type="checkbox" name="day" value="{{ d.n }}" {% if d.on %}checked{% endif %}><span>{{ d.short }}</span></label>{% endfor %}
+  </div>
+  <button class="btn btn-purple btn-block" style="margin-top:12px">Salvar dias</button>
+</form>
+
+<section class="card">
+  <h2 style="margin-bottom:4px">Meus objetivos</h2>
+  <p style="margin:0 0 6px"><small>Até {{ max_goals }} ao mesmo tempo, escritos por você.</small></p>
+  {% if goals %}<ul class="list">
+    {% for x in goals %}<li>
+      <b>{{ x.title }}</b>
+      {% if x.status %}<br><small>{{ x.status }}</small>{% endif %}
+      <div class="row" style="gap:8px;margin-top:8px">
+        <form method="post">{% csrf_token %}<input type="hidden" name="a" value="goal_done"><input type="hidden" name="goal" value="{{ x.g.pk }}"><button class="btn btn-sm btn-primary">✅ Consegui</button></form>
+        <form method="post">{% csrf_token %}<input type="hidden" name="a" value="goal_delete"><input type="hidden" name="goal" value="{{ x.g.pk }}"><button class="btn btn-sm">Apagar</button></form>
+      </div>
+    </li>{% endfor %}
+  </ul>{% else %}<p class="empty" style="padding:12px 8px">Nenhum objetivo por enquanto.</p>{% endif %}
+
+  {% if can_add %}
+  <form method="post" x-data="{kind: 'nivel'}" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">{% csrf_token %}<input type="hidden" name="a" value="goal_add">
+    <p style="margin:4px 0"><b>Novo objetivo</b></p>
+    <label class="check"><input type="radio" name="kind" value="nivel" x-model="kind" checked> Chegar a um nível</label>
+    <div x-show="kind === 'nivel'">
+      <select name="level" aria-label="Nível">{% for r in levels %}<option value="{{ r.tier }}">Nível {{ r.tier }} (a partir de {{ r.min_diamonds|intbr }} 💎 no mês)</option>{% endfor %}</select>
+    </div>
+    <label class="check"><input type="radio" name="kind" value="livre" x-model="kind"> Do meu jeito</label>
+    <div x-show="kind === 'livre'" x-cloak>
+      <input type="text" name="text" maxlength="140" placeholder="Ex.: fazer minha primeira batalha" aria-label="Seu objetivo">
+    </div>
+    <button class="btn btn-purple btn-block" style="margin-top:12px">Anotar objetivo</button>
+  </form>
+  {% else %}<p style="margin:8px 0 0"><small>Para escrever outro, marque um como “consegui” ou apague um.</small></p>{% endif %}
+
+  {% if done_goals %}
+  <p style="margin:14px 0 4px"><b>Consegui 🎉</b></p>
+  <ul class="list">{% for x in done_goals %}<li class="row between" style="gap:8px">
+    <span>✅ {{ x.title }} <small class="muted">· {{ x.g.done_at|date:"d/m" }}</small></span>
+    <span class="row" style="gap:6px">
+      <form method="post">{% csrf_token %}<input type="hidden" name="a" value="goal_undo"><input type="hidden" name="goal" value="{{ x.g.pk }}"><button class="btn btn-sm">Desfazer</button></form>
+      <form method="post">{% csrf_token %}<input type="hidden" name="a" value="goal_delete"><input type="hidden" name="goal" value="{{ x.g.pk }}"><button class="btn btn-sm">Apagar</button></form>
+    </span>
+  </li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+<form method="post" class="card">{% csrf_token %}<input type="hidden" name="a" value="reminders">
+  <h2 style="margin-bottom:4px">Lembretes</h2>
+  <p style="margin:0 0 6px"><small>Começam desligados. Ligue só os que quiser: eles aparecem nas notificações do app 🔔.</small></p>
+  {% for r in reminders %}<label class="check" style="margin:10px 0"><input type="checkbox" name="on" value="{{ r.field }}" {% if r.on %}checked{% endif %}>
+    <span>{{ r.label }}<br><small class="muted" style="font-weight:400">{{ r.help }}</small></span></label>{% endfor %}
+  <button class="btn btn-purple btn-block" style="margin-top:8px">Salvar lembretes</button>
+</form>
+<p class="hint" style="margin:0 2px 12px">A Hera vê o seu plano para combinar visitas e batalhas com você.</p>
+{% endblock %}

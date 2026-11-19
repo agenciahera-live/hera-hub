@@ -1,33 +1,49 @@
 {% extends "streamer/base.html" %}
-{% block title %}Dúvidas · Hera{% endblock %}
+{% block title %}Ajuda · Hera{% endblock %}
 {% block content %}
-<h1>Qual é a sua dúvida?</h1>
+<h1>Ajuda</h1>
 <div class="search-box" style="margin:8px 0 12px">
-  <input type="search" name="q" placeholder="Ex.: que horas o dia vira?" autocomplete="off"
+  <input type="search" name="q" placeholder="Ex.: o que é dia válido?" autocomplete="off"
          hx-get="{% url 'faq_search' %}" hx-trigger="input changed delay:300ms, search" hx-target="#faq-results" aria-label="Buscar dúvida">
 </div>
 <div id="faq-results"></div>
+
+{% if not open_cat %}
+<div class="stack" style="margin-bottom:12px">
+  <a class="tile compact" href="{% url 'help_account' %}"><div class="value" style="font-size:.98rem">🚫 Minha conta foi restringida ou banida</div><div class="sub">Avise a Hera e veja o que fazer agora</div></a>
+  <a class="tile compact" href="#perguntar" onclick="document.getElementById('perguntar').open=true"><div class="value" style="font-size:.98rem">💬 Falar com a Hera</div><div class="sub">Uma dúvida ou um pedido de conversa</div></a>
+</div>
+{% endif %}
 
 {% if open_cat %}
   <a href="{% url 'faq' %}"><small>← Todos os temas</small></a>
   <h2 style="margin-top:6px">{{ open_cat }}</h2>
   <div class="card compact-card">
-  {% for it in open_items %}<details style="padding:8px 0;{% if not forloop.first %}border-top:1px solid var(--border){% endif %}"><summary>{{ it.question }}</summary><p style="margin:6px 0 0">{{ it.answer }}</p></details>{% endfor %}
+  {% for it in open_items %}<details style="padding:8px 0;{% if not forloop.first %}border-top:1px solid var(--border){% endif %}"><summary>{{ it.question }}</summary><p style="margin:6px 0 0">{{ it.answer|linebreaksbr }}</p></details>{% endfor %}
   </div>
 {% else %}
-  <h3 style="margin:0 0 8px">Ou escolha um tema</h3>
+  <h3 style="margin:0 0 8px">Dúvidas por tema</h3>
   <div class="tiles cats">
     {% for c in cats %}<a class="tile compact" href="?cat={{ c.name|urlencode }}"><div class="value" style="font-size:.98rem">{{ c.icon }} {{ c.name }}</div><div class="sub">{{ c.items|length }} pergunta{{ c.items|length|pluralize }}</div></a>{% endfor %}
   </div>
 {% endif %}
 
+<h3 style="margin:14px 0 8px">Precisa de mais?</h3>
+<div class="stack">
 <details class="card compact-card ask" id="perguntar">
-  <summary>💬 Não achou? Pergunte para a Hera</summary>
+  <summary>💬 Falar com a Hera</summary>
   {% if manager_link and manager_link != "/duvidas/#perguntar" %}<a class="btn btn-wa btn-block" style="margin-top:8px" href="{{ manager_link }}" target="_blank" rel="noopener">Abrir meu grupo com a Hera</a>
-  <p style="margin:8px 0 0"><small>Ou deixe a pergunta aqui e a resposta chega pelo app:</small></p>{% endif %}
+  <p style="margin:8px 0 0"><small>Ou deixe aqui e a Hera responde no seu grupo:</small></p>{% endif %}
   <form method="post" action="{% url 'ask_manager' %}" style="margin-top:8px">{% csrf_token %}
-    <textarea name="question" required placeholder="Escreva sua dúvida"></textarea>
-    <button class="btn btn-primary btn-block" style="margin-top:8px">Enviar pergunta</button>
+    <fieldset style="border:0;padding:0;margin:0 0 6px">
+      <legend style="padding:0;font-weight:600">O que você precisa?</legend>
+      <label class="check"><input type="radio" name="kind" value="duvida" checked> Tenho uma dúvida</label>
+      <label class="check"><input type="radio" name="kind" value="conversa"> Quero conversar com a Hera</label>
+    </fieldset>
+    <textarea name="question" placeholder="Escreva aqui (na conversa, pode contar o assunto e o melhor jeito de falar com você)"></textarea>
+    <button class="btn btn-primary btn-block" style="margin-top:8px">Enviar</button>
   </form>
 </details>
+<a class="tile compact" href="{% url 'help_exit' %}"><div class="value" style="font-size:.98rem">🚪 Sair da agência</div><div class="sub">Como funciona, pela regra do TikTok</div></a>
+</div>
 {% endblock %}

@@ -73,20 +73,20 @@ Se a gestora não conseguir abrir o app, uma sócia marca por ela: **Carteiras**
 
 Quem cobre enxerga a carteira **só naquele dia**. Para uma ausência longa (férias, licença), passe os criadores para outra carteira.
 
-## 4. Criar campanha
+## 4. Campanhas
 
-**O app não mostra ranking de campanha.** Ranking e progresso ficam no TikTok. No app, cada campanha é um card com o resumo do que fazer e os prêmios. **Tocar no card abre a campanha direto no TikTok.** Embaixo da lista fica o botão **Chamar minha gestora**.
+**O app não mostra ranking de campanha.** Posição e progresso ficam no TikTok. No app, cada campanha é um card com o resumo do que fazer, os prêmios e a situação do criador. **Tocar no card abre a campanha direto no TikTok.**
 
-**Campanha oficial (Backstage): só os destaques do mês.** Não é preciso cadastrar todas as campanhas do TikTok, só aquelas em que a Hera quer que o streamer foque.
+**Não é preciso cadastrar campanha do TikTok no app** (desde 18/11/2026). O Claude lê no Backstage, junto com a leitura diária, a tela **Operações › Campanhas**: as campanhas da plataforma, as dirigidas pela Agência (as da Hera), a situação de cada criador em cada uma e o link de "Compartilhar". A tela de campanhas do app mostra quando foi a última leitura.
 
-1. Crie a campanha no **TikTok Backstage**, como hoje, e copie o link dela.
-2. No app: **🏆 Campanhas** → **Nova campanha**, com origem **Oficial (Backstage)**, e marque **destaque do mês**. Sem essa marcação, a campanha não aparece para o streamer.
-3. Preencha **o que o streamer deve fazer** em 2 a 4 linhas simples (ex.: "Faça 1h de LIVE em 15 dias do mês e some 40h"), os **prêmios**, início, fim e o **link da campanha no TikTok**.
-4. Escolha o **público**: Tiers, grupos, parceiras ou "só novatos". Vazio = todos. Para lista fechada de nomes, adicione os participantes na mesma tela.
+1. **Campanha da Hera:** crie no Backstage, em **Campanhas dirigidas pela Agência**, como hoje. Ela chega no app pela leitura.
+2. No app: **🏆 Campanhas → Lidas do Backstage**. Para cada campanha aparecem o tipo, o nível, a mecânica, os participantes e quantos criadores da sua carteira podem se inscrever, estão inscritos ou participam.
+3. Clique em **Foco** nas campanhas que a Hera quer oferecer. Elas aparecem no app **só para quem se qualifica, está inscrito ou já participa**. **Não oferecer** tira a campanha do app e da sugestão para todos.
+4. **Conferir os dados:** a mecânica principal (o Claude propõe ao ler as regras), até que posição premia, o resumo que o criador lê, os prêmios e o link. Se faltar o link, cole o de **Regras › Compartilhar › Link** no Backstage.
 
-**Campanha da Hera (interna, relâmpago, maratona).** Mesmos passos, com origem **Interna** ou **Relâmpago**, e também com **o que fazer**, **prêmios** e **link no TikTok**. Ela aparece na aba "Da Hera". A equipe continua vendo uma tabela de acompanhamento no painel, atualizada a cada importação, mas o streamer não vê ranking.
+**Campanha do momento de cada criador:** na ficha, quadro **Campanha do momento**. O app sugere uma pelo encaixe com o que o criador já faz (batalhas, dias válidos, fã-clube, co-host) e pela chance (poucos participantes, premia até qual posição), com o motivo em uma frase. Você pode trocar por outra em que ele participa, mesmo fora do foco (vale só para ele), ou escolher "Nenhuma por enquanto". A escolha vence a sugestão, aparece na tela inicial do criador e ele recebe um aviso. No rodízio da fila, a mensagem de campanha (ROD-CAMP) usa essa campanha.
 
-Se faltar o link do TikTok, o card abre uma página simples com o resumo e as regras. A tela de campanhas da gestão avisa quais campanhas estão **sem link do TikTok** e quais Tiers estão sem campanha ativa.
+**Campanhas antigas, cadastradas à mão** (de antes da leitura), continuam em **Só do app** e valem pelo público (Tiers, grupos, só novatos) ou pelos participantes incluídos à mão.
 
 ## 5. Criar treinamento (Academy)
 
@@ -122,7 +122,16 @@ Abra o creator (menu **👥 Creators**). Na aba **Visão geral**:
 3. **Lembretes:** escreva o lembrete, escolha a data e clique em **Criar lembrete**. No dia, ele aparece na Fila de ação. Quando resolver, clique em **Feito**.
 4. **Parou de fazer LIVE?** Depois da conversa, registre o motivo da lista e, se o criador disse, a data de volta. Saúde: só a categoria, sem detalhes.
 
-Na aba **Batalhas**, depois de cada batalha agendada, registre a data, o oponente, os rounds, o resultado e os diamantes dos dois lados, com uma observação para as próximas. O histórico ajuda a escolher o próximo oponente.
+Na aba **Batalhas**, depois de cada batalha oficial, registre a data, o oponente, os rounds, o resultado e os diamantes dos dois lados, com uma observação para as próximas. O histórico ajuda a escolher o próximo oponente. O criador não vê esse registro: no app ele vê só a data e o oponente das batalhas que já fez.
+
+### Batalha oficial (menu ⚔️ Batalhas)
+
+1. **O pedido chega pelo app**, no modelo oficial: duas opções de data, a hora, rounds (1, 3 ou tanto faz), quantos diamantes o criador quer fazer (em branco = a Hera sugere pelo histórico), se pode ser com criador de outra agência e se quer ajuda com o banner. As datas começam 7 dias depois do pedido (Configurações da agência → antecedência mínima). A gestora recebe um aviso no sininho e o pedido entra na fila do dia.
+2. **Ache o oponente** e confirme em **Pedidos para responder**: escolha uma das datas do criador (ou outra), os rounds (1 ou 3), o oponente (@ e agência) e a faixa de diamantes esperada. Clique em **Confirmar batalha**. O criador recebe a notificação e passa a ver a batalha e o checklist no app.
+3. Em **Confirmadas**, o texto da confirmação já vem preenchido: **Copiar confirmação** → **Abrir grupo** → cole e envie → **Enviei**. Ali também aparece quantos itens do checklist o criador já marcou.
+4. **Mudou algo?** Use **Atualizar a batalha** e envie só o que mudou (modelo BAT-ATUALIZA). O criador recebe "Sua batalha oficial mudou".
+5. **Não dá?** Em "Sugerir outro dia ou hora, ou recusar", escolha a situação e escreva o recado. O criador vê o recado no app.
+6. **Do 4º ao 1º dia antes**, a fila do dia traz a mensagem "4 dias antes da batalha" (BAT-4D), com o @ do oponente já no texto, até você marcar **Enviei**. **No dia**, traz a mensagem "Dia da batalha" (BAT-DIA). Depois, registre o resultado na ficha.
 
 Na aba **Mensagens**, o "Roteiro deste criador" traz todos os scripts já na versão da trilha dele, com os ajustes do nicho no topo. O que é de outra trilha aparece marcado.
 
@@ -144,5 +153,6 @@ Menu **💬 Mensagens**. São os scripts do Playbook do Gestor, por etapa (boas-
 ## Rotina sugerida da gestora (15 minutos por dia)
 
 1. **Dashboard → Fila do dia.** Trate de cima para baixo: suporte, o que tem data, o que vem do dado e, por último, o rodízio. Em cada item: **Copiar mensagem** → **Abrir grupo** → cole e envie → **Enviei**. Só o "Enviei" registra o contato e tira o item da fila. Não dá para falar hoje? **Adiar**, com o motivo. Cada criador recebe no máximo uma mensagem por dia, cada gestora tem um teto de 30 por dia e no domingo a fila não traz envios. Não vai trabalhar hoje? **Hoje não trabalho**, no alto da fila (item 3.1).
-2. **❓ Dúvidas e ⚔️ Batalhas:** responda os pedidos do dia. Pedidos de batalha oficial: agende no TikTok e marque como "Aprovada" com o horário na resposta; o streamer recebe a notificação.
+2. **❓ Dúvidas e ⚔️ Batalhas:** responda os pedidos do dia. Pedidos de batalha oficial: veja a seção "Batalha oficial" abaixo.
+   Pela tela **Ajuda** do app, o criador manda quatro tipos de pedido, todos na fila do dia e no menu **❓ Dúvidas**, com o tipo marcado: **dúvida**, **pedido de conversa**, **quer conversar sobre sair da agência** e **aviso de restrição ou banimento**. Responda no grupo e marque como respondido. O aviso de restrição já **abre o caso** na ficha (quadro Restrição ou banimento) e fica no topo da fila até você encerrar o caso; encerrar o caso também fecha o aviso. Peça o print no grupo: o app não recebe arquivos.
 3. **🌱 Onboarding:** confira quem está entre o Dia 1 e o Dia 15.

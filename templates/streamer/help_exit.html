@@ -1,0 +1,31 @@
+{% extends "streamer/base.html" %}
+{% block title %}Sair da agência · Hera{% endblock %}
+{% block content %}
+<a href="{% url 'faq' %}"><small>← Ajuda</small></a>
+<h1>Sair da agência</h1>
+<p>Antes de decidir, vale conhecer as regras, para não ter surpresa depois.{% if day %} Hoje é o seu dia {{ day }} na Hera.{% endif %}</p>
+
+<section class="card compact-card">
+  <h3 style="margin:0 0 6px">Nos seus primeiros {{ free_days }} dias{% if early %} <span class="pill gold">é o seu caso</span>{% endif %}</h3>
+  <p style="margin:0">É bem simples: é só avisar a Hera, que cuida de tudo. Você pode voltar quando quiser.</p>
+</section>
+
+<section class="card compact-card">
+  <h3 style="margin:0 0 6px">Depois dos {{ free_days }} dias{% if day and not early %} <span class="pill gold">é o seu caso</span>{% endif %} <span class="pill gray">regra do TikTok</span></h3>
+  <p style="margin:0">O pedido de saída é feito direto no app do TikTok, por aviso prévio. Isso é um processo da própria plataforma, não é algo que a Hera decide. Depois desse pedido, a conta fica {{ wait_days }} dias sem poder ser agenciada por nenhuma agência.</p>
+</section>
+
+<section class="card compact-card">
+  <h3 style="margin:0 0 6px">Quem pode ficar sem agência <span class="pill gray">regra do TikTok</span></h3>
+  <p style="margin:0">O TikTok tem regras próprias para liberar um perfil para outra agência. Quem somou mais de 300 mil diamantes nos últimos 6 meses, tem mais de uma conta ou tem violações no perfil pode ficar sem agência depois de sair. Não é uma regra da Hera, e o TikTok não deixa tudo isso muito claro, então vale pensar com calma.</p>
+</section>
+
+<section class="card compact-card">
+  <h3 style="margin:0 0 6px">Quer conversar antes?</h3>
+  <p style="margin:0 0 8px">Se tem alguma coisa pesando, conta pra gente. Às vezes dá para ajustar.</p>
+  <form method="post" action="{% url 'ask_manager' %}">{% csrf_token %}<input type="hidden" name="kind" value="saida">
+    <textarea name="question" placeholder="Se quiser, conte o que está pesando (opcional)"></textarea>
+    <button class="btn btn-primary btn-block" style="margin-top:8px">Quero conversar com a Hera</button>
+  </form>
+</section>
+{% endblock %}

@@ -50,10 +50,24 @@ class FraseDoMesTests(SimpleTestCase):
     def test_ordem_e_casos_sem_frase(self):
         # no ritmo de subir vence "perto"; e quem já passou da marca não recebe promessa
         self.assertEqual(self._frase(72_000, 90_000)["kind"], "no_ritmo")
-        self.assertEqual(self._frase(81_000, 99_000)["text"], "Você já passou da marca do Nível 3 neste mês. O nível muda no fechamento do mês.")
+        self.assertEqual(self._frase(81_000, 99_000)["text"], "Seus diamantes deste mês já estão na faixa do Nível 3. A mudança acontece no fechamento do mês.")
         self.assertIsNone(self._frase(20_000, 30_000))  # mês igual ao passado e longe do próximo nível: sem frase
         self.assertIsNone(self._frase(3_000, 90_000, dia_do_mes=1))  # no 1º dia do mês o ritmo ainda não diz nada
         self.assertIsNone(P.month_phrase({"next": None}, None, None, None, 85))  # sem dados do mês
+
+    def test_quem_ja_esta_na_faixa_acima_ve_a_troca_de_grupo(self):
+        """Decisão de 18/11: forma neutra, avisando a troca de grupo (Bronze, Prata, Ouro, Diamante)."""
+        nxt = NS(tier=4, min_diamonds=150_000)
+        snap = NS(diamonds=160_000, live_seconds=0, valid_days=0)
+        ouro = {"next": nxt, "reached": True, "missing": 0, "reached_tier": 4, "reached_group": "Ouro"}
+        texto = P.month_phrase(ouro, snap, None, None, 85, group="Prata")["text"]
+        self.assertEqual(texto, "Seus diamantes deste mês já estão na faixa do grupo Ouro. A troca de grupo acontece no fechamento do mês.")
+        self.assertEqual(verificar_tom(texto), [])
+        # mesmo grupo (T2 → T3 dentro do Prata) e Primeiro Mês: a frase fala do nível, sem prometer troca de grupo
+        prata = {"next": NS(tier=3, min_diamonds=80_000), "reached": True, "missing": 0, "reached_tier": 3, "reached_group": "Prata"}
+        self.assertEqual(P.month_phrase(prata, snap, None, None, 85, group="Prata")["text"],
+                         "Seus diamantes deste mês já estão na faixa do Nível 3. A mudança acontece no fechamento do mês.")
+        self.assertIn("faixa do Nível 4", P.month_phrase(ouro, snap, None, None, 85, group="Primeiro Mês")["text"])
 
     def test_a_frase_nunca_promete_nem_pede(self):
         for args in [(50_000, 85_000), (72_000, 76_000), (81_000, 99_000)]:
@@ -139,7 +153,7 @@ class MeuProgressoTests(TestCase):
 
     def test_janela_de_graduacao_vira_destaque_depois_do_d30(self):
         _r, texto = self._inicio(self.u_grad)
-        for trecho in ["Nível 1", "Você já passou da marca do Nível 2 neste mês", "Graduação", "regra do TikTok", "80.000 💎 em um mês",
+        for trecho in ["Nível 1", "Seus diamantes deste mês já estão na faixa do Nível 2", "Graduação", "regra do TikTok", "80.000 💎 em um mês",
                        "50.000 / 80.000", "Faltam 30.000 💎 neste mês. Seu ritmo: 2.174 💎 por dia.",
                        "A janela vai até 16/11: 3 meses, contando este."]:
             self.assertIn(trecho, texto)

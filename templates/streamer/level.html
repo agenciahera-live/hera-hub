@@ -8,7 +8,7 @@
   {% if level.next %}
     <div class="bar-label"><span>Próximo nível: Nível {{ level.next.tier }}</span><span class="num">{{ level.diamonds|intbr }} / {{ level.next.min_diamonds|intbr }} 💎</span></div>
     <div class="bar gold"><i style="width:{{ level.pct|width }}"></i></div>
-    <p style="margin:6px 0 0"><small>{% if level.reached %}Você já passou dessa marca neste mês 🎉{% else %}Faltam {{ level.missing|intbr }} 💎 neste mês.{% endif %} O nível muda no fechamento do mês.</small></p>
+    <p style="margin:6px 0 0"><small>{% if level.reached %}{% if phrase.kind == "chegou" %}{{ phrase.text }}{% else %}Seus diamantes deste mês já estão na faixa do Nível {{ level.reached_tier }}. A mudança acontece no fechamento do mês.{% endif %} 🎉{% else %}Faltam {{ level.missing|intbr }} 💎 neste mês. O nível muda no fechamento do mês.{% endif %}</small></p>
   {% else %}
     <p style="margin:10px 0 0"><small>Você está no nível mais alto 👑</small></p>
   {% endif %}

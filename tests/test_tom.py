@@ -97,7 +97,7 @@ class PaginasRenderizadasTests(TestCase):
         urls = ["/", reverse("my_level"),  # Desempenho foi unida ao Meu progresso (tela inicial)
                 reverse("campaigns"), reverse("campaigns") + "?aba=hera", reverse("campaign", args=[self.interna.pk]),
                 reverse("academy"), reverse("profile"), reverse("faq"), reverse("battles"), reverse("battle_new"),
-                reverse("offers"), reverse("announcements"), reverse("notifications"),
+                reverse("offers"), reverse("announcements"), reverse("notifications"), reverse("my_plan"),
                 reverse("faq_search") + "?q=batalha", reverse("faq_search") + "?q=dia valido", reverse("faq_search") + "?q=xyzxyz"]
         urls += [reverse("faq") + f"?cat={c}" for c in self.categorias]
         for usuario in (self.u_vet, self.u_novo):

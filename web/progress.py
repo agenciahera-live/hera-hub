@@ -15,7 +15,8 @@ from django.utils import timezone
 from core.models import AgencySettings
 from data import engine as E
 from data import phases
-from data.models import MonthlyResult
+from data.models import GroupRule, MonthlyResult
+from engage.battles import next_confirmed
 from engage.models import Announcement, Survey
 from engage.services import creator_facts, fmt_hours, fmt_int, matches_audience
 
@@ -30,15 +31,22 @@ def round_estimate(value):
     return int(round(value / step) * step)
 
 
-def level_info(creator, snap, rules, today):
-    """Meu nível (mês fechado) e a barra até o próximo nível com os diamantes do mês corrente."""
+def level_info(creator, snap, rules, today, groups=None):
+    """Meu nível (mês fechado) e a barra até o próximo nível com os diamantes do mês corrente.
+
+    Quem já está na faixa de um nível acima neste mês ganha `reached_tier` (o maior nível da faixa) e
+    `reached_group` (o grupo desse nível), para a frase avisar a troca de grupo no fechamento."""
     tier, mr = E.official_tier(creator, today, rules)
     nxt = E.next_tier_rule(tier, rules)
     diamonds = snap.diamonds if snap else 0
     out = {"level": tier, "level_month": mr.month if mr else None, "next": nxt, "diamonds": diamonds, "top": nxt is None}
     if nxt:
+        reached = diamonds >= nxt.min_diamonds
         out.update({"pct": min(diamonds / nxt.min_diamonds, 1) if nxt.min_diamonds else 1,
-                    "missing": max(nxt.min_diamonds - diamonds, 0), "reached": diamonds >= nxt.min_diamonds})
+                    "missing": max(nxt.min_diamonds - diamonds, 0), "reached": reached})
+        if reached:
+            out["reached_tier"] = max(E.tier_for(diamonds, rules), nxt.tier)
+            out["reached_group"] = E.group_for_tier(out["reached_tier"], groups) if groups else ""
     return out
 
 
@@ -51,7 +59,16 @@ def level_table(rules):
     return out
 
 
-def month_phrase(level, snap, pace, last_closed, near_pct):
+def reached_phrase(level, group):
+    """Quem já está na faixa de um nível acima neste mês (decisão da Mariana de 18/11: forma neutra, avisando a
+    troca de grupo). É fato, não promessa: os diamantes do mês só sobem até o fechamento."""
+    new_group = level.get("reached_group")
+    if new_group and group and group != E.FIRST_MONTH and new_group != group:
+        return f"Seus diamantes deste mês já estão na faixa do grupo {new_group}. A troca de grupo acontece no fechamento do mês."
+    return f"Seus diamantes deste mês já estão na faixa do Nível {level.get('reached_tier') or level['next'].tier}. A mudança acontece no fechamento do mês."
+
+
+def month_phrase(level, snap, pace, last_closed, near_pct, group=""):
     """A frase do mês: uma linha só, escolhida pelos números (as três versões da visão, nesta ordem).
 
     Nunca "você vai subir de nível", nunca um pedido de horas, de dias ou de horário."""
@@ -59,7 +76,7 @@ def month_phrase(level, snap, pace, last_closed, near_pct):
         return None
     nxt = level.get("next")
     if nxt and level["reached"]:
-        return {"kind": "chegou", "text": f"Você já passou da marca do Nível {nxt.tier} neste mês. O nível muda no fechamento do mês."}
+        return {"kind": "chegou", "text": reached_phrase(level, group)}
     if nxt and pace and pace.elapsed_days >= MIN_DAYS_FOR_FORECAST and pace.forecast >= nxt.min_diamonds:
         return {"kind": "no_ritmo", "text": f"No seu ritmo, você chega ao Nível {nxt.tier} este mês. Parabéns pela constância!", "estimate": True}
     if nxt and snap.diamonds >= nxt.min_diamonds * near_pct / 100:
@@ -141,10 +158,13 @@ def next_step(ob, ever_live):
     return "Para completar a contagem do TikTok: " + " e ".join(parts) + "." if parts else "A contagem do TikTok está completa. 🎉"
 
 
-def campaign_of_the_moment(campaigns):
-    """Uma campanha só. Por enquanto, a que fecha primeiro entre as que valem para o criador; a escolha por
-    encaixe, chance, prêmio e esforço entra quando a leitura de campanhas existir (visão, "Uma campanha de cada vez")."""
-    return min(campaigns, key=lambda x: (x["c"].end, x["c"].pk), default=None)
+def campaign_of_the_moment(creator, campaigns, snaps):
+    """Uma campanha só (visão, "Uma campanha de cada vez"): a escolhida pela gestão na ficha ou, sem escolha, a de
+    melhor encaixe com o que o criador já faz (engage/campaigns.py, passo 3.4)."""
+    from engage import campaigns as C
+
+    m = C.campaign_of_the_moment(creator, campaigns, snaps=snaps)
+    return m["item"] if m else None
 
 
 def my_progress(creator):
@@ -162,14 +182,14 @@ def my_progress(creator):
     ob = E.onboarding_status(creator, snaps, settings_)
     counting = phase.base in ("chegada", "novato")  # D1 a D14 sem fechar a regra: o topo é a contagem do TikTok
     ever_live = any(iv.had_live for iv in E.intervals(snaps))
-    level = level_info(creator, snap, rules, today)
+    level = level_info(creator, snap, rules, today, groups=list(GroupRule.objects.filter(agency=creator.agency)))
     pace = E.compute_pace(snap.diamonds, level["next"].min_diamonds if level["next"] else max(snap.diamonds, 1),
                           snap.period_start, snap.period_end) if snap else None
     last_closed = MonthlyResult.objects.filter(creator=creator, month=E.prev_month(today)).first()
     # aula recomendada (Hera Academy): escolha da gestora > ponto mais fraco do mês > próxima aula aberta
     rec = academy.recommended(creator, snap=snap, today=today, counting=counting)
     lesson = rec["lesson"] if rec else None
-    phrase = None if counting else month_phrase(level, snap, pace, last_closed, settings_.near_tier_pct)
+    phrase = None if counting else month_phrase(level, snap, pace, last_closed, settings_.near_tier_pct, group=facts["group"])
     forecast = None
     if not counting and pace and snap.diamonds > 0 and pace.elapsed_days >= MIN_DAYS_FOR_FORECAST and pace.remaining_days > 0:
         forecast = round_estimate(pace.forecast)
@@ -186,9 +206,21 @@ def my_progress(creator):
         "closed_rule": bool(ob and ob["met"] and ob["active"]),
         "level": level, "group": facts["group"], "phrase": phrase, "forecast": forecast, "estimate_note": ESTIMATE_NOTE,
         "graduation": graduation_block(creator, snaps, settings_, today, phase),
-        "campaign": campaign_of_the_moment(visible_campaigns(creator, facts, today)),
+        "campaign": campaign_of_the_moment(creator, visible_campaigns(creator, facts, today), snaps),
         "weeks": weeks_of_month(snaps, today), "lesson": lesson, "lesson_why": rec["why"] if rec else "", "months": months_since_entry(creator, today),
         "data_until": snap.period_end if snap else max((s.period_end for s in snaps), default=None),
         "updated_at": data_freshness(creator.agency), "survey": survey, "pinned": pinned,
         "tip": daily_tip(creator.agency, facts, today),
+        "next_battle": next_confirmed(creator),
+        "plan": plan_card(creator),
     }
+
+
+def plan_card(creator):
+    """Cartão do Meu plano na tela inicial: os dias escolhidos e o primeiro objetivo em aberto (passo 3.6)."""
+    from engage import plan as plan_rules
+
+    p = plan_rules.plan_of(creator)
+    goals = plan_rules.open_goals(creator)
+    return {"days": plan_rules.days_label(p), "goal": plan_rules.goal_title(goals[0]) if goals else "",
+            "more": max(len(goals) - 1, 0)}

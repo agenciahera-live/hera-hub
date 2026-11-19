@@ -1,0 +1,9 @@
+{% extends "streamer/base.html" %}
+{% block title %}Aviso enviado · Hera{% endblock %}
+{% block content %}
+<section class="card"><h1>A Hera já sabe 💜</h1>
+<p>O seu aviso chegou na frente das outras mensagens. A Hera vai falar com você no seu grupo.</p>
+<p>Para ajudar: mande no grupo um print da mensagem que apareceu no TikTok.</p>
+{% if manager_link and manager_link != "/duvidas/#perguntar" %}<a class="btn btn-wa btn-block" href="{{ manager_link }}" target="_blank" rel="noopener">Abrir meu grupo com a Hera</a>{% endif %}
+<a class="btn btn-block" style="margin-top:8px" href="{% url 'faq' %}">Voltar para a Ajuda</a></section>
+{% endblock %}

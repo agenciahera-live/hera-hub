@@ -52,6 +52,9 @@ class AgencySettings(models.Model):
     academy_all_open_level = models.PositiveSmallIntegerField(
         "Hera Academy: nível que abre todos os módulos", default=3,
         help_text="Quem chega a este nível (inclusive quem vem de outra agência) abre todos os módulos de uma vez. Cursos extras continuam só com liberação da gestão.")
+    battle_notice_days = models.PositiveSmallIntegerField(
+        "batalha oficial: antecedência mínima do pedido (dias)", default=7,
+        help_text="O criador escolhe datas a partir de hoje + este número de dias. É o tempo de a Hera achar o oponente e os dois lados divulgarem.")
     graduation_diamonds = models.PositiveIntegerField("graduação: diamantes em um mês (regra do TikTok)", default=80_000)
     graduation_window_days = models.PositiveIntegerField("graduação: janela a partir da entrada (dias)", default=90,
                                                          help_text="Os 3 primeiros meses de casa. Cada mês com o mínimo de diamantes dentro da janela vale uma graduação.")
@@ -61,6 +64,12 @@ class AgencySettings(models.Model):
         "gatilho para testar API do WhatsApp (mensagens em lote/semana)", null=True, blank=True
     )
     community_brand_posts_per_month = models.PositiveIntegerField(default=1)
+    # Teste do app com poucos criadores (etapa 3, passo 3.7): datas e a trava do código de acesso
+    app_test_start = models.DateField("teste do app: início", null=True, blank=True)
+    app_test_end = models.DateField("teste do app: fim", null=True, blank=True)
+    app_test_only_testers = models.BooleanField(
+        "teste do app: só quem participa recebe código de acesso", default=False,
+        help_text="Ligado, a gestão só consegue gerar código de acesso para os criadores marcados no teste.")
 
     class Meta:
         verbose_name = "configurações da agência"

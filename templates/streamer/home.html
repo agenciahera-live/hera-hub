@@ -28,7 +28,7 @@
   <div class="sub">Grupo {{ group }} · {{ level.diamonds|intbr }} 💎 em {{ month_label }}</div>
   {% if level.next %}
   <div class="bar"><i style="width:{{ level.pct|width }}"></i></div>
-  <div class="sub">{% if level.reached %}Você já passou da marca do Nível {{ level.next.tier }} neste mês 🎉{% else %}Próximo nível: Nível {{ level.next.tier }}, a partir de {{ level.next.min_diamonds|intbr }} 💎 no mês. Faltam {{ level.missing|intbr }}.{% endif %}</div>
+  <div class="sub">{% if level.reached %}Seus diamantes deste mês já estão na faixa do Nível {{ level.reached_tier }} 🎉{% else %}Próximo nível: Nível {{ level.next.tier }}, a partir de {{ level.next.min_diamonds|intbr }} 💎 no mês. Faltam {{ level.missing|intbr }}.{% endif %}</div>
   {% else %}<div class="sub">Você está no nível mais alto 👑</div>{% endif %}
 </a>
 {% if snap %}<p class="hint" style="margin:0 2px 10px">Neste mês: {{ snap.hours|hours }}h de LIVE · {{ snap.valid_days }} dia{{ snap.valid_days|pluralize }} válido{{ snap.valid_days|pluralize }} · {{ snap.battles }} batalha{{ snap.battles|pluralize }}</p>
@@ -65,11 +65,28 @@
 <a class="tile" style="margin-bottom:10px" {% if c.tiktok_url %}href="{{ c.tiktok_url }}" target="_blank" rel="noopener"{% else %}href="{% url 'campaign' c.pk %}"{% endif %}>
   <div class="label">🏆 Campanha do momento <span class="pill gray" style="margin-left:auto">até {{ c.end|date:"d/m" }}</span></div>
   <div class="value" style="font-size:1.05rem">{{ c.name }}</div>
+  {% if campaign.status_label %}<div class="sub"><span class="pill cyan">{{ campaign.status_label }}</span></div>{% endif %}
   {% if c.what_to_do %}<div class="sub" style="color:var(--text)">{{ c.what_to_do|truncatechars:140 }}</div>{% endif %}
   {% if c.tiktok_url %}<div class="sub">abre no TikTok ↗</div>{% endif %}
 </a>
 {% endwith %}{% endif %}
+{% if next_battle %}<a class="card compact-card" style="display:block;margin-bottom:8px" href="{% url 'battles' %}">
+  <p style="margin:0"><b>⚔️ Sua batalha oficial: {{ next_battle.date|date:"d/m" }} às {{ next_battle.time|time:"H:i" }}</b></p>
+  <small class="muted">Ver os detalhes e o checklist</small></a>{% endif %}
 <a class="btn btn-primary btn-block" style="margin-bottom:14px" href="{% url 'battle_new' %}">⚔️ Pedir batalha oficial</a>
+
+{# Meu plano (passo 3.6): o que o criador escolheu; nunca compara com o que ele fez #}
+<a class="tile" style="margin-bottom:14px" href="{% url 'my_plan' %}">
+  <div class="label">🗓️ Meu plano</div>
+  {% if plan.days or plan.goal %}
+  {% if plan.days %}<div class="sub" style="color:var(--text)">Meus dias de LIVE: <b>{{ plan.days }}</b></div>{% endif %}
+  {% if plan.goal %}<div class="sub" style="color:var(--text)">Meu objetivo: <b>{{ plan.goal }}</b>{% if plan.more %} <span class="muted">e mais {{ plan.more }}</span>{% endif %}</div>{% endif %}
+  <div class="sub">Mudar o plano ›</div>
+  {% else %}
+  <div class="value" style="font-size:1.05rem">Monte seu plano, se quiser</div>
+  <div class="sub">Seus dias de LIVE, seus objetivos e lembretes. Tudo escolhido por você.</div>
+  {% endif %}
+</a>
 
 {# 7. Semanas deste mês e 8. aula recomendada #}
 {% if weeks %}

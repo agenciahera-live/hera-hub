@@ -1,7 +1,47 @@
 {% extends "streamer/base.html" %}
+{% block title %}Minhas batalhas · Hera{% endblock %}
 {% block content %}
-<div class="row between"><h1>Meus pedidos de batalha</h1><a class="btn btn-sm btn-primary" href="{% url 'battle_new' %}">Novo</a></div>
-<ul class="card list">{% for b in items %}<li><div class="row between"><b>{{ b.get_kind_display }}</b><span class="pill {% if b.status == 'aprovada' %}cyan{% elif b.status == 'pendente' %}gray{% else %}gold{% endif %}">{{ b.get_status_display }}</span></div>
-<small>{{ b.date|date:"d/m" }} às {{ b.time|time:"H:i" }}{% for o in b.other_options_display %} · ou {{ o }}{% endfor %} · {{ b.get_rounds_display }}{% if b.goal_diamonds %} · buscando {{ b.goal_diamonds }} 💎{% endif %}{% if b.opponent %} · com @{{ b.opponent.username }}{% endif %}</small>
-{% if b.manager_reply %}<p style="margin:6px 0 0"><small>Hera: {{ b.manager_reply }}</small></p>{% endif %}</li>{% empty %}<li class="empty">Nenhum pedido ainda.</li>{% endfor %}</ul>
+<div class="row between"><h1>Minhas batalhas</h1><a class="btn btn-sm btn-primary" href="{% url 'battle_new' %}">Pedir</a></div>
+
+{% if next %}
+<section class="card">
+  <p style="margin:0 0 6px"><span class="pill cyan">✅ Batalha oficial confirmada</span></p>
+  <h2 style="margin:0">{% if next_days == 0 %}É hoje!{% elif next_days == 1 %}Amanhã{% else %}Em {{ next_days }} dias{% endif %} · {{ next.date|date:"l, d/m" }}</h2>
+  <ul class="list" style="margin-top:8px">
+    <li class="row between"><span>⏰ Começa às</span><b>{{ next.time|time:"H:i" }} (Brasília)</b></li>
+    <li class="row between"><span>🥊 Rounds</span><b>{{ next.rounds }}</b></li>
+    <li><b>👤 @{{ next.creator.username }} 🆚 {% if next.opponent_text|first == "@" %}{{ next.opponent_text }}{% else %}@{{ next.opponent_text }}{% endif %}</b></li>
+    {% if next.expected_range %}<li class="row between"><span>💎 Diamantes esperados</span><b>{{ next.expected_range }}</b></li>{% endif %}
+  </ul>
+  {% if next.crosses_tiktok_day %}<p style="margin:8px 0 0"><small>A batalha passa das 21h, quando o dia do TikTok vira: o tempo de LIVE fica dividido entre os dois dias.</small></p>{% endif %}
+  {% if next.manager_reply %}<p style="margin:8px 0 0"><small>Hera: {{ next.manager_reply }}</small></p>{% endif %}
+</section>
+{% include "streamer/_battle_checklist.html" with b=next cl=next_checklist %}
+{% endif %}
+
+{% for b in later %}
+<section class="card compact-card"><p style="margin:0"><b>Outra batalha confirmada:</b> {{ b.date|date:"d/m" }} às {{ b.time|time:"H:i" }} · {{ b.rounds }} round{{ b.rounds|pluralize }}</p></section>
+{% endfor %}
+
+{% if pending %}
+<h2>Pedidos</h2>
+<ul class="card list">{% for b in pending %}<li><div class="row between"><b>{{ b.get_kind_display }}</b><span class="pill {% if b.status == 'pendente' %}gray{% else %}gold{% endif %}">{{ b.get_status_display }}</span></div>
+<small>{{ b.date|date:"d/m" }} às {{ b.time|time:"H:i" }}{% for o in b.other_options_display %} · ou {{ o }}{% endfor %} · {{ b.get_rounds_display }}{% if b.goal_diamonds %} · {{ b.goal_diamonds }} 💎{% endif %}</small>
+{% if b.manager_reply %}<p style="margin:6px 0 0"><small>Hera: {{ b.manager_reply }}</small></p>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if not next and not pending %}
+<section class="card"><p style="margin:0">Nenhuma batalha marcada agora.</p>
+  <p style="margin:6px 0 0"><small>Batalha oficial é uma das estratégias que mais ajudam a crescer, mas não é obrigatória. Quando quiser, é só pedir.</small></p>
+  <a class="btn btn-primary btn-block" style="margin-top:10px" href="{% url 'battle_new' %}">⚔️ Pedir batalha oficial</a></section>
+{% endif %}
+
+{% if declined %}
+<h2>Não deu desta vez</h2>
+<ul class="card list">{% for b in declined %}<li><small>{{ b.date|date:"d/m" }} às {{ b.time|time:"H:i" }}</small>{% if b.manager_reply %}<p style="margin:4px 0 0"><small>Hera: {{ b.manager_reply }}</small></p>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+
+<h2>Histórico</h2>
+<ul class="card list">{% for b in history %}<li class="row between"><span>{{ b.date|date:"d/m/Y" }}{% if b.opponent_text %} · 🆚 {{ b.opponent_text }}{% endif %}</span><small>{{ b.rounds }} round{{ b.rounds|pluralize }}</small></li>
+{% empty %}<li class="empty">As batalhas oficiais que você fizer aparecem aqui.</li>{% endfor %}</ul>
 {% endblock %}

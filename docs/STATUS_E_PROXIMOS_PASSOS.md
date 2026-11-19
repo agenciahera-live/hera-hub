@@ -3,6 +3,10 @@
 Situação em 18/11/2026: MVP construído; passos 1 a 3 da visão feitos em 11/11; mapeamento do app contra a visão final feito em 14/11; etapa 2 com os passos 2.1 a 2.7 feitos; etapa 3 (app do criador) começada em 15/11, com os passos 3.1 e 3.2 feitos (aguardando aprovação). Falta publicar e fazer o piloto com dados reais.
 
 > **18/11/2026: próximos passos pausados para publicar.** A Mariana pediu para publicar o que já existe, para a gestão começar o teste com dados reais enquanto o app do criador é terminado. O passo a passo está em `docs/COMO_RODAR_E_PUBLICAR.md` (parte B para publicar, parte C para o teste da gestão). Na preparação foi corrigido um defeito que só aparecia em produção: quem tinha papel de sócia ou Conteúdo ficava sem acesso a Configurações e cadastros (`core/apps.py`, teste em `tests/test_publicacao.py`). Durante o teste, nenhum criador recebe código de acesso, e só se envia versão nova ao GitHub quando os testes passam.
+>
+> **18/11/2026: publicado (parte B concluída).** Endereço: https://hera-hub-production.up.railway.app. Projeto Railway `wonderful-creation` com 3 serviços: `Postgres`, `hera-hub` (o app, conexão interna `postgres.railway.internal`, usuário `hera_app`) e `rotina-diaria` (cron `0 9 * * *` UTC = 6h de Brasília, variáveis por referência ao app). Acesso público do banco desligado depois do `criar_admin`. Conta Admin criada e login conferido. Corrigido no caminho: `criar_usuario_banco` falhava no Postgres real (senha como parâmetro `$1` em `CREATE ROLE`; agora usa `psycopg.sql.Literal`). Próximo: parte C (cadastrar a equipe, importar os dados, carteiras).
+>
+> **18/11/2026: parte C, passos 1 a 5 feitos.** Primeira gestora cadastrada e entrou; outubro completo e novembro (1 a 17) importados sem erro; carteiras divididas; 5 criadores conferidos contra o Backstage. Falta: rotina de importação diária combinada com a equipe; conferir em 19/11 se o serviço `rotina-diaria` rodou às 6h.
 
 > ⚠️ **Os logins de demonstração (`@hera.demo` e `@semana.demo`, senha `hera-demo-2026`) não podem existir em produção.** Detalhes na seção 0, "Logins de demonstração não podem existir em produção".
 
@@ -293,11 +297,11 @@ Pedida pela Mariana em 15/11. A visão diz que cada etapa começa quando a anter
 | --- | --- | --- |
 | 3.1 Meu progresso | A tela inicial do app: topo que muda com a fase (contagem dos 14 dias ou Meu nível), frase do mês, "No seu ritmo", graduação, campanha do momento, pedir batalha, semanas do mês com a mais fraca destacada, aula recomendada e meses desde a entrada. "Tier" vira "Nível" no app. Saem "Acelerar" e "precisa/dia" | ✅ 15/11, aguardando aprovação (detalhes abaixo) |
 | 3.2 Página educacional (Hera Academy) | Módulos 1 a 7 que abrem por nível e por marco ("abre no Nível 3", "abre depois da sua 1ª LIVE"), liberação antes da hora pela gestão, sem "obrigatória", aula recomendada pelo ponto mais fraco do mês e a escolha da gestora na ficha | ✅ 18/11, aguardando aprovação (detalhes abaixo) |
-| 3.3 Batalha oficial | Pedido pelo modelo oficial, com os 7 dias de antecedência; confirmação e checklist do dia no app; histórico | A fazer |
-| 3.4 Campanhas | Lista só das campanhas em que o criador participa, com a regra resumida e o botão para o TikTok; campanha do momento escolhida por criador (a nota por encaixe, chance, prêmio e esforço depende da leitura de campanhas) | A fazer |
-| 3.5 Ajuda | Dúvidas com as palavras novas (Nível), pedido de conversa, aviso de restrição ou banimento (abre o caso e vai para o topo da fila), regras de saída e os casos de inelegibilidade | A fazer |
-| 3.6 Meu plano | Dias de LIVE que o criador escolhe, objetivos dele e lembretes desligados por padrão | A fazer |
-| 3.7 Teste com 10 criadores | Lista de quem testa, roteiro do teste e a medida de quem abriu o app na semana | A fazer (depende da publicação) |
+| 3.3 Batalha oficial | Pedido pelo modelo oficial, com os 7 dias de antecedência; confirmação e checklist do dia no app; histórico | ✅ 18/11, aguardando aprovação (detalhes abaixo) |
+| 3.4 Campanhas | Lista só das campanhas em que o criador participa, com a regra resumida e o botão para o TikTok; campanha do momento escolhida por criador (a nota por encaixe, chance, prêmio e esforço depende da leitura de campanhas) | ✅ 18/11, aguardando aprovação (detalhes abaixo); falta ligar a leitura automática no Claude |
+| 3.5 Ajuda | Dúvidas com as palavras novas (Nível), pedido de conversa, aviso de restrição ou banimento (abre o caso e vai para o topo da fila), regras de saída e os casos de inelegibilidade | ✅ 18/11, aguardando aprovação (detalhes abaixo; textos da central em revisão pela Mariana) |
+| 3.6 Meu plano | Dias de LIVE que o criador escolhe, objetivos dele e lembretes desligados por padrão | ✅ 19/11, acesso pelo cartão da tela inicial e pelo Perfil (decisão da Mariana) (detalhes abaixo) |
+| 3.7 Teste com 5 criadores | Lista de quem testa, roteiro do teste e a medida de quem abriu o app na semana | ✅ 19/11 no app; roteiro em revisão pela Mariana; o teste em si depende da publicação e dos vídeos (detalhes abaixo) |
 
 Ficam para as etapas seguintes, como diz a visão: simulador "Onde posso chegar", marco da 1ª LIVE e conquistas (etapa 5); Indique e ganhe, premiação e mural de vagas de batalha (etapa 4); notificação push.
 
@@ -336,7 +340,7 @@ Também mudou:
 | --- | --- |
 | "Perto, faltando pouco" = 85% ou mais da marca do próximo nível | Mesmo corte que a fila da gestão usa em "perto do próximo Tier" (configurável) |
 | "Abaixo do mês passado" compara com o mesmo ponto do mês passado; olha as horas e depois os dias | Primeiro cai a LIVE, depois o diamante |
-| Quem já passou da marca do próximo nível vê "Você já passou da marca do Nível X neste mês. O nível muda no fechamento do mês." | A visão não traz frase para esse caso; é um fato, sem promessa |
+| Quem já passou da marca do próximo nível vê a faixa do grupo novo ("Seus diamantes deste mês já estão na faixa do grupo Ouro. A troca de grupo acontece no fechamento do mês.") ou, se o grupo não muda, a faixa do nível | Decisão da Mariana de 18/11: forma neutra, avisando a troca de grupo. É fato: os diamantes do mês só sobem até o fechamento |
 | "No seu ritmo" só aparece a partir do 3º dia do mês e arredonda o número | Nos dois primeiros dias a conta não diz nada; "em torno de" não pode parecer conta exata |
 | Nos 14 dias, a tela não mostra frase do mês nem projeção | A visão: o criador ainda não tem número para mostrar |
 | A campanha do momento é, por enquanto, a que fecha primeiro entre as que valem para o criador | A escolha por encaixe, chance, prêmio e esforço depende da leitura de campanhas, que ainda não chega |
@@ -385,6 +389,160 @@ O nome escolhido pela Mariana em 18/11 é **Hera Academy**. A página mostra os 
 
 **Falta (depende da Hera):** os vídeos de verdade. Os links da demonstração são `example.com`. A ordem dos vídeos e quem grava estão nos itens "Em aberto" da visão.
 
+### Passo 3.3, o que mudou (Batalha oficial)
+
+**No app do criador:**
+
+- **Pedir batalha oficial** segue o modelo oficial do roteiro (BAT-PEDIDO): 1ª e 2ª opção de data, a hora em que começa, rounds (1, 3 ou tanto faz), quantos diamantes quer fazer (em branco, a Hera sugere pelo histórico), se pode ser com criador de outra agência, se quer ajuda com o banner e observações.
+- **7 dias de antecedência:** as datas começam em hoje + 7. O número fica em Configurações da agência ("batalha oficial: antecedência mínima do pedido").
+- **Minhas batalhas:** a próxima batalha confirmada (quando, hora, rounds, "@criador 🆚 @oponente", diamantes esperados, recado da Hera e o aviso de quando a batalha passa das 21h), o **checklist da batalha** (os 6 itens da BAT-CONF, "Antes" e "No dia", marcados um a um), os pedidos em aberto, os que não deram e o **histórico** (data e oponente).
+- **Tela inicial:** com batalha confirmada, aparece "Sua batalha oficial: dd/mm às hh:mm" acima do botão de pedir.
+- **Saíram** o "Pico de audiência: 20h–21h" e a hora já preenchida com 20:00 (o app não sugere hora; quem escolhe é o criador).
+
+**Na gestão (menu Batalhas):**
+
+- **Pedidos para responder**, com tudo o que o criador informou, e o formulário **Confirmar batalha**: escolher uma das datas do criador (ou outra), 1 ou 3 rounds, o oponente e a faixa de diamantes. A opção que não foi usada fica guardada.
+- **Confirmadas**, com o texto da BAT-CONF já preenchido (**Copiar confirmação**, **Abrir grupo**, **Enviei**), quantos itens do checklist o criador marcou e **Atualizar a batalha** (o criador recebe "Sua batalha oficial mudou"; o modelo BAT-ATUALIZA aparece ao lado).
+- **Sugerir outro dia ou hora, ou recusar**, com recado.
+- A situação "Confirmada" só vale pelo formulário de confirmação, com o oponente.
+- **Fila do dia** (decisão da Mariana de 18/11): do 4º ao 1º dia antes da batalha, a fila traz a mensagem "4 dias antes da batalha" (BAT-4D) até a gestora marcar "Enviei"; no dia, a mensagem "Dia da batalha" (BAT-DIA). O @ do oponente já entra no texto. Como são mensagens, seguem as regras da fila (uma por dia por criador, teto, domingo sem envios); a do dia tem prioridade 1.
+
+**Como testar:** entre como `streamer01@hera.demo` e abra Batalhas na barra de baixo (há uma batalha confirmada de demonstração, um pedido e uma do histórico). Marque itens do checklist. Depois, entre como `gestora2@hera.demo` e abra o menu Batalhas.
+
+**Conferência (18/11):** todos os testes passando (os novos estão em `tests/test_batalha_oficial.py`: regra dos 7 dias, as duas datas, confirmação, texto preenchido, checklist, histórico sem resultado, fila dos 4 dias e do dia, e isolamento entre criadores e entre carteiras). Telas abertas no Chrome: a do criador em 375px sem nada passando da borda, o clique no checklist funcionando, e a da gestão.
+
+**Decisões pequenas do 3.3:**
+
+| Decisão | Motivo |
+| --- | --- |
+| Duas datas obrigatórias e uma hora só | É o modelo oficial do roteiro ("Duas opções de data", "Horário") |
+| A data mais cedo vira a 1ª opção | A gestão lê os pedidos em ordem de data |
+| "Tanto faz" nos rounds no pedido; na confirmação, 1 ou 3 | O modelo oficial tem "tanto faz"; a batalha precisa de um número |
+| Status "Aprovada" virou "Confirmada" e "Não aprovada" virou "Não deu desta vez" | Mesma palavra da mensagem BAT-CONF; recusa sem tom de reprovação |
+| O histórico do criador mostra só data e oponente | O registro de resultado e diamantes (aba Batalhas da ficha) é interno e serve para a gestão escolher o próximo oponente; mostrar vitória e derrota viraria comparação |
+| O checklist é o da BAT-CONF, palavra por palavra | É o que o criador já recebe no grupo |
+| Mensagem dos 4 dias e do dia na fila, como mensagem (não tarefa) | Decisão da Mariana de 18/11. Depois do "Enviei", o item sai da fila |
+
+**Fica para a etapa 4 (gestão completa):** sugestão de oponente do mesmo nível, agenda das batalhas e mural de vagas da semana.
+
+### Passo 3.4, o que mudou (Campanhas)
+
+Decisão da Mariana de 18/11: **as campanhas não são cadastradas no app.** O Claude lê no Backstage, junto com a leitura diária, a tela Operações › Campanhas, e a gestão só escolhe o foco. Conferido no Backstage em 18/11 (só olhando, sem mudar nada): "Por campanha" traz situação, período, nível recomendado, tipo (tabela de classificação, desafio de batalha ou missão), participantes/elegíveis e total de diamantes; "Por criador" traz a situação de cada criador (qualifica-se, inscrito, em andamento, encerrada); o link fica em Regras › Compartilhar › Link (`https://www.tiktok.com/t/...`); as campanhas da Hera ficam em "Campanhas dirigidas pela Agência" e chegam pela mesma leitura.
+
+**Leitura de campanhas** (`POST /api/importacao/campanhas/`, mesma chave da leitura diária; regras em `engage/campaigns.py:receive_reading`): JSON com as campanhas e a situação de cada criador. Reenviar não duplica (a campanha é achada pelo ID do Backstage ou pelo nome com a data de início). O que a gestão decide (foco, "não oferecer", mecânica e "premia até" conferidos) nunca é sobrescrito. A situação de cada criador é trocada inteira a cada leitura; a inclusão manual da gestão fica. @ que não é da agência é ignorado e contado. Campanha nova avisa a gestão no sininho. As instruções para o Claude (com o formato) aparecem em Importar dados › Leitura automática, junto com a chave.
+
+**Na gestão:**
+- **Campanhas › Lidas do Backstage:** cada campanha com aba, tipo, nível, mecânica, participantes, quantos da carteira podem se inscrever, estão inscritos ou participam, e os botões **Foco**, **Não oferecer** e **Conferir os dados** (mecânica, premia até, resumo, prêmios e link).
+- **Ficha › Campanha do momento:** a sugestão do app com o motivo em uma frase ("faz 8 batalhas por semana e só 3 participantes e premia até o 10º"), e a escolha da gestora entre as campanhas em que o criador participa (inclusive fora do foco, só para ele), "nenhuma por enquanto" ou a sugestão do app. A escolha vence a sugestão, vira nota na linha do tempo e avisa o criador.
+
+**No app do criador:** uma lista só (saíram as abas "Destaques TikTok" e "Da Hera"), com as campanhas de foco em que ele participa, a situação dele ("Você pode se inscrever", "Inscrição feita", "Valendo agora"), o resumo e o botão para o TikTok. A campanha do momento vem primeiro e aparece na tela inicial. Sem posição e sem ranking. O rodízio da fila (ROD-CAMP) usa a campanha do momento.
+
+**Campanha do momento (sugestão):** encaixe da mecânica com o que o criador fez nas últimas 4 semanas (batalhas, dias válidos, fãs novos, co-host), que pesa o dobro, mais a chance (participantes e até que posição premia, quando a leitura traz). Vídeos ainda não chegam na leitura diária. Prêmio comparado ao mês do criador e esforço ficam para quando o prêmio vier em número.
+
+**Como testar:** `tests/test_campanhas.py` (porta, foco, lista do criador, sugestão, escolha da gestora, permissões e isolamento no banco). No computador da Hera há uma leitura de demonstração: entre como `streamer01@hera.demo` (Campanhas e tela inicial) e como `gestora2@hera.demo` (Campanhas e a ficha de @bia.show001.demo).
+
+**Falta para funcionar no dia a dia:** ligar a leitura de campanhas no Claude que faz a leitura diária (copiar as instruções novas em Importar dados). A leitura roda no computador da Hera, com o Backstage logado no Chrome.
+
+**Decisões pequenas do 3.4:**
+
+| Decisão | Motivo |
+| --- | --- |
+| Do TikTok, o criador vê só as campanhas de foco (ou a escolhida para ele) | A visão pede uma campanha de cada vez; o Backstage lista dezenas |
+| Campanha lida sem ninguém da Hera listado não aparece para ninguém | A leitura diz quem se qualifica; o público por Tier vale só para as campanhas antigas, cadastradas à mão |
+| "Encerrada" não conta como "participa" | O criador não tem mais o que fazer nela |
+| Quem pode marcar foco: sócias, gestoras e Conteúdo | Pedido da Mariana: a gestora escolhe as de foco |
+| O link é aceito só se começar com `https://` (na leitura, só links do TikTok) | Evita link quebrado ou de fora no card do criador |
+
+### Passo 3.5, o que mudou (Ajuda)
+
+**A tela Dúvidas virou Ajuda** (na barra de baixo também). De cima para baixo: a busca; **Minha conta foi restringida ou banida**; **Falar com a Hera**; as dúvidas por tema; e **Sair da agência**.
+
+- **Falar com a Hera:** "Tenho uma dúvida" ou "Quero conversar com a Hera" (pedido de conversa, com o assunto e o melhor jeito de falar, se o criador quiser contar). Entra na fila do dia no bloco de suporte ("Pedido de conversa pelo app") e avisa a gestora.
+- **Minha conta foi restringida ou banida:** o criador conta o tipo, quando aconteceu, o que apareceu e se já fez o recurso. O aviso **abre o caso da conta** (ou completa o caso aberto), que vai para o topo da fila, e avisa a gestora (sem gestora, as sócias). O caso continua interno: o criador só vê que já avisou. A gravação do caso roda no serviço `crm/account_report.py`, como sistema, nunca na view (mesmo padrão do primeiro acesso). Encerrar o caso na ficha também fecha o aviso.
+- **Sair da agência:** as regras pela data de entrada do criador ("é o seu caso"): nos primeiros 15 dias, é só avisar a Hera e dá para voltar quando quiser; depois, aviso prévio no app do TikTok e 90 dias sem agência (regra do TikTok); e os casos de inelegibilidade (mais de 300 mil diamantes em 6 meses, mais de uma conta, violações), com o texto do Playbook (SAI-03 e SAI-04). Botão **Quero conversar com a Hera**, que entra na fila como "Quer conversar sobre sair da agência". Os números 15 e 90 vêm de Configurações da agência.
+- **Central de dúvidas revisada** (`engage/defaults.py`, migração `engage/0023`): "Tier" virou "Nível" (tema e respostas; a faixa de cada nível fica em Meu nível, não no texto); saíram as frases que sugeriam horas, dias ou horário ("1–2h por dia, 3–4 dias por semana", "entre 20h e 21h", "termine antes das 21h"); entraram 17 dúvidas do roteiro online (decisão 5), adaptadas para o criador ler; temas novos: Dinheiro e saque, Público e fã-clube, A Hera e os grupos. Saiu "De onde vem o número de diamantes do meu mês?". A migração só troca o texto que a gestão não editou.
+- **Dicas do dia:** saíram as três que sugeriam hora e dias de LIVE, trocadas por fatos.
+- **Gestão:** a tela Dúvidas mostra o tipo de cada pedido (dúvida, conversa, aviso de restrição, saída).
+
+**Para a Mariana revisar:** `HERA\creator-hub\Central de duvidas - revisao do passo 3.5 (para revisar).txt`, com cada pergunta marcada como nova, mudou ou igual, o texto de antes e 4 pontos de atenção (mínimo do mês; "leva até 30 dias" e "perde as premiações"; graduação; a pergunta que saiu). Ele substitui o arquivo antigo de 11/11.
+
+**Como testar:** `tests/test_ajuda.py`. No computador da Hera, entre como `streamer01@hera.demo` e toque em Ajuda.
+
+**Decisões pequenas do 3.5:**
+
+| Decisão | Motivo |
+| --- | --- |
+| O aviso de conta fica no topo da Ajuda, antes dos temas | É o caso urgente; com 13 temas, lá embaixo ninguém acharia |
+| O criador não manda print pelo app; a tela pede o print no grupo | Os arquivos enviados se perdem a cada versão no Railway (até existir armazenamento) |
+| O aviso de conta não aparece duas vezes na fila | O caso já tem o próprio item ("Restrição na conta: dia N") |
+| "Regras da plataforma" virou "Regras do TikTok" | Mesmo selo que o app usa ("regra do TikTok") |
+
+### Passo 3.6, o que mudou (Meu plano)
+
+Decisões da Mariana de 19/11: (1) os lembretes chegam no sininho do app até existir notificação no celular; (2) a gestão vê o plano; (3) onde fica o acesso ela decide depois de ver a tela.
+
+**No app do criador, tela nova "Meu plano"** (`/meu-plano/`; regras em `engage/plan.py`):
+- **Meus dias de LIVE:** sete botões (seg a dom). Sem hora, sem sugestão de quantos dias. Desmarcar tudo também vale.
+- **Meus objetivos:** até 3 em aberto. "Chegar a um nível" (o app mostra, com os dados de ontem, onde o Nível começa e quantos diamantes o criador tem no mês; quem já está no nível vê "Você já está no Nível X") ou "Do meu jeito" (texto livre). Botões **Consegui** (vai para "Consegui 🎉", com Desfazer) e **Apagar**.
+- **Lembretes, todos desligados no começo:** "Hoje é um dos meus dias de LIVE", "Minha batalha oficial é amanhã", "Campanha que fecha hoje" e "Módulo novo na Hera Academy". Chegam no sininho, pela rotina diária. O mesmo lembrete não se repete no mesmo dia.
+- No fim da tela: "A Hera vê o seu plano para combinar visitas e batalhas com você."
+- **Acesso, por enquanto:** cartão "Meu plano" na tela inicial (logo depois de "Pedir batalha oficial"), com os dias e o primeiro objetivo, ou "Monte seu plano, se quiser"; e um atalho no Perfil. A barra de baixo não mudou.
+
+**Na gestão:** ficha › Visão geral, quadro "Meu plano · escolhido pelo criador": dias, objetivos em aberto e os que ele conseguiu, e a data da última mudança. Só leitura.
+
+**Segurança:** tabelas `engage_creatorplan` e `engage_creatorgoal` com RLS (`web/migrations/0009_rls_meu_plano.py`): o criador lê e grava o dele; a gestão da carteira e as sócias leem; ninguém da gestão grava (a sócia só apaga junto quando exclui o criador). A anonimização da LGPD apaga o plano e os objetivos.
+
+**Como testar:** `tests/test_meu_plano.py` (14 testes). No computador da Hera, entre como `streamer01@hera.demo` e toque no cartão "Meu plano" da tela inicial. Para ver a ficha, entre como `gestora2@hera.demo` e abra @bia.show001.demo.
+
+**Conferência (19/11):** 250 testes passando e 1 pulado (o mesmo de antes). A tela e o cartão foram abertos no Chrome como streamer01 (com um plano de exemplo: seg, qua e sex, "Chegar ao Nível 2", "Fazer minha primeira batalha oficial" e dois lembretes ligados). A ficha da gestão foi conferida pelos testes, não aberta no navegador. Os lembretes foram conferidos pelos testes; a rotina diária ainda não rodou com eles no Railway.
+
+**Decisões pequenas do 3.6:**
+
+| Decisão | Motivo |
+| --- | --- |
+| Os lembretes são criados pela rotina diária, às 6h | É a rotina que já roda todo dia. No sininho a hora não incomoda ninguém; quando houver notificação no celular, o envio respeita a janela da visão (nunca entre 22h e 9h) |
+| Até 3 objetivos em aberto | Foi o que a Mariana aprovou no plano; os que ele conseguiu não contam |
+| Objetivo de nível mostra fato, não ritmo nem "quanto precisa por dia" | Regra da tela inicial: nada de "precisa/dia" |
+| Os níveis da lista são os acima do nível atual | Escolher o próprio nível não faz sentido como objetivo |
+| O aviso de módulo novo só começa depois da primeira rodada da rotina | Na primeira vez a rotina só guarda o que já estava aberto; assim ninguém recebe aviso de tudo de uma vez |
+| A gestão vê dias e objetivos, mas não quais lembretes estão ligados | Lembrete é do celular do criador; não ajuda a gestão a combinar visita ou batalha |
+| A tela avisa que a Hera vê o plano | Transparência sobre os dados (LGPD) |
+
+**Acesso (decisão da Mariana de 19/11):** fica como está, pelo cartão da tela inicial e pelo atalho no Perfil. A barra de baixo não muda.
+
+### Passo 3.7, o que mudou (teste do app com poucos criadores)
+
+Decisões da Mariana de 19/11: **5 criadores**, escolhidos por ela depois; os **vídeos** da Hera Academy ela cadastra no sistema; o teste dura **de 2 semanas a 1 mês**; a **pesquisa do fim é identificada**.
+
+**Gestão › 🧪 Teste do app (só as sócias)** (`/gestao/teste-do-app/`; regras em `web/app_test.py`):
+- **Datas:** início e fim, com a situação (sem datas, começa em, em andamento, terminou).
+- **Trava do código de acesso:** "Só quem participa do teste recebe código de acesso". Ligada, a ficha de quem não participa mostra o aviso no lugar do botão, e o serviço `crm/first_access.py:new_code` recusa (vale também para quem tentar pelo endereço direto).
+- **Quem participa:** colocar pelo @ e "Tirar do teste". Cada mudança fica no registro de ações (Audit logs). A ficha mostra "no teste do app".
+- **Uma linha por criador:** gestora, situação do acesso (sem código, código gerado em, entrou em), dias com o app aberto nesta semana e desde o início, última vez, áreas usadas (Meu progresso, Hera Academy, Campanhas, Batalhas, Ajuda, Meu plano) e se respondeu a pesquisa.
+- **Pesquisa do fim:** botão "Criar a pesquisa": 5 perguntas, identificada, só para quem participa (campo novo `Survey.only_app_testers`), abre às 9h do último dia e fica 7 dias aberta. Aparece no fim da tela inicial do criador, como as outras pesquisas. Respostas em "Ver as respostas".
+
+**Registro de uso do app:** cada tela do criador registra, uma vez por dia, que o app foi aberto (`app_open`, que antes só contava a tela inicial) e uma vez por dia cada área usada (`area:...`). Fica em `web/views_streamer.py:streamer_required`. O relatório que já existia ("abriram o app na semana") passa a contar qualquer tela.
+
+**Roteiro do teste para a Mariana revisar:** `HERA\creator-hub\Roteiro do teste do app - passo 3.7 (para revisar).txt` (checklist antes de começar, convite, sugestões por semana, como a gestão acompanha, perguntas da pesquisa e como saber se deu certo, com 4 perguntas no fim).
+
+**Como testar:** `tests/test_teste_do_app.py` (9 testes). No computador da Hera, entre como `admin@hera.demo` → Teste do app.
+
+**Conferência (19/11):** 259 testes passando e 1 pulado (o mesmo de antes). A tela foi aberta no Chrome como admin, com um criador de exemplo e a trava ligada; depois o teste de exemplo foi desfeito no banco local (sem datas, trava desligada, ninguém no teste). Correção feita na conferência: com o teste ainda por começar, a linha "desde o início do teste" não aparece.
+
+**Decisões pequenas do 3.7:**
+
+| Decisão | Motivo |
+| --- | --- |
+| A trava vem desligada e é ligada pelas sócias na tela do teste | Ligada por padrão, a gestão não conseguiria gerar nenhum código até alguém configurar o teste |
+| Não há limite de 5 na tela; ela só mostra "combinado: 5" | Se alguém sair do teste no meio, dá para colocar outro sem mexer em configuração |
+| A trava não desliga sozinha no fim do teste | Abrir o app para todos é decisão das sócias, não da data |
+| "Dia com o app aberto" = qualquer tela do criador aberta no dia (dia de Brasília) | É o que a visão chama de "abre o app na semana" |
+| A área usada é registrada para todos os criadores, não só para quem testa | A mesma medida serve depois para o painel das sócias ("Página educacional": quem assistiu a cada módulo) |
+| A pesquisa abre às 9h do último dia e fica 7 dias | Dá tempo de a gestora avisar no grupo e de o criador responder |
+| A mensagem de convite ficou no roteiro, não na biblioteca de mensagens | Regra do projeto: texto novo de mensagem só entra com a aprovação da Mariana (pergunta 1 do roteiro) |
+
+**Falta (fora do app):** publicar esta versão; cadastrar os vídeos (pelo menos os módulos 1 a 3); a Mariana escolher os 5 e revisar o roteiro.
+
 ### ⚠️ Logins de demonstração não podem existir em produção
 
 Estes logins têm senha conhecida (`hera-demo-2026`) e servem só para demonstração no computador da Hera:
@@ -397,15 +555,19 @@ Três proteções: os dois comandos se recusam a rodar em produção; o app não
 ### Decisões pendentes da Mariana
 
 - [x] **Nome da página educacional (passo 3.2):** **Hera Academy** (decisão de 18/11).
-- [ ] **Tela inicial (passo 3.1):** Avisos, Benefícios, Pesquisa e a dica do dia não estão na visão. Ficaram no fim da tela. Manter ou tirar?
-- [ ] **Frase de quem já passou da marca do próximo nível (passo 3.1):** "Você já passou da marca do Nível X neste mês. O nível muda no fechamento do mês." A visão não traz frase para esse caso. Confirmar ou trocar.
+- [x] **Tela inicial (passo 3.1):** Avisos, Benefícios, Pesquisa e a dica do dia ficam no fim da tela: **manter** (decisão de 18/11).
+- [x] **Frase de quem já passou da marca do próximo nível (passo 3.1):** trocada em 18/11 por uma forma neutra que avisa a troca de grupo: "Seus diamantes deste mês já estão na faixa do grupo Ouro. A troca de grupo acontece no fechamento do mês." Quando o grupo não muda (ex.: T2 → T3, os dois Prata) ou no Primeiro Mês: "Seus diamantes deste mês já estão na faixa do Nível 3. A mudança acontece no fechamento do mês." (`web/progress.py:reached_phrase`, testes em `tests/test_meu_progresso.py`).
+- [x] **Decisões 1 a 4 das mensagens** (revisão da Mariana de 18/11, arquivo `HERA\creator-hub\Mensagens - decisoes 1 a 5 (para revisar).txt`), aplicadas pela migração `engage/0019_revisao_mensagens_18_11.py`, que troca só as mensagens revisadas e guarda o texto anterior como versão:
+  1. SAI-01 sem o final "sem prazo de espera nenhum"; RES-01 "me conta quando aconteceu (o dia e a hora)"; BAT-PEDIDO "a hora" e "⏰ Hora:"; BAT-ATUALIZA "a batalha passou para as 20h". A biblioteca padrão não tem mais palavra vetada.
+  2. REG-14, QUEDA-01, REC-01 e CONVITE-APP com o texto da Hera (origem "Criado pela agência"; nenhuma provisória). Em QUEDA-01, o trecho que a gestora completa ficou entre colchetes, como nas outras mensagens, e em forma neutra.
+  3. Cadência depois do D15 com a versão para quem já é da casa: NR-24H-CASA, NR-2D-CASA e NR-3D-CASA (a fila escolhe sozinha pela fase; o +5 dias é o mesmo para todos).
+  4. Mural de batalhas continua sem o bloco de destaques.
+- [x] **Decisão 5 (dúvidas frequentes do roteiro), 18/11:** entram **nas duas**. Na biblioteca de mensagens já entraram 23 respostas (códigos DUV-*, etapa "Dúvidas frequentes", migração `engage/0020`), com os textos revisados; a graduação saiu e "O que é uma batalha oficial?" é a própria BAT-PEDIDO. O quadro de graduação do Meu progresso **fica** para os testes iniciais.
+- [ ] **Central de dúvidas (passo 3.5):** as respostas do roteiro entraram adaptadas para o criador, junto com a revisão "Tier → Nível". Falta a Mariana revisar `HERA\creator-hub\Central de duvidas - revisao do passo 3.5 (para revisar).txt` (substitui o arquivo antigo de 11/11), com 4 pontos de atenção.
+- [ ] **Cobertura e quem cobre (passo 2.7) e a aprovação da etapa 2:** a Mariana decide depois do teste da gestão (18/11).
 - [ ] **Cobertura (passo 2.7):** quem cobre enxerga a carteira inteira da gestora ausente, só naquele dia, e só registra contato. Confirmar se está bom assim, ou se o acesso deve ficar restrito aos criadores com item que não pode esperar.
 - [ ] **Quem cobre cada gestora:** escolher na tela Carteiras (uma sócia, a Fernanda ou a Adrielly). Enquanto não escolher, cobrem as sócias.
-- [ ] **Textos do Playbook que o verificador de tom barraria** (entraram como estão, com alerta): SAI-01 ("sem prazo de espera nenhum"), RES-01 ("o horário em que aconteceu"), BAT-PEDIDO (campo "⏰ Horário") e BAT-ATUALIZA ("o horário passou para 20h"). Trocar a palavra ou liberar esses casos?
-- [ ] **4 mensagens ainda provisórias** (o Playbook não traz o texto): 14 dias sem LIVE (REG-14), queda com horas mantidas (QUEDA-01), reconhecimento (REC-01) e convite para o app com o código (CONVITE-APP).
-- [ ] **Cadência depois do D15:** os textos do Playbook falam com quem está chegando ("o vídeo abriu sem problema?", "nesse comecinho"). Escrever uma versão para quem já é da casa?
-- [ ] **Mural de batalhas (BAT-MURAL):** entrou sem o bloco "🏆 Destaques da semana passada" do roteiro online, que lista as batalhas com os diamantes de cada uma. A regra do app é não ter ranking. Confirmar se fica assim.
-- [ ] **Dúvidas frequentes do roteiro online** (22 respostas prontas): não entraram na biblioteca. Entram como mensagens ou ficam na central de dúvidas?
+- [x] Textos do Playbook com palavra vetada, 4 provisórias, cadência depois do D15 e mural de batalhas: decididos em 18/11 (ver "Decisões 1 a 4 das mensagens", acima).
 - [x] Meta individual, missão da semana e disparo assistido: **remover** (feito em 14/11).
 - [x] Login: **trocar pelo fluxo da visão** (feito em 14/11).
 - [x] Painel das sócias: **pode mostrar bônus, receita e moedas**, só para Mariana e Aline (regra atualizada no `CLAUDE.md`; o painel é da etapa 4).

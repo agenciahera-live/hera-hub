@@ -25,6 +25,8 @@ from data import engine as E
 from data import importer, phases, port, states
 from data.models import ImportBatch, ImportTemplate, MonthlyResult
 from engage import academy
+from engage import battles as battle_rules
+from engage import campaigns as campaign_rules
 from engage import models as M
 from engage import playbook
 from engage.services import (creator_facts, creator_track, notify, outside_track, pick_variant, publish_announcement, render_message,
@@ -245,6 +247,7 @@ def creator_detail(request, pk):
             invite = template_for(c.agency, "CONVITE-APP", c)
             ctx["invite_text"] = _msg(request, invite.body, c) if invite and ctx["access_code"] else ""
             ctx["code_days"] = settings_.access_code_days
+            ctx["test_lock"] = settings_.app_test_only_testers and not c.app_tester  # passo 3.7
         ctx["assign_history"] = c.assignments.select_related("manager", "assigned_by").order_by("-valid_from")
         ctx["managers"] = _active_managers(c.agency)
         ctx["onboarding"] = E.onboarding_status(c, snaps, settings_)
@@ -271,7 +274,17 @@ def creator_detail(request, pk):
         ctx["academy_auto"] = academy.recommended(c, mods=mods, snap=snap, today=today, counting=ctx["phase"].base in ("chegada", "novato"), use_pick=False)
         ctx["lesson_pick"] = M.LessonPick.objects.filter(creator=c).select_related("lesson", "picked_by").first()
         ctx["lessons_done_ids"] = {p.lesson_id for p in ctx["lessons_done"]}
+        # campanha do momento (passo 3.4): a escolha da gestão vence a sugestão pelo encaixe
+        facts = creator_facts(c)
+        ctx["campaign_pick"] = M.CampaignPick.objects.filter(creator=c).select_related("campaign", "picked_by").first()
+        visible = campaign_rules.creator_campaigns(c, facts, today, pick=ctx["campaign_pick"] or False)
+        ctx["campaign_auto"] = campaign_rules.suggest(visible, campaign_rules.profile(snaps))
+        ctx["campaign_options"] = campaign_rules.creator_campaigns(c, facts, today, pick=False, include_unfocused=True)
         ctx["dias_sem_live"] = E.days_without_live(snaps)
+        # Meu plano (passo 3.6): a gestão lê o que o criador escolheu, sem editar
+        from engage import plan as plan_rules
+
+        ctx["creator_plan"] = plan_rules.for_creator(c)
     elif tab == "1a1":
         ctx["items"] = c.one_on_ones.prefetch_related("actions")[:20]
         prev = c.one_on_ones.first()
@@ -394,6 +407,31 @@ def _save_profile(request, c):
         messages.success(request, "Cadastro salvo.")
 
 
+def _campaign_pick(request, c):
+    """Campanha do momento na ficha: uma das campanhas em que o criador participa, "nenhuma", ou a sugestão do app."""
+    v = request.POST.get("campaign", "")
+    if v == "":
+        if M.CampaignPick.objects.filter(creator=c).delete()[0]:
+            C.Note.objects.create(creator=c, author=request.user, body="Campanha do momento volta a ser a sugestão do app.")
+            messages.success(request, "O app volta a sugerir a campanha do momento sozinho.")
+        return
+    if v == "nenhuma":
+        M.CampaignPick.objects.update_or_create(creator=c, defaults={"campaign": None, "picked_by": request.user, "picked_at": timezone.now()})
+        C.Note.objects.create(creator=c, author=request.user, body="Campanha do momento: nenhuma por enquanto.")
+        messages.success(request, "Sem campanha do momento para este criador.")
+        return
+    options = campaign_rules.creator_campaigns(c, creator_facts(c), E.tiktok_today(), pick=False, include_unfocused=True)
+    camp = next((x["c"] for x in options if x["c"].pk == _int(v)), None)
+    if camp is None:
+        messages.error(request, "Essa campanha não vale para este criador agora (ele não se qualifica, já encerrou ou está como “não oferecer”).")
+        return
+    M.CampaignPick.objects.update_or_create(creator=c, defaults={"campaign": camp, "picked_by": request.user, "picked_at": timezone.now()})
+    C.Note.objects.create(creator=c, author=request.user, body=f"Campanha do momento escolhida: “{camp.name}”.")
+    if c.user_id:
+        notify(user_id=c.user_id, kind="campanha", title="A Hera escolheu uma campanha para você", body=camp.name, url=reverse("campaigns"))
+    messages.success(request, f"“{camp.name}” é a campanha do momento deste criador. Ela aparece no app no lugar da sugestão.")
+
+
 def _academy_action(request, c, a):
     """Hera Academy na ficha: liberar um módulo antes da hora (ou desfazer) e escolher a aula que aparece no app.
     Cada mudança vira uma nota na linha do tempo; o criador recebe um aviso no app."""
@@ -497,6 +535,8 @@ def creator_action(request, pk):
         _save_profile(request, c)
     elif a in ("module_release", "module_unrelease", "lesson_pick"):
         _academy_action(request, c, a)
+    elif a == "campaign_pick":
+        _campaign_pick(request, c)
     elif a == "reminder_add":
         due, text = _date(request.POST.get("due_date")), request.POST.get("text", "").strip()[:240]
         if due and text:
@@ -530,8 +570,10 @@ def creator_action(request, pk):
                                          note=request.POST.get("note", "")[:2000], author=request.user)
             messages.success(request, "Caso aberto. Ele fica no topo da fila todo dia até ser resolvido.")
     elif a == "case_resolve":
-        C.AccountCase.objects.filter(creator=c, pk=_int(request.POST.get("case")), resolved_at__isnull=True).update(
-            resolved_at=timezone.now(), resolved_by=request.user, resolution=request.POST.get("resolution", "")[:240])
+        if C.AccountCase.objects.filter(creator=c, pk=_int(request.POST.get("case")), resolved_at__isnull=True).update(
+                resolved_at=timezone.now(), resolved_by=request.user, resolution=request.POST.get("resolution", "")[:240]):
+            # o aviso que o criador mandou pela Ajuda também fecha
+            M.SupportTicket.objects.filter(creator=c, kind="restricao", status="aberto").update(status="respondido", answered_at=timezone.now())
         messages.success(request, "Caso encerrado.")
     elif a == "battle_record":
         P = request.POST
@@ -596,7 +638,11 @@ def open_chat(request, pk, code):
     group = _group_url(c)
     if group:
         return redirect(group)  # link de grupo não leva texto: a gestora copia antes ("Copiar mensagem")
-    return redirect(whatsapp_link(_phone(c), _msg(request, t.body, c)))
+    body = t.body
+    if code == "BAT-CONF" and request.GET.get("batalha", "").isdigit():  # confirmação já preenchida com a batalha
+        b = get_object_or_404(M.BattleRequest, pk=int(request.GET["batalha"]), creator=c)
+        body = battle_rules.fill_confirmation(body, b)
+    return redirect(whatsapp_link(_phone(c), _msg(request, body, c)))
 
 
 @require_POST
@@ -614,7 +660,7 @@ def mark_sent(request, pk, code):
     if code.startswith("NR-") and code != "NR-5D":
         cs = getattr(c, "cadence", None)
         if cs and cs.resolved_at is None:
-            step = {"NR-24H": 1, "NR-2D": 2, "NR-3D": 3}[code]
+            step = {"NR-24H": 1, "NR-2D": 2, "NR-3D": 3}[code.removesuffix("-CASA")]  # a versão "da casa" é a mesma etapa
             if cs.step == step:
                 cs.step = step + 1
                 cs.save()
@@ -738,6 +784,55 @@ def _move_creators(request, managers):
                    body=f"Agora {'estão' if k > 1 else 'está'} com {absence.name_of(mgr)}." if mgr else "Por enquanto, sem gestora (com as sócias).")
     messages.success(request, f"{n} criador{plural} {'passaram' if n > 1 else 'passou'} para "
                               f"{('a carteira de ' + absence.name_of(mgr)) if mgr else 'a lista “sem gestora”'}. O histórico foi junto.")
+
+
+@staff_required(Role.ADMIN)
+def app_test_view(request):
+    """Teste do app (só as sócias, passo 3.7): quem participa, as datas, a trava do código e o uso de cada um."""
+    from . import app_test
+
+    ag = request.agency
+    st = AgencySettings.objects.get(agency=ag)
+    if request.method == "POST":
+        a = request.POST.get("a")
+        if a == "dates":
+            start, end = _date(request.POST.get("start")), _date(request.POST.get("end"))
+            if start and end and end < start:
+                messages.error(request, "O fim do teste precisa ser depois do início.")
+            else:
+                st.app_test_start, st.app_test_end = start, end
+                st.app_test_only_testers = bool(request.POST.get("only_testers"))
+                st.save(update_fields=["app_test_start", "app_test_end", "app_test_only_testers"])
+                AuditLog.objects.create(agency=ag, actor=request.user, action="teste_app_datas",
+                                        target=f"{start or '-'} a {end or '-'} · trava {'ligada' if st.app_test_only_testers else 'desligada'}")
+                messages.success(request, "Teste do app salvo.")
+        elif a == "add":
+            handle = request.POST.get("handle", "").strip().lstrip("@")
+            c = C.Creator.objects.filter(agency=ag, username__iexact=handle).exclude(
+                status__in=[C.CreatorStatus.SAIU, C.CreatorStatus.ANONIMIZADO]).first() if handle else None
+            if c is None:
+                messages.error(request, f"Não achei um criador ativo com o @{handle}." if handle else "Informe o @ do criador.")
+            else:
+                c.app_tester = True
+                c.save(update_fields=["app_tester"])
+                AuditLog.objects.create(agency=ag, actor=request.user, action="teste_app_entra", target=f"@{c.username}")
+                messages.success(request, f"@{c.username} entrou no teste do app.")
+        elif a == "remove":
+            c = C.Creator.objects.filter(agency=ag, pk=_int(request.POST.get("creator")), app_tester=True).first()
+            if c:
+                c.app_tester = False
+                c.save(update_fields=["app_tester"])
+                AuditLog.objects.create(agency=ag, actor=request.user, action="teste_app_sai", target=f"@{c.username}")
+                messages.success(request, f"@{c.username} saiu do teste do app.")
+        elif a == "survey":
+            sv, created = app_test.create_survey(ag, st)
+            messages.success(request, "Pesquisa do fim do teste criada." if created else "A pesquisa do teste já existe.")
+        return redirect("g_app_test")
+    rows = app_test.tester_rows(ag)
+    survey = M.Survey.objects.filter(agency=ag, only_app_testers=True).order_by("-opens_at").first()
+    return render(request, "gestao/app_test.html", {
+        "nav": "teste", "st": st, "rows": rows, "sum": app_test.summary(rows), "status": app_test.status(st),
+        "survey": survey, "areas": app_test.AREA_ORDER, "monday": app_test.week_start(timezone.localdate())})
 
 
 @staff_required(Role.ADMIN)
@@ -908,6 +1003,7 @@ def imports(request):
     ctx = {"nav": "import", "batches": ImportBatch.objects.filter(agency=request.agency).select_related("uploaded_by")[:30],
            "status": S.import_status(request.agency), "can_backstage": _can_import(request.roles, "backstage"),
            "can_key": Role.ADMIN in request.roles, "api_url": request.build_absolute_uri(reverse("api_import_backstage")),
+           "api_campaigns_url": request.build_absolute_uri(reverse("api_import_campaigns")),
            "key_once": request.session.pop("import_key_once", None) if Role.ADMIN in request.roles else None}
     if request.method == "POST" and request.FILES.get("file"):
         f = request.FILES["file"]
@@ -977,22 +1073,77 @@ def import_preview(request, pk):
 
 
 # ================================================================== batalhas e dúvidas
+def _battle_confirm(request, b):
+    """Confirmar (ou mudar) a batalha: data e hora entre as opções do criador ou outra, rounds, oponente e faixa."""
+    P = request.POST
+    opts = battle_rules.options(b)
+    choice = P.get("choice", "0")
+    if choice.isdigit() and int(choice) < len(opts):
+        date, time = opts[int(choice)]
+    else:
+        try:
+            date, time = dt.date.fromisoformat(P.get("other_date", "")), dt.time.fromisoformat(P.get("other_time", ""))
+        except ValueError:
+            raise battle_rules.BattleError("Escolha uma das opções do criador ou informe outra data e hora.") from None
+    try:
+        rounds = int(P.get("final_rounds") or 0)
+    except ValueError:
+        rounds = 0
+    was_confirmed = b.status == "aprovada"
+    battle_rules.confirm(b, date, time, rounds, P.get("opponent", ""), P.get("expected_range", ""), P.get("reply", ""))
+    b.save()
+    if b.creator.user_id:
+        title = "Sua batalha oficial mudou" if was_confirmed else "Sua batalha oficial está confirmada"
+        notify(user_id=b.creator.user_id, kind="batalha", title=f"{title}: {b.date:%d/%m} às {b.time:%H:%M}",
+               body=b.manager_reply, url="/batalhas/")
+    return was_confirmed
+
+
 @staff_required()
 def battles(request):
+    """Pedidos de batalha oficial da carteira: confirmar com o oponente e a faixa (texto pronto da BAT-CONF para o
+    grupo), sugerir outro dia ou hora, ou recusar. Passo 3.3."""
     ids = scoped_creators(request.user).values_list("pk", flat=True)
     if request.method == "POST":
         if not staff_roles(request.user) & {Role.ADMIN, Role.GESTORA}:
             raise PermissionDenied
-        b = get_object_or_404(M.BattleRequest, pk=request.POST.get("id"), creator_id__in=ids)
-        b.status = request.POST.get("status", b.status)
+        b = get_object_or_404(M.BattleRequest.objects.select_related("creator"), pk=request.POST.get("id"), creator_id__in=ids)
+        if request.POST.get("a") == "confirm":
+            try:
+                changed = _battle_confirm(request, b)
+            except battle_rules.BattleError as e:
+                messages.error(request, str(e))
+                return redirect(reverse("g_battles") + f"#b{b.pk}")
+            messages.success(request, "Batalha atualizada. Envie a atualização no grupo do criador." if changed else
+                             "Batalha confirmada. Copie a confirmação, envie no grupo do criador e marque “Enviei”.")
+            return redirect(reverse("g_battles") + f"#b{b.pk}")
+        status = request.POST.get("status", b.status)
+        if status == "aprovada" and b.status != "aprovada":
+            messages.error(request, "Para confirmar, use “Confirmar batalha”, com o oponente.")
+            return redirect("g_battles")
+        if status in dict(M.BattleRequest.STATUS):
+            b.status = status
         b.manager_reply = request.POST.get("reply", "")[:240]
         b.save()
         if b.creator.user_id:
             notify(user_id=b.creator.user_id, kind="batalha", title=f"Seu pedido de batalha: {b.get_status_display()}",
-                                          body=b.manager_reply, url="/batalhas/")
+                   body=b.manager_reply, url="/batalhas/")
         return redirect("g_battles")
-    items = M.BattleRequest.objects.filter(creator_id__in=ids).select_related("creator", "opponent")[:100]
-    return render(request, "gestao/battles.html", {"nav": "battles", "items": items, "statuses": M.BattleRequest.STATUS})
+    today = timezone.localdate()
+    qs = list(M.BattleRequest.objects.filter(creator_id__in=ids).select_related("creator", "opponent")[:200])
+    conf = {c: template_for(request.agency, c) for c in ("BAT-CONF", "BAT-ATUALIZA")}
+    confirmed = sorted([b for b in qs if b.status == "aprovada" and b.date >= today], key=lambda b: (b.date, b.time))
+    for b in confirmed:
+        b.confirmation = battle_rules.fill_confirmation(conf["BAT-CONF"].body, b) if conf["BAT-CONF"] else ""
+        b.cl = battle_rules.checklist(b)
+    pending = sorted([b for b in qs if b.status in battle_rules.OPEN_STATUSES], key=lambda b: (b.date, b.time))
+    for b in pending:
+        b.opts = battle_rules.options(b)
+    others = [b for b in qs if b not in confirmed and b not in pending]
+    return render(request, "gestao/battles.html", {
+        "nav": "battles", "pending": pending, "confirmed": confirmed, "others": others[:60], "statuses": M.BattleRequest.STATUS,
+        "rounds": M.BattleRequest.ROUNDS, "update_tpl": conf["BAT-ATUALIZA"], "today": today,
+        "notice_days": AgencySettings.objects.get(agency=request.agency).battle_notice_days})
 
 
 @staff_required()
@@ -1003,16 +1154,66 @@ def tickets(request):
 
 
 # ================================================================== campanhas
+CAMPAIGN_EDITORS = {Role.ADMIN, Role.GESTORA, Role.CONTEUDO}
+
+
+def _campaign_edit(request):
+    """Foco, "não oferecer" e os campos que a gestão confere (mecânica, premia até, resumo, prêmios, link)."""
+    P = request.POST
+    camp = get_object_or_404(M.Campaign, pk=_int(P.get("id")), agency=request.agency)
+    a = P.get("a")
+    if a == "focus":
+        camp.featured = not camp.featured
+        if camp.featured:
+            camp.do_not_offer = False
+        messages.success(request, f"“{camp.name}”: {'agora é foco e aparece no app para quem participa' if camp.featured else 'deixou de ser foco'}.")
+    elif a == "do_not_offer":
+        camp.do_not_offer = not camp.do_not_offer
+        if camp.do_not_offer:
+            camp.featured = False
+        messages.success(request, f"“{camp.name}”: {'não será oferecida a ninguém' if camp.do_not_offer else 'volta a poder ser oferecida'}.")
+    elif a == "details":
+        link = P.get("tiktok_url", "").strip()
+        if link and not link.startswith("https://"):
+            messages.error(request, "Cole o link completo da campanha (começa com https://).")
+            return
+        camp.mechanic = P.get("mechanic", "") if P.get("mechanic", "") in dict(M.Campaign.MECHANICS) else ""
+        camp.prize_until = _int(P.get("prize_until"))
+        camp.what_to_do, camp.prizes, camp.tiktok_url = P.get("what_to_do", "")[:1000], P.get("prizes", "")[:1000], link
+        messages.success(request, f"“{camp.name}” atualizada.")
+    camp.save()
+    AuditLog.objects.create(agency=request.agency, actor=request.user, action=f"campanha_{a}", target=camp.name[:200])
+
+
 @staff_required()
 def campaigns(request):
+    """Campanhas (passo 3.4): as lidas do Backstage pelo Claude, para a gestão escolher o foco, e as outras."""
     today = E.tiktok_today()
-    items = M.Campaign.objects.filter(agency=request.agency).order_by("-end")[:40]
+    can_edit = bool(staff_roles(request.user) & CAMPAIGN_EDITORS)
+    if request.method == "POST":
+        if not can_edit:
+            raise PermissionDenied
+        _campaign_edit(request)
+        return redirect(reverse("g_campaigns") + (f"#c{request.POST.get('id')}" if request.POST.get("id") else ""))
+    items = list(M.Campaign.objects.filter(agency=request.agency, end__gte=today - dt.timedelta(days=30)).order_by("end", "name"))
+    mine = set(scoped_creators(request.user).values_list("pk", flat=True))
+    by_camp = {}
+    for p in M.CampaignParticipant.objects.filter(campaign__in=items, creator_id__in=mine).values("campaign_id", "status"):
+        d = by_camp.setdefault(p["campaign_id"], {})
+        d[p["status"] or "manual"] = d.get(p["status"] or "manual", 0) + 1
+    for c in items:
+        c.mine = by_camp.get(c.pk, {})
+        c.active = c.start <= today <= c.end
+    read = [c for c in items if c.read_at]
+    others = [c for c in items if not c.read_at]
     covered = set()
     for c in items:
-        if c.start <= today <= c.end:
+        if c.active and not c.do_not_offer:
             covered |= set(int(t) for t in c.audience_tiers) if c.audience_tiers else set(range(1, 11))
-    return render(request, "gestao/campaigns.html", {"nav": "camp", "items": items, "today": today,
-                                                     "uncovered": [t for t in range(1, 11) if t not in covered]})
+    last_read = max((c.read_at for c in read), default=None)
+    return render(request, "gestao/campaigns.html", {
+        "nav": "camp", "read": read, "others": others, "today": today, "can_edit": can_edit, "last_read": last_read,
+        "mechanics": M.Campaign.MECHANICS, "uncovered": [t for t in range(1, 11) if t not in covered]})
 
 
 @staff_required()

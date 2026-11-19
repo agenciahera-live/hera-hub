@@ -21,10 +21,11 @@ from engage.tom import verificar_tom_mensagem
 
 from . import factories as F
 
-# Textos que vieram assim do Playbook e que o verificador de tom barraria (ficam marcados na biblioteca para a Hera decidir):
-# SAI-01 diz "sem prazo de espera nenhum"; RES-01 pergunta "o horário em que aconteceu"; BAT-PEDIDO tem o campo "⏰ Horário";
-# BAT-ATUALIZA traz o exemplo "o horário passou para 20h".
-EXCECOES_CONHECIDAS = {"SAI-01": ["prazo"], "RES-01": ["horário"], "BAT-PEDIDO": ["horário"], "BAT-ATUALIZA": ["horário"]}
+# Os quatro textos do Playbook que o verificador barrava (SAI-01, RES-01, BAT-PEDIDO e BAT-ATUALIZA) foram revisados pela
+# Mariana em 18/11 e não têm mais "prazo" nem "horário". A biblioteca padrão passa inteira no verificador.
+EXCECOES_CONHECIDAS = {}
+REVISADAS_18_11 = {"SAI-01", "RES-01", "BAT-PEDIDO", "BAT-ATUALIZA", "REG-14", "QUEDA-01", "REC-01", "CONVITE-APP",
+                   "NR-24H-CASA", "NR-2D-CASA", "NR-3D-CASA"}
 
 
 class VerificadorDeTomDasMensagensTests(SimpleTestCase):
@@ -53,13 +54,21 @@ class VerificadorDeTomDasMensagensTests(SimpleTestCase):
         chaves = [(m["code"], m["variant"]) for m in playbook.MESSAGES]
         self.assertEqual(len(chaves), len(set(chaves)))
         for m in playbook.MESSAGES:
-            self.assertIn(m["source"], ("playbook", "roteiro", "provisorio"))
+            self.assertIn(m["source"], ("playbook", "roteiro", "provisorio", "agencia"))
             self.assertTrue(set(m["tracks"]) <= {"primeira_live", "outra_agencia", "nivel_publico"}, m["code"])
             if m["variant"]:  # toda variação tem um modelo geral com o mesmo código
                 self.assertIn((m["code"], ""), chaves, m["code"])
         codigos = {m["code"] for m in playbook.MESSAGES}
         self.assertFalse(codigos & set(playbook.RETIRED))  # sem resumo de números pelo WhatsApp
-        self.assertEqual(sorted(m["code"] for m in playbook.MESSAGES if m["source"] == "provisorio"), ["CONVITE-APP", "QUEDA-01", "REC-01", "REG-14"])
+        # as 4 provisórias ganharam o texto da Hera em 18/11, junto com a cadência para quem já é da casa
+        self.assertEqual([m["code"] for m in playbook.MESSAGES if m["source"] == "provisorio"], [])
+        self.assertEqual({m["code"] for m in playbook.MESSAGES if m["source"] == "agencia" and not m["code"].startswith("DUV-")},
+                         {"REG-14", "QUEDA-01", "REC-01", "CONVITE-APP", "NR-24H-CASA", "NR-2D-CASA", "NR-3D-CASA"})
+        # decisão 5: 23 dúvidas frequentes do roteiro na biblioteca, sem a graduação e sem repetir a BAT-PEDIDO
+        duvidas = [m for m in playbook.MESSAGES if m["code"].startswith("DUV-")]
+        self.assertEqual(len(duvidas), 23)
+        self.assertFalse([m for m in duvidas if "gradua" in (m["title"] + m["body"]).lower()])
+        self.assertTrue(all(m["stage"].startswith("Dúvidas frequentes · ") for m in duvidas))
         self.assertEqual(len(playbook.NICHE_GUIDE), 5)
 
 
@@ -154,12 +163,13 @@ class BibliotecaTests(TestCase):
     def test_tela_lista_filtra_e_marca_provisorias_e_alertas(self):
         self.client.force_login(self.gestora)
         tela = self.client.get(reverse("g_messages"))
-        for texto in ["Biblioteca de mensagens", "Cadência de não-resposta", "Entrou e ainda não abriu LIVE", "Ajustes por nicho", "provisório",
-                      "tom: prazo", "Ver detalhes e versões"]:
+        for texto in ["Biblioteca de mensagens", "Cadência de não-resposta", "Entrou e ainda não abriu LIVE", "Ajustes por nicho",
+                      "Ver detalhes e versões", "NR-24H-CASA", "depois do D15 (quem já é da casa)"]:
             self.assertContains(tela, texto)
+        self.assertNotContains(tela, "tom: prazo")  # revisão de 18/11: nenhuma mensagem padrão com palavra vetada
         self.assertNotContains(tela, "Editar e ver versões")  # gestora sem o papel Conteúdo só lê
         provisorias = self.client.get(reverse("g_messages") + "?ver=provisorias")
-        self.assertContains(provisorias, "REG-14")
+        self.assertNotContains(provisorias, "REG-14")  # ganhou o texto da Hera
         self.assertNotContains(provisorias, "ONB-D1-02")
         busca = self.client.get(reverse("g_messages") + "?q=heart me")
         self.assertContains(busca, "DES-D3-HM")
@@ -221,8 +231,26 @@ class BibliotecaTests(TestCase):
         self.assertEqual(self._modelo("ROD-PERG").body, t.body)
         with system_context():
             self.assertEqual(MessageVersion.objects.filter(template=t).count(), 0)
-        # texto do Playbook que o verificador barraria: a tela avisa
+        # texto já gravado que o verificador barraria (ex.: veio de uma revisão antiga): a tela avisa
+        with system_context():
+            MessageTemplate.objects.filter(pk=self._modelo("SAI-01").pk).update(body="Pode voltar quando quiser, sem prazo de espera.")
         self.assertContains(self.client.get(reverse("g_message", args=[self._modelo("SAI-01").pk])), "O verificador de tom barraria este texto")
+
+    def test_revisao_pontual_troca_so_os_codigos_revisados(self):
+        """A migração da revisão de 18/11 troca só as mensagens revisadas; o que a gestão editou nas outras fica."""
+        from engage.library import sync_defaults
+
+        with system_context():
+            editada = self._modelo("ROD-PERG")
+            MessageTemplate.objects.filter(pk=editada.pk).update(body="Texto editado pela Hera na tela")
+            revisada = self._modelo("SAI-01")
+            MessageTemplate.objects.filter(pk=revisada.pk).update(body="Texto antigo com prazo")
+            MessageTemplate.objects.filter(agency=self.ag, code="NR-24H-CASA").delete()
+            sync_defaults(self.ag, overwrite=True, only_codes=REVISADAS_18_11)
+            self.assertEqual(self._modelo("ROD-PERG").body, "Texto editado pela Hera na tela")
+            self.assertNotIn("prazo", self._modelo("SAI-01").body)
+            self.assertTrue(MessageVersion.objects.filter(template=revisada, body="Texto antigo com prazo").exists())
+            self.assertTrue(MessageTemplate.objects.filter(agency=self.ag, code="NR-24H-CASA").exists())
 
 
 class SemanaSinteticaTests(TestCase):

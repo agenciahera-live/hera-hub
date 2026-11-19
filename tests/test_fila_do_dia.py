@@ -288,12 +288,39 @@ class FilaDoDiaTests(TestCase):
         em30 = HOJE + dt.timedelta(days=30)
         with system_context():
             CreatorPrivate.objects.update_or_create(creator=c, defaults={"birth_day": em30.day, "birth_month": em30.month})
-            BattleRequest.objects.create(creator=c, kind="oficial", date=HOJE + dt.timedelta(days=3), time=dt.time(20, 0), status="aprovada")
+            BattleRequest.objects.create(creator=c, kind="oficial", date=HOJE + dt.timedelta(days=3), time=dt.time(20, 0), status="aprovada",
+                                         opponent_text="rival.demo · Agência X")
+        with system_context():
+            bruta = S.action_queue(Creator.objects.filter(pk=c.pk), self.ag, today=HOJE, raw=True)
+        self.assertEqual(next(i for i in bruta if i.code == "aniversario_30").template, "ANIV-30")
+        # decisão de 18/11: do 4º ao 1º dia antes, a mensagem dos 4 dias (BAT-4D), com o oponente já no texto
         q = self._fila(c)
-        self.assertEqual(next(i for i in q if i.code == "aniversario_30").template, "ANIV-30")
         batalha = next(i for i in q if i.code == "batalha_proxima")
+        self.assertEqual((batalha.template, batalha.priority), ("BAT-4D", 2))
         self.assertIn("em 3 dias", batalha.title)
         self.assertIn("Checklist", batalha.detail)
+        self.assertIn("@rival.demo · Agência X", batalha.text)
+        self.assertNotIn("[oponente]", batalha.text)
+        # uma mensagem por dia: a batalha vem antes do convite de aniversário, que espera
+        self.assertNotIn("aniversario_30", [i.code for i in q])
+        self.assertGreaterEqual(q.deferred, 1)
+        # depois do "Enviei", o item sai
+        self._contato(c, "BAT-4D", HOJE - dt.timedelta(days=1))
+        self.assertNotIn("batalha_proxima", [i.code for i in self._fila(c)])
+
+    def test_dia_da_batalha_traz_a_mensagem_do_dia(self):
+        c = self._criador()
+        with system_context():
+            BattleRequest.objects.create(creator=c, kind="oficial", date=HOJE, time=dt.time(20, 0), status="aprovada", opponent_text="@rival.demo")
+        self._contato(c, "BAT-4D", HOJE - dt.timedelta(days=3))  # a dos 4 dias já foi: no dia, vem a do dia
+        batalha = next(i for i in self._fila(c) if i.code == "batalha_proxima")
+        self.assertEqual((batalha.template, batalha.priority, batalha.title), ("BAT-DIA", 1, "Batalha oficial hoje"))
+        self.assertIn("@rival.demo", batalha.text)
+        self.assertTrue(batalha.urgent)  # na ausência da gestora, vai para quem cobre
+        self._contato(c, "BAT-DIA", HOJE)
+        with system_context():
+            bruta = S.action_queue(Creator.objects.filter(pk=c.pk), self.ag, today=HOJE, raw=True)
+        self.assertNotIn("batalha_proxima", [i.code for i in bruta])
 
     def test_adiar_exige_motivo_e_tira_o_item_ate_a_data(self):
         c = self._criador(dict(diamonds=(10000, 10000, 10000, 5000)))
@@ -395,12 +422,15 @@ class FilaDoDiaTests(TestCase):
         self.assertEqual(next(i for i in self._fila(c) if i.is_message).template, "REG-04")
         self._contato(c, "REG-04", dt.date(2026, 9, 24))
         cad = next(i for i in self._fila(c) if i.code == "cadencia")
-        self.assertEqual((cad.template, cad.block), ("NR-24H", 2))
+        # depois do D15, a versão para quem já é da casa (decisão de 18/11)
+        self.assertEqual((cad.template, cad.block), ("NR-24H-CASA", 2))
         self.assertIn("sem resposta", cad.title)
-        self.assertIn("ajuste antes de enviar", cad.detail)  # os textos da cadência falam com quem está chegando
-        for n, code in enumerate(["NR-24H", "NR-2D", "NR-3D"]):
+        self.assertTrue(cad.text.endswith("Só confirmando que minha mensagem chegou aí pra você 👀"), cad.text)
+        self.assertNotIn("vídeo abriu", cad.text)
+        for n, code in enumerate(["NR-24H-CASA", "NR-2D-CASA", "NR-3D-CASA"]):
+            self.assertEqual(next(i for i in self._fila(c) if i.code == "cadencia").template, code)
             self._contato(c, code, dt.date(2026, 9, 25) + dt.timedelta(days=n))
-        self.assertEqual(next(i for i in self._fila(c) if i.code == "cadencia").template, "NR-5D")
+        self.assertEqual(next(i for i in self._fila(c) if i.code == "cadencia").template, "NR-5D")  # o +5 dias é o mesmo para todos
         # depois do +5 dias sem resposta: acionar quem recrutou (tarefa, não mensagem ao criador)
         with system_context():
             Contact.objects.create(creator=c, user=self.g, template_code="NR-5D", body="x", sent_at=timezone.now() - dt.timedelta(hours=30))

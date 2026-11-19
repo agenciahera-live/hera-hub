@@ -1,6 +1,8 @@
 {% extends "streamer/base.html" %}
 {% block content %}
-<section class="card"><h1>Pergunta enviada! 💜</h1><p>A Hera recebeu sua dúvida. Se preferir, mande também pelo WhatsApp:</p>
+<section class="card"><h1>{% if kind == "duvida" %}Pergunta enviada!{% else %}Pedido enviado!{% endif %} 💜</h1>
+<p>{% if kind == "duvida" %}A Hera recebeu a sua dúvida.{% elif kind == "saida" %}A Hera recebeu o seu pedido e vai falar com você sobre isso, sem pressa.{% else %}A Hera recebeu o seu pedido de conversa e vai falar com você no seu grupo.{% endif %} Se preferir, mande também pelo WhatsApp:</p>
 <a class="btn btn-wa btn-block" href="{{ link }}" target="_blank" rel="noopener">Abrir no WhatsApp</a>
-<p style="margin-top:12px"><small>Respondemos em até 24h nos dias úteis.</small></p></section>
+<p style="margin-top:12px"><small>A Hera responde em até 24h nos dias úteis.</small></p>
+<a class="btn btn-block" style="margin-top:8px" href="{% url 'faq' %}">Voltar para a Ajuda</a></section>
 {% endblock %}

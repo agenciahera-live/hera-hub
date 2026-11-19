@@ -48,6 +48,27 @@ class Campaign(AudienceMixin):
     estimated_cost = models.DecimalField("custo estimado (R$)", max_digits=10, decimal_places=2, null=True, blank=True)
     published = models.BooleanField(default=True)
 
+    # Leitura de campanhas do Backstage (passo 3.4; regras em engage/campaigns.py). O Claude lê a tela Campanhas e envia
+    # pela porta de importação; ninguém cadastra campanha do TikTok à mão. A gestão escolhe o foco ("featured").
+    TABS = [("plataforma", "Campanha da plataforma"), ("agencia", "Dirigida pela Agência")]
+    KINDS_TIKTOK = [("tabela", "Tabela de classificação"), ("batalha", "Desafio de batalha"), ("missao", "Missão")]
+    MECHANICS = [("batalha", "Batalha"), ("horas", "Horas e constância"), ("fa_clube", "Fã-clube"), ("presentes", "Presentes e galeria"),
+                 ("cohost", "Convidados e co-host"), ("videos", "Vídeos")]
+    backstage_key = models.CharField("identificação no Backstage", max_length=160, blank=True, db_index=True,
+                                     help_text="Preenchida pela leitura: o ID da campanha ou, sem ID, o nome com a data de início.")
+    backstage_tab = models.CharField("aba do Backstage", max_length=12, choices=TABS, blank=True)
+    tiktok_kind = models.CharField("tipo no TikTok", max_length=12, choices=KINDS_TIKTOK, blank=True)
+    recommended_level = models.CharField("nível recomendado", max_length=60, blank=True)
+    mechanic = models.CharField("mecânica principal", max_length=12, choices=MECHANICS, blank=True,
+                                help_text="Uma só. O Claude propõe ao ler as regras; a gestão confere.")
+    prize_until = models.PositiveSmallIntegerField("premia até a posição", null=True, blank=True)
+    participants_n = models.PositiveIntegerField("participantes (leitura)", null=True, blank=True)
+    eligible_n = models.PositiveIntegerField("elegíveis (leitura)", null=True, blank=True)
+    total_diamonds = models.BigIntegerField("total de diamantes (leitura)", null=True, blank=True)
+    do_not_offer = models.BooleanField("não oferecer", default=False,
+                                       help_text="O prêmio não compensa ou não combina com a Hera: some do app e da sugestão para todos.")
+    read_at = models.DateTimeField("última leitura", null=True, blank=True)
+
     class Meta:
         ordering = ["-start"]
         verbose_name = "campanha"
@@ -66,14 +87,33 @@ class Campaign(AudienceMixin):
 
 
 class CampaignParticipant(models.Model):
-    """Inclusão manual (ex.: 'Primeira Conquista', 'Volta por Cima'). Se não houver nenhuma, vale o público."""
+    """Quem participa de uma campanha. Duas origens:
+    - manual (ex.: 'Primeira Conquista', 'Volta por Cima'): a gestão inclui; `status` vazio;
+    - leitura do Backstage: a situação do criador na campanha (qualifica-se, inscrito, em andamento, encerrada).
+    Se a campanha não tiver nenhuma linha, vale o público (Tiers, grupos, Primeiro Mês)."""
+
+    STATUSES = [("qualifica", "Qualifica-se"), ("inscrito", "Inscrito"), ("andamento", "Em andamento"), ("encerrada", "Encerrada")]
+    ACTIVE = ("", "qualifica", "inscrito", "andamento")  # o que conta como "participa" no app (vazio = inclusão manual)
 
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="participants")
     creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="campaign_entries")
+    status = models.CharField("situação no Backstage", max_length=12, choices=STATUSES, blank=True)
+    from_backstage = models.BooleanField("veio da leitura", default=False)
     added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = [("campaign", "creator")]
+
+
+class CampaignPick(models.Model):
+    """Campanha do momento escolhida pela gestora na ficha (vence a sugestão automática). `campaign` vazio = sem campanha
+    do momento para este criador."""
+
+    creator = models.OneToOneField(Creator, on_delete=models.CASCADE, related_name="campaign_pick")
+    campaign = models.ForeignKey(Campaign, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    picked_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    picked_at = models.DateTimeField(default=timezone.now)
 
 
 class PointsLedger(models.Model):
@@ -316,7 +356,13 @@ class FaqSearch(models.Model):
 
 
 class SupportTicket(models.Model):
+    """O que o criador manda pela tela Ajuda (passo 3.5). Entra na fila do dia, no bloco de suporte.
+    O aviso de restrição ou banimento também abre o caso da conta (crm/account_report.py)."""
+
+    KINDS = [("duvida", "Dúvida"), ("conversa", "Pedido de conversa"), ("restricao", "Aviso de restrição ou banimento"),
+             ("saida", "Quer conversar sobre sair")]
     creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="tickets")
+    kind = models.CharField("tipo", max_length=12, choices=KINDS, default="duvida")
     question = models.TextField()
     status = models.CharField(max_length=20, default="aberto", choices=[("aberto", "Aberto"), ("respondido", "Respondido")])
     created_at = models.DateTimeField(auto_now_add=True)
@@ -358,6 +404,7 @@ class Survey(AudienceMixin):
     title = models.CharField(max_length=140)
     intro = models.CharField(max_length=240, blank=True)
     anonymous = models.BooleanField("respostas anônimas", default=False)
+    only_app_testers = models.BooleanField("só para quem participa do teste do app", default=False)
     opens_at = models.DateTimeField(default=timezone.now)
     closes_at = models.DateTimeField(null=True, blank=True)
 
@@ -435,9 +482,14 @@ class CampaignStanding(models.Model):
 
 
 class BattleRequest(models.Model):
-    KINDS = [("oficial", "Batalha agendada"), ("especial", "Batalha especial"), ("pk", "PK agendada"), ("cohost", "Cohost"), ("tematica", "LIVE temática")]
-    STATUS = [("pendente", "Aguardando a Hera"), ("aprovada", "Aprovada"), ("outro_horario", "Sugerido outro dia ou hora"), ("recusada", "Não aprovada"), ("realizada", "Realizada")]
+    """Pedido de batalha oficial (passo 3.3): o criador pede pelo modelo oficial do roteiro (duas datas, a hora, rounds,
+    diamantes que quer fazer, outra agência, banner); a gestão confirma com o oponente e a faixa de diamantes esperada.
+    Regras em engage/battles.py."""
+
+    KINDS = [("oficial", "Batalha oficial"), ("especial", "Batalha especial"), ("pk", "PK agendada"), ("cohost", "Cohost"), ("tematica", "LIVE temática")]
+    STATUS = [("pendente", "Aguardando a Hera"), ("aprovada", "Confirmada"), ("outro_horario", "Sugerido outro dia ou hora"), ("recusada", "Não deu desta vez"), ("realizada", "Realizada")]
     ROUNDS = [(1, "1 round"), (3, "3 rounds")]
+    ROUNDS_ASK = [(1, "1 round"), (3, "3 rounds"), (0, "Tanto faz")]  # no pedido; a gestão confirma 1 ou 3
     MAX_OTHER_OPTIONS = 3
     creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="battle_requests")
     kind = models.CharField("tipo", max_length=20, choices=KINDS)
@@ -445,9 +497,14 @@ class BattleRequest(models.Model):
     time = models.TimeField("horário")
     other_options = models.JSONField("outras opções de dia e hora", default=list, blank=True,
                                      help_text='Lista de {"date": "AAAA-MM-DD", "time": "HH:MM"} oferecidas pelo criador.')
-    rounds = models.PositiveSmallIntegerField("rounds", choices=ROUNDS, default=1)
+    rounds = models.PositiveSmallIntegerField("rounds", choices=ROUNDS_ASK, default=1)
     duration_min = models.PositiveSmallIntegerField("duração (min)", default=60)
-    goal_diamonds = models.PositiveIntegerField("meta de diamantes", null=True, blank=True)
+    goal_diamonds = models.PositiveIntegerField("diamantes que quer fazer", null=True, blank=True)
+    other_agency_ok = models.BooleanField("pode ser com criador de outra agência", null=True, blank=True)
+    banner_help = models.BooleanField("quer ajuda com o banner", default=False)
+    expected_range = models.CharField("diamantes esperados (faixa)", max_length=60, blank=True)
+    confirmed_at = models.DateTimeField("confirmada em", null=True, blank=True)
+    checklist_done = models.JSONField("itens do checklist marcados pelo criador", default=list, blank=True)
     opponent = models.ForeignKey(CommunityProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="com quem")
     opponent_text = models.CharField("com quem (texto livre)", max_length=120, blank=True)
     promote = models.BooleanField("divulgar no Grupo de Avisos", default=False)
@@ -477,3 +534,37 @@ class BattleRequest(models.Model):
         """O dia TikTok vira às 21h de Brasília: LIVE que cruza esse horário divide as horas em 2 dias."""
         start = self.time.hour * 60 + self.time.minute
         return start < 21 * 60 < start + self.duration_min
+
+
+class CreatorPlan(models.Model):
+    """Meu plano (passo 3.6): os dias de LIVE que o próprio criador escolhe e os lembretes que ele liga.
+
+    É do criador: só ele grava (regra também no banco, web/migrations/0009). A gestão lê, sem editar.
+    O app nunca sugere dias nem compara o plano com o que aconteceu. Lembretes começam desligados (visão,
+    "Risco trabalhista"). Regras em engage/plan.py."""
+
+    creator = models.OneToOneField(Creator, on_delete=models.CASCADE, related_name="plan")
+    live_days = models.CharField("dias de LIVE escolhidos", max_length=7, blank=True,
+                                 help_text="Dias da semana, 0 = segunda ... 6 = domingo (ex.: '024').")
+    remind_live_day = models.BooleanField("lembrete: hoje é um dos meus dias de LIVE", default=False)
+    remind_battle = models.BooleanField("lembrete: minha batalha oficial é amanhã", default=False)
+    remind_campaign = models.BooleanField("lembrete: campanha que fecha hoje", default=False)
+    remind_lesson = models.BooleanField("lembrete: módulo novo na Hera Academy", default=False)
+    known_modules = models.JSONField("módulos já abertos na última rotina", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class CreatorGoal(models.Model):
+    """Objetivo escrito pelo próprio criador no Meu plano (passo 3.6). Não é a meta individual removida em 14/11:
+    ninguém da gestão cria nem edita objetivo. O criador muda, marca "consegui" ou apaga quando quiser."""
+
+    KINDS = [("nivel", "Chegar a um nível"), ("livre", "Do meu jeito")]
+    creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="goals")
+    kind = models.CharField(max_length=10, choices=KINDS, default="livre")
+    level = models.PositiveSmallIntegerField("nível", null=True, blank=True)
+    text = models.CharField("texto", max_length=140, blank=True)
+    done_at = models.DateTimeField("consegui em", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["done_at", "created_at"]

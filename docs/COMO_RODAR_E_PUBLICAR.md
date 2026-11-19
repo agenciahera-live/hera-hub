@@ -62,8 +62,10 @@ Custo inicial estimado: US$ 5–10/mês (veja STATUS_E_PROXIMOS_PASSOS.md).
    python manage.py criar_usuario_banco --admin-url "COLE_AQUI_O_DATABASE_PUBLIC_URL"
    ```
    O `DATABASE_PUBLIC_URL` fica na aba Variables do serviço Postgres. O comando cria o usuário `hera_app` (sem superusuário) e mostra uma nova `DATABASE_URL`. Guarde essa URL: ela é uma senha. Rode o comando no seu próprio terminal (não cole a URL em conversas, nem na do Claude) e feche o terminal no fim.
-   A URL usa o endereço público do banco e funciona tanto no app quanto no seu computador (passo 9). Se quiser economizar um pouco de tráfego, no app você pode trocar o endereço e a porta pelos internos, que aparecem na `DATABASE_URL` do Postgres (algo como `postgres.railway.internal:5432`). Mantenha o usuário `hera_app` e a senha nova.
-4. **Crie o app.** No projeto: New → GitHub Repo → escolha o repositório. Na aba Variables do app, cole a `DATABASE_URL` do passo 3. **Nunca use a `DATABASE_URL` do usuário `postgres` no app.**
+   O `DATABASE_PUBLIC_URL` só aparece depois de ligar o acesso público do banco (Postgres → Settings → Networking ou Connect → Public Network) e clicar em Deploy.
+   A URL nova usa o endereço público do banco: é a que serve no seu computador (passo 9). **Ao copiar do terminal, confira que a linha termina em `/railway`**: é fácil vir junto o `PS C:\...>` da linha de baixo.
+   Para o app, faça uma segunda versão trocando o trecho entre `@` e `/` por `postgres.railway.internal:5432` (conexão interna, mais segura). Mantenha o usuário `hera_app` e a senha nova.
+4. **Crie o app no mesmo projeto do banco** (a conexão interna só funciona assim). Dentro do projeto do Postgres: + Add (ou New) → GitHub Repository → escolha o repositório. Na primeira vez, o Railway pede "Configure GitHub App": instale só para o repositório `hera-hub`. Na aba Variables do app, cole a `DATABASE_URL` interna do passo 3. **Nunca use a `DATABASE_URL` do usuário `postgres` no app**, nem o botão "Add Variable" da faixa "Trying to connect a database?".
 5. **Cadastre as outras variáveis** do arquivo `.env.example` na aba Variables do app:
    - `DEBUG=0`
    - `SECRET_KEY`: uma frase longa e aleatória. Sem ela, o app não liga em produção. Para gerar, rode no terminal da pasta `hera-hub`:
@@ -88,9 +90,10 @@ Custo inicial estimado: US$ 5–10/mês (veja STATUS_E_PROXIMOS_PASSOS.md).
    ```
    Entre no app com esse e-mail e essa senha. Sem `--senha`, o comando cria uma senha provisória e mostra na tela. O mesmo comando serve para trocar a senha de uma sócia que esqueceu. Feche o terminal depois, para a URL e a senha não ficarem guardadas nele.
 10. **Agende a rotina diária.** No projeto: New → GitHub Repo → o mesmo repositório. Nesse novo serviço:
-    - Em Settings → **Custom Start Command**, coloque `python manage.py rotina_diaria`.
+    - Em Settings → **Custom Start Command**, coloque `python manage.py rotina_diaria`. Em **Restart Policy**, escolha Never.
     - Em Settings → **Cron Schedule**, coloque `0 9 * * *`. O Railway conta em UTC: 9h UTC são 6h de Brasília.
-    - Em Variables, use as mesmas variáveis do app.
+    - Em Variables (Raw Editor), use referências às variáveis do app, sem copiar segredos: `DATABASE_URL=${{hera-hub.DATABASE_URL}}`, e o mesmo para `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS`.
+    - Depois do passo 9, **desligue o acesso público do banco** (Postgres → Settings → Networking → apagar o endereço público). O app usa a conexão interna e não precisa dele. Para rodar `criar_admin` de novo no futuro, ligue, use e desligue.
 11. **Login com Google: removido** (desde 14/11/2026). Todos entram com e-mail e senha.
 
 ### Depois de publicar
@@ -121,7 +124,7 @@ Dashboard com a fila do dia, ficha do criador, carteiras e "Hoje não trabalho",
 
 ### O que ainda não abrir para os criadores
 
-**Não gere código de acesso para criadores durante o teste.** A parte do criador ainda está sendo terminada (faltam batalha oficial, campanhas, ajuda e Meu plano) e os vídeos da Hera Academy ainda são de exemplo. Sem código, nenhum criador entra: a gestão trabalha com os dados e os criadores não veem nada. A exceção são 1 ou 2 criadores de confiança, se a Hera quiser uma opinião antes do teste com 10.
+**Não gere código de acesso para criadores fora do teste do app.** Sem código, nenhum criador entra: a gestão trabalha com os dados e os criadores não veem nada. O teste com 5 criadores (passo 3.7, decisão de 19/11/2026) é configurado em **🧪 Teste do app** (só as sócias): datas, os 5 criadores e a trava "Só quem participa do teste recebe código de acesso". **Ligue a trava antes de começar:** com ela ligada, a ficha de quem não participa não gera código. O roteiro está em `HERA\creator-hub\Roteiro do teste do app - passo 3.7 (para revisar).txt`. Antes do teste, cadastre os vídeos da Hera Academy (pelo menos os módulos 1 a 3).
 
 ### Ordem para começar (depois da parte B)
 
@@ -147,4 +150,4 @@ Dashboard com a fila do dia, ficha do criador, carteiras e "Hoje não trabalho",
 
 - [ ] **Endereço:** começar com o endereço do Railway (algo como `hera-hub-production.up.railway.app`) ou já ligar um domínio da Hera (ex.: `app.hera.com.br`, que depende de quem cuida do domínio).
 - [ ] **Quem entra no teste:** nomes e e-mails das sócias e gestoras.
-- [ ] **Criadores no teste:** nenhum (recomendado) ou 1 ou 2 de confiança.
+- [x] **Criadores no teste:** 5, escolhidos pela Mariana, de 2 semanas a 1 mês (decisão de 19/11/2026; menu Teste do app).

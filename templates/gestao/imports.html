@@ -48,7 +48,26 @@ Cabeçalho: Authorization: Bearer {{ key_once }}
 Exemplo no PowerShell:
 curl.exe -sS -H "Authorization: Bearer {{ key_once }}" -F "file=@C:\caminho\Dados do criador.xlsx" {{ api_url }}
 
-A resposta vem em JSON. "ok": true = dados gravados (ou arquivo repetido). "ok": false = não gravou; leia "mensagem" e avise a Mariana.</pre>
+A resposta vem em JSON. "ok": true = dados gravados (ou arquivo repetido). "ok": false = não gravou; leia "mensagem" e avise a Mariana.
+
+──────── Campanhas (na mesma leitura, todo dia) ────────
+No Backstage, em Operações › Campanhas, leia sem mudar nada:
+1. Campanhas da plataforma › Campanhas do criador › "Por campanha": para cada campanha, o nome, a situação, o período,
+   o nível recomendado, o tipo (tabela de classificação, desafio de batalha ou missão), participantes/elegíveis e o total
+   de diamantes. Em "Regras", leia a imagem: escreva o resumo do que fazer (2 a 4 linhas, sem a palavra "meta"), os
+   prêmios, a mecânica principal (batalha, horas, fa_clube, presentes, cohost ou videos) e até que posição premia.
+   O link: na prévia, "Compartilhar" › "Link" (https://www.tiktok.com/t/...). Só para campanha que ainda não tem link.
+2. "Por criador": para cada criador, o @ e a situação em cada campanha (qualifica-se, inscrito, em andamento, encerrada).
+3. Campanhas dirigidas pela Agência › Gestão da campanha: as campanhas da Hera, do mesmo jeito (use "aba": "agencia").
+Envie em JSON:
+Endereço: {{ api_campaigns_url }}
+curl.exe -sS -H "Authorization: Bearer {{ key_once }}" -H "Content-Type: application/json" --data-binary "@C:\caminho\campanhas.json" {{ api_campaigns_url }}
+Formato:
+{"campanhas": [{"id": "ID do Backstage, se houver", "nome": "...", "aba": "plataforma", "inicio": "2026-11-16", "fim": "2026-12-01",
+  "tipo": "missao", "nivel_recomendado": "nível 1", "participantes": 0, "elegiveis": 2, "diamantes": 0,
+  "link": "https://www.tiktok.com/t/...", "resumo": "...", "premios": "...", "mecanica": "presentes", "premia_ate": 10}],
+ "criadores": [{"usuario": "@exemplo", "campanha": "ID ou nome da campanha", "situacao": "inscrito"}]}
+Não envie posição nem ranking de ninguém: o app não mostra isso.</pre>
     <button type="button" class="btn btn-sm btn-purple" onclick="heraCopy(this,'port-key')">Copiar instruções com a chave</button>
   {% endif %}
   {% if can_key %}

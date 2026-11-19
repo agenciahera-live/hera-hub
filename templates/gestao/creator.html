@@ -133,7 +133,7 @@
       {% else %}{% for t in tags %}{% if t.tag == k %}<span class="pill">{{ l }}</span>{% endif %}{% endfor %}{% endif %}
     {% endfor %}</div>
   </section>
-  <section class="card"><h2>Acesso ao app</h2>
+  <section class="card"><h2>Acesso ao app{% if c.app_tester %} <span class="pill cyan">no teste do app</span>{% endif %}</h2>
     {% if c.user %}<p>✅ Entra com <b>{{ c.user.email }}</b>{% if c.confirmed_username %} · @ confirmado{% endif %}</p>
     {% else %}<p class="empty">Ainda não entrou no app.</p>{% endif %}
     {% if can_edit and c.status != 'saiu' and c.status != 'anonimizado' %}
@@ -144,7 +144,8 @@
         <a class="btn btn-sm btn-wa" href="{% url 'g_open' c.pk 'CONVITE-APP' %}" target="_blank" rel="noopener">{% if group_url %}Abrir grupo{% else %}Abrir WhatsApp{% endif %}</a>
         <span id="invite-sent"><button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' c.pk 'CONVITE-APP' %}" hx-target="#invite-sent" hx-swap="innerHTML">Enviei</button></span></div>{% endif %}
       {% endif %}
-      <form method="post" action="{% url 'g_access_code' c.pk %}">{% csrf_token %}<button class="btn btn-sm {% if access_code %}{% else %}btn-primary{% endif %}">{% if access_code %}Gerar outro código (cancela este){% elif c.user %}Gerar código para senha nova{% else %}Gerar código de acesso{% endif %}</button></form>
+      {% if test_lock %}<p><span class="pill gold">teste do app</span> <small>Durante o teste, só quem participa recebe código de acesso. As sócias escolhem quem participa em Teste do app.</small></p>
+      {% else %}<form method="post" action="{% url 'g_access_code' c.pk %}">{% csrf_token %}<button class="btn btn-sm {% if access_code %}{% else %}btn-primary{% endif %}">{% if access_code %}Gerar outro código (cancela este){% elif c.user %}Gerar código para senha nova{% else %}Gerar código de acesso{% endif %}</button></form>{% endif %}
       <p style="margin-top:6px"><small>Envie o código no grupo individual. No app, em “Primeiro acesso ou senha nova”, a pessoa informa o @, o código e o e-mail e cria a senha. O código vale por {{ code_days }} dias.</small></p>
     {% endif %}
     <h3 style="margin-top:12px">Grupo individual no WhatsApp</h3>
@@ -161,6 +162,24 @@
     <ul class="list" style="margin-top:8px">{% for a in assign_history %}<li><small>{{ a.manager.get_full_name|default:a.manager.email }} · {{ a.valid_from|date:"d/m/Y" }}{% if a.valid_to %} → {{ a.valid_to|date:"d/m/Y" }}{% else %} → hoje{% endif %}{% if a.assigned_by %} · por {{ a.assigned_by.first_name|default:a.assigned_by.email }}{% endif %}</small></li>{% endfor %}</ul>
   </section>
   {% if onboarding and onboarding.active %}<section class="card"><h2>Onboarding · Dia {{ onboarding.day }}</h2><p>{{ onboarding.valid_days }}/5 dias válidos · {{ onboarding.hours|hours }}/15h {% if onboarding.met %}<span class="pill cyan">meta cumprida</span>{% elif onboarding.at_risk %}<span class="pill pink">em risco</span>{% endif %}</p></section>{% endif %}
+  <section class="card"><h2>Campanha do momento</h2>
+    {% if campaign_pick %}{% if campaign_pick.campaign %}<p><b>{{ campaign_pick.campaign.name }}</b><br><small>Escolhida por {{ campaign_pick.picked_by.first_name|default:campaign_pick.picked_by.email|default:"a gestão" }} em {{ campaign_pick.picked_at|date:"d/m" }}. A escolha da gestão vence a sugestão do app.</small></p>
+      {% else %}<p><small>Nenhuma campanha do momento por escolha da gestão ({{ campaign_pick.picked_at|date:"d/m" }}).</small></p>{% endif %}
+    {% elif campaign_auto %}<p><b>{{ campaign_auto.item.c.name }}</b><br><small>Sugestão do app: {{ campaign_auto.why }}.</small></p>
+    {% else %}<p><small>Nenhuma campanha de foco vale para este criador agora.</small></p>{% endif %}
+    {% if can_edit %}<form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:8px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="a" value="campaign_pick"><input type="hidden" name="next" value="?tab=visao">
+      <select name="campaign" style="flex:1;min-width:200px"><option value="">Sugestão do app</option><option value="nenhuma" {% if campaign_pick and not campaign_pick.campaign %}selected{% endif %}>Nenhuma por enquanto</option>
+        {% for x in campaign_options %}<option value="{{ x.c.pk }}" {% if campaign_pick and campaign_pick.campaign_id == x.c.pk %}selected{% endif %}>{{ x.c.name }} (até {{ x.c.end|date:"d/m" }}){% if x.status_staff %} · {{ x.status_staff|lower }}{% endif %}{% if not x.c.featured and x.c.source == "backstage" %} · fora do foco{% endif %}</option>{% endfor %}
+      </select><button class="btn btn-sm btn-purple">Salvar</button></form>{% endif %}
+  </section>
+  {% with p=creator_plan %}<section class="card"><h2>Meu plano <small>escolhido pelo criador</small></h2>
+    {% if p.has_plan %}
+    <p style="margin:0 0 6px">Dias de LIVE: {% if p.days_label %}<b>{{ p.days_label }}</b>{% else %}<small>não escolheu</small>{% endif %}</p>
+    <ul class="list">{% for x in p.goals %}<li><small>🎯 {{ x.title }}{% if x.status %} · {{ x.status }}{% endif %}</small></li>{% endfor %}
+      {% for x in p.done_goals %}<li><small>✅ {{ x.title }} · conseguiu em {{ x.g.done_at|date:"d/m" }}</small></li>{% endfor %}</ul>
+    <p style="margin:6px 0 0"><small>Atualizado em {{ p.plan.updated_at|date:"d/m" }}. Só o criador muda o plano. Use para combinar visita e batalha; não compare com o que ele fez.</small></p>
+    {% else %}<p><small>O criador ainda não montou o plano no app.</small></p>{% endif %}
+  </section>{% endwith %}
   <section class="card"><h2>Campanhas</h2><ul class="list">{% for s in campaigns %}<li class="row between"><span>{{ s.campaign.name }}</span><small>{% if s.campaign.metric == 'hours' %}{{ s.value|hours }}h{% else %}{{ s.value|intbr }}{% endif %}{% if s.reached_goal %} ✅{% endif %}</small></li>{% empty %}<li class="empty">Nenhuma.</li>{% endfor %}</ul></section>
   <section class="card"><h2>Hera Academy</h2>
     <h3 style="margin-top:0">Aula que aparece no app</h3>

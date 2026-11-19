@@ -10,6 +10,7 @@ from core.models import AgencySettings
 from crm.models import ActionItem, CadenceState, Contact, Creator, CreatorPrivate, CreatorStatus, OneOnOne, Reminder
 from data import engine as E
 from data.models import CreatorSnapshot, ImportBatch, MonthlyResult
+from engage import battles as battle_rules
 from engage.models import BattleRequest, Campaign, SupportTicket, Tip
 from engage.services import creator_facts, fmt_hours, fmt_int, matches_audience
 
@@ -76,13 +77,10 @@ def import_status(agency, now=None):
 # ================================================================== STREAMER
 # A tela inicial do criador (Meu progresso) fica em web/progress.py.
 def visible_campaigns(creator, facts, today):
-    out = []
-    manual = set(creator.campaign_entries.values_list("campaign_id", flat=True))
-    for c in Campaign.objects.filter(agency=creator.agency, published=True, start__lte=today, end__gte=today).exclude(source="backstage", featured=False):
-        has_manual = c.participants.exists()
-        if (has_manual and c.pk in manual) or (not has_manual and matches_audience(c, facts)):
-            out.append({"c": c, "days_left": (c.end - today).days})
-    return out
+    """Campanhas que o criador vê no app (regra em engage/campaigns.py, passo 3.4)."""
+    from engage.campaigns import creator_campaigns
+
+    return creator_campaigns(creator, facts, today)
 
 
 def next_lesson(creator, facts=None):
@@ -232,7 +230,10 @@ def fill_queue_messages(items, agency, **extra):
         i.group_url = groups.get(i.creator.pk, "")
         t = pick_variant(tpls.get(i.template, []), i.creator)  # variação da trilha e do "faz batalha" do criador
         if t is not None:
-            i.text = render_message(t.body, i.creator, **{**extra, **i.vars})
+            replace = i.vars.get("_replace", {})  # trechos entre colchetes que o item já conhece (ex.: "@[oponente]")
+            i.text = render_message(t.body, i.creator, **{**extra, **{k: v for k, v in i.vars.items() if k != "_replace"}})
+            for old, new in replace.items():
+                i.text = i.text.replace(old, new)
     return items
 
 
@@ -271,9 +272,11 @@ def _pick_rotation(creator, last_code):
     lesson = next_lesson(creator, facts)
     if lesson:
         options.append(("ROD-AULA", {"proxima_aula": lesson.title}))
-    camps = visible_campaigns(creator, facts, E.tiktok_today())
-    if camps:
-        camp = camps[0]["c"]
+    from engage.campaigns import campaign_of_the_moment
+
+    moment = campaign_of_the_moment(creator, visible_campaigns(creator, facts, E.tiktok_today()))  # a gestora só oferece essa
+    if moment:
+        camp = moment["item"]["c"]
         rule = (camp.what_to_do or "").strip().rstrip(".")
         options.append(("ROD-CAMP", {"campanha": camp.name, "campanha_regra": (rule[:1].lower() + rule[1:]) if rule else "[resumo da regra]",
                                      "campanha_link": camp.tiktok_url or "[link]"}))
@@ -349,6 +352,8 @@ def _visit_items(ctx):
 NR_STEPS = [(24, "NR-24H", "+24h"), (48, "NR-2D", "+2 dias"), (72, "NR-3D", "+3 dias (no privado, pela própria gestora)"), (120, "NR-5D", "+5 dias")]
 # Fora do onboarding, a cadência é acionada pela régua de sem LIVE: a pergunta aberta do 4º dia e o contato dos 14 dias.
 CADENCE_TRIGGERS = {"REG-04", "REG-14"}
+# Depois do D15, o texto de cada etapa para quem já é da casa (decisão da Mariana de 18/11).
+CADENCE_HOUSE = {"NR-24H": "NR-24H-CASA", "NR-2D": "NR-2D-CASA", "NR-3D": "NR-3D-CASA"}
 
 
 def _recruiter(c):
@@ -392,11 +397,12 @@ def _cadence_items(ctx):
             hours, code, label = NR_STEPS[len(nr)]
             d["waiting"] = True
             if now >= base.sent_at + dt.timedelta(hours=hours):
-                # os textos da cadência no Playbook falam com quem está chegando ("o vídeo abriu?", "nesse comecinho")
-                adjust = "" if in_onboarding else " O texto do Playbook foi escrito para quem está chegando: ajuste antes de enviar."
+                # depois do D15, a versão para quem já é da casa (decisão de 18/11); o +5 dias é o mesmo para todos
+                if not in_onboarding and code in CADENCE_HOUSE:
+                    code = CADENCE_HOUSE[code]
                 out.append(QueueItem(c, "cadencia", 1, f"{prefix}sem resposta: etapa {label}",
                                      f"A mensagem de {timezone.localtime(base.sent_at):%d/%m} ficou sem resposta e não houve LIVE depois dela. "
-                                     f"Se o criador respondeu no grupo, marque “Respondeu” na ficha.{adjust}", code))
+                                     f"Se o criador respondeu no grupo, marque “Respondeu” na ficha.", code))
         else:
             hours = (now - nr[0].sent_at).total_seconds() / 3600
             if 24 <= hours <= 24 * 6:  # do dia seguinte ao +5 dias até uma semana depois
@@ -653,17 +659,30 @@ def action_queue(creators, agency, today=None, now=None, raw=False):
         items.append(QueueItem(a.creator, "plano_vencido", 3, "Plano de ação vencido", f"{a.action} (combinado para {a.due_date:%d/%m})."))
     for r in Reminder.objects.filter(creator_id__in=ids, done_at__isnull=True, due_date__lte=timezone.localtime(now).date()).select_related("creator"):
         items.append(QueueItem(r.creator, "lembrete", 2, f"Lembrete de {r.due_date:%d/%m}", f"{r.text} Marque “Feito” na ficha."))
+    # batalha oficial confirmada (decisão de 18/11): do 4º ao 1º dia antes, a mensagem BAT-4D até o "Enviei"; no dia, a BAT-DIA
     soon = today + dt.timedelta(days=4)
     for b in BattleRequest.objects.filter(creator_id__in=ids, status="aprovada", date__gte=today, date__lte=soon).select_related("creator"):
         n = (b.date - today).days
+        ci = info.get(b.creator.pk, {})
+        tpl, since = ("BAT-DIA", today) if n == 0 else ("BAT-4D", b.date - dt.timedelta(days=4))
+        if "batalha_proxima" in ci.get("dismissed", ()) or any(
+                x.template_code == tpl and timezone.localtime(x.sent_at).date() >= since for x in ci.get("contacts", [])):
+            continue
         quando = "hoje" if n == 0 else f"em {n} dia{'s' if n > 1 else ''}"
-        items.append(QueueItem(b.creator, "batalha_proxima", 2, f"Batalha oficial {quando}",
-                               f"{b.date:%d/%m} às {b.time:%H:%M}. Checklist: ferramentas (luvas), divulgação nos vídeos e nas LIVEs, confirmação com a "
-                               "agência oponente, seguir o oponente e LIVE aberta para todos."))
+        opp = battle_rules.opponent_handle(b.opponent_text, empty="o oponente")
+        detail = (f"{b.date:%d/%m} às {b.time:%H:%M} com {opp}. " +
+                  ("Mensagem do dia da batalha." if n == 0 else
+                   "Mensagem dos 4 dias antes. Checklist: ferramentas (luvas), divulgação nos vídeos e nas LIVEs, confirmação com a "
+                   "agência oponente, seguir o oponente e LIVE aberta para todos."))
+        items.append(QueueItem(b.creator, "batalha_proxima", 1 if n == 0 else 2, f"Batalha oficial {quando}", detail, tpl,
+                               vars={"_replace": {"@[oponente]": battle_rules.opponent_handle(b.opponent_text)}}, state=ci.get("ws")))
     for b in BattleRequest.objects.filter(creator_id__in=ids, status="pendente").select_related("creator"):
         items.append(QueueItem(b.creator, "batalha", 2, "Pedido de batalha", f"{b.get_kind_display()} em {b.date:%d/%m} às {b.time:%H:%M}."))
-    for t in SupportTicket.objects.filter(creator_id__in=ids, status="aberto").select_related("creator"):
-        items.append(QueueItem(t.creator, "duvida", 1, "Dúvida sem resposta no app", t.question[:120]))
+    # pedidos da tela Ajuda (passo 3.5); o aviso de restrição já abriu o caso da conta, que tem o próprio item ("restricao")
+    ticket_titles = {"duvida": "Dúvida sem resposta no app", "conversa": "Pedido de conversa pelo app",
+                     "saida": "Quer conversar sobre sair da agência"}
+    for t in SupportTicket.objects.filter(creator_id__in=ids, status="aberto").exclude(kind="restricao").select_related("creator"):
+        items.append(QueueItem(t.creator, "duvida", 1, ticket_titles.get(t.kind, ticket_titles["duvida"]), t.question[:120]))
     # tipos gerados à parte (ver COLLECTORS): restrição, visita e os que ainda devolvem lista vazia
     ctx = {"info": info, "ids": ids, "today": today, "now": now, "settings": settings_, "agency": agency, "manager_of": manager_of}
     for kind, collect in COLLECTORS.items():

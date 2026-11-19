@@ -6,7 +6,8 @@
 - recalcula grupos (fim do Primeiro Mês, virada do mês) e o progresso das campanhas;
 - conclui saídas cujo aviso prévio terminou;
 - anonimiza dados pessoais de quem saiu há mais tempo que o configurado (LGPD);
-- avisa as sócias (admin) e a gestão quando a importação diária está atrasada.
+- avisa as sócias (admin) e a gestão quando a importação diária está atrasada;
+- cria os lembretes que cada criador ligou no Meu plano (engage/plan.py).
 """
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -15,6 +16,7 @@ from core.models import Agency, AgencySettings, AuditLog, Membership
 from core.rls import system_context
 from crm.models import Creator, CreatorPrivate, CreatorStatus, ExitRecord
 from data.engine import recalculate
+from engage import plan as plan_rules
 from engage.models import Announcement
 from engage.services import notify, publish_announcement
 from web.services import data_freshness
@@ -42,6 +44,7 @@ class Command(BaseCommand):
                     c.save()
                     CreatorPrivate.objects.filter(creator=c).update(whatsapp="", email="")
                     c.notes.all().delete()
+                    plan_rules.forget(c)  # Meu plano: dias e objetivos escritos pelo criador
                     AuditLog.objects.create(agency=ag, action="anonimizacao_lgpd", target=f"creator {c.pk}")
                 # entrou e ainda não abriu LIVE: no D5 avisa quem recrutou; no D10 avisa as sócias (visão, "Regras de contato")
                 for c in Creator.objects.filter(agency=ag, first_live_at__isnull=True, joined_at__isnull=False,
@@ -76,6 +79,8 @@ class Command(BaseCommand):
                                    title=f"{case.get_kind_display()} na conta de @{case.creator.username}: dia {case.days_open(today)} sem solução",
                                    body="O caso subiu para as sócias. Veja a ficha.")
                 recalculate(ag)
+                # Meu plano: os lembretes que cada criador ligou, no sininho do app (passo 3.6)
+                plan_rules.daily_reminders(ag, today)
                 fresh = data_freshness(ag)
                 if fresh is None or (timezone.now() - fresh).days >= st.stale_data_days:
                     for m in Membership.objects.filter(agency=ag, role__in=["admin", "gestora"], active=True):

@@ -1,34 +1,38 @@
-{% extends "streamer/base.html" %}
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}Pedir batalha oficial · Hera{% endblock %}
 {% block content %}
-<a href="{% url 'battles' %}"><small>← Meus pedidos</small></a>
-<h1>Pedir batalha</h1>
-<p><small>A Hera vai buscar alguém do seu mesmo nível para batalhar com você. Quando a batalha estiver confirmada, avisamos no seu grupo do WhatsApp e aqui no app, com os dados de quem vai batalhar com você.</small></p>
+<a href="{% url 'battles' %}"><small>← Minhas batalhas</small></a>
+<h1>Pedir batalha oficial</h1>
+<p><small>É uma batalha marcada pela Hera: você escolhe as datas, a hora, os rounds e quantos diamantes quer fazer, e a gente busca um oponente do seu nível. Como os dois lados se preparam e avisam o público antes, costuma render bem mais que a aleatória.</small></p>
 {% if battle_lesson %}<a class="btn btn-purple btn-block" style="margin-bottom:12px" href="{% url 'lesson' battle_lesson.pk %}">▶️ Entenda a batalha oficial em {{ battle_lesson.minutes }} min</a>{% endif %}
-<form method="post" class="card" x-data="{extras: [], max: {{ max_options }}}">{% csrf_token %}
+<form method="post" class="card">{% csrf_token %}
   {% if error %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endif %}
-  <p style="margin:0 0 4px"><span class="pill cyan">⚔️ Batalha agendada</span></p>
+  <p style="margin:0 0 6px"><span class="pill cyan">⚔️ Batalha oficial</span></p>
+  <p style="margin:0 0 4px"><small>Peça com pelo menos {{ notice_days }} dias de antecedência: as datas começam em {{ first_date|date:"d/m" }}.</small></p>
   <div class="grid-2">
-    <div><label for="date">Dia</label><input id="date" type="date" name="date" min="{{ today|date:'Y-m-d' }}" required></div>
-    <div><label for="time">Começa às</label><input id="time" type="time" name="time" value="20:00" required></div>
+    <div><label for="date">1ª opção de data</label><input id="date" type="date" name="date" min="{{ first_date|date:'Y-m-d' }}" value="{{ data.date }}" required></div>
+    <div><label for="date2">2ª opção de data</label><input id="date2" type="date" name="date2" min="{{ first_date|date:'Y-m-d' }}" value="{{ data.date2 }}" required></div>
   </div>
-  <template x-for="(e, i) in extras" :key="e.id">
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-      <div class="row between"><small x-text="'Outra opção ' + (i + 1)"></small>
-        <button type="button" class="btn btn-sm" @click="extras.splice(i, 1)" :aria-label="'Remover opção ' + (i + 1)">Remover</button></div>
-      <div class="grid-2">
-        <div><label :for="'ad' + e.id">Dia</label><input :id="'ad' + e.id" type="date" name="alt_date" min="{{ today|date:'Y-m-d' }}" required></div>
-        <div><label :for="'at' + e.id">Começa às</label><input :id="'at' + e.id" type="time" name="alt_time" value="20:00" required></div>
-      </div>
-    </div>
-  </template>
-  <button type="button" class="btn btn-sm" style="margin-top:10px" x-show="extras.length < max" @click="extras.push({id: Date.now()})">＋ Adicionar outro dia e hora</button>
-  <p style="margin:8px 0 0"><small>Quanto mais opções, mais fácil encontrar alguém para batalhar com você. Pico de audiência: 20h–21h. O dia do TikTok vira às 21h.</small></p>
+  <label for="time">Começa às</label><input id="time" type="time" name="time" value="{{ data.time }}" required>
+  <p style="margin:4px 0 0"><small>O dia do TikTok vira às 21h de Brasília.</small></p>
   <fieldset style="border:0;padding:0;margin:12px 0 0">
     <legend style="padding:0;font-weight:600">Quantos rounds?</legend>
-    {% for valor, rotulo in rounds %}<label class="check"><input type="radio" name="rounds" value="{{ valor }}" {% if forloop.first %}checked{% endif %} required> {{ rotulo }}</label>{% endfor %}
+    {% for valor, rotulo in rounds %}<label class="check"><input type="radio" name="rounds" value="{{ valor }}" {% if data.rounds == valor|stringformat:"s" or not data and forloop.last %}checked{% endif %} required> {{ rotulo }}</label>{% endfor %}
   </fieldset>
-  <label for="goal">Quantos diamantes você quer buscar?</label><input id="goal" type="number" name="goal_diamonds" min="0" step="1000" placeholder="Ex.: 20000">
-  <label for="notes">Observações</label><textarea id="notes" name="notes" placeholder="Tema, ideia, motivo..."></textarea>
+  <label for="goal">Quantos diamantes você quer fazer nessa batalha?</label>
+  <input id="goal" type="number" name="goal_diamonds" min="0" step="1000" inputmode="numeric" value="{{ data.goal_diamonds }}">
+  <p style="margin:4px 0 0"><small>Se não souber, deixe em branco: a Hera sugere pelo seu histórico.</small></p>
+  <fieldset style="border:0;padding:0;margin:12px 0 0">
+    <legend style="padding:0;font-weight:600">Pode ser com criador de outra agência?</legend>
+    <label class="check"><input type="radio" name="other_agency" value="sim" {% if data.other_agency == "sim" %}checked{% endif %} required> Sim</label>
+    <label class="check"><input type="radio" name="other_agency" value="nao" {% if data.other_agency == "nao" %}checked{% endif %}> Não, só da Hera</label>
+  </fieldset>
+  <fieldset style="border:0;padding:0;margin:12px 0 0">
+    <legend style="padding:0;font-weight:600">Quer ajuda com o banner?</legend>
+    <label class="check"><input type="radio" name="banner" value="sim" {% if data.banner == "sim" %}checked{% endif %}> Sim</label>
+    <label class="check"><input type="radio" name="banner" value="nao" {% if data.banner != "sim" %}checked{% endif %}> Não</label>
+  </fieldset>
+  <label for="notes">Observações</label><textarea id="notes" name="notes" placeholder="Tema, ideia, alguém com quem você gostaria de batalhar...">{{ data.notes }}</textarea>
   <button class="btn btn-primary btn-block" style="margin-top:12px">Enviar pedido</button>
 </form>
 {% endblock %}

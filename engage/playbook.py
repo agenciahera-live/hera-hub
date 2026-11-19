@@ -6,6 +6,8 @@ GERADO a partir de docs/playbook-gestor-hera.md (revisão de novembro/2026) e do
 - source "playbook": texto do Playbook. Os trechos [X], [Y], [N], [tema]... que o sistema sabe preencher viraram variáveis.
 - source "roteiro": variações por trilha e por "faz batalha" e mensagens que só existem no roteiro online.
 - source "provisorio": o Playbook não traz o texto; foi escrito para o sistema funcionar e espera revisão da Hera.
+- source "agencia": texto escrito ou aprovado pela Hera (revisão da Mariana de 18/11: REG-14, QUEDA-01, REC-01, CONVITE-APP e a
+  cadência para quem já é da casa, NR-*-CASA). Na mesma revisão, SAI-01, RES-01, BAT-PEDIDO e BAT-ATUALIZA perderam "prazo" e "horário".
 
 tracks vazio = vale para todas as trilhas. battles "" = vale para quem faz e para quem não faz batalha.
 Trechos entre colchetes [assim] são para a gestora completar antes de enviar.
@@ -46,6 +48,31 @@ MESSAGES = [{'code': 'NR-24H',
   'tracks': [],
   'battles': '',
   'source': 'playbook'},
+ # Cadência depois do D15, para quem já é da casa (decisão da Mariana de 18/11). O +5 dias é o mesmo para todos (NR-5D).
+ {'code': 'NR-24H-CASA',
+  'variant': '',
+  'stage': 'Cadência de não-resposta',
+  'title': '+24h · depois do D15 (quem já é da casa)',
+  'body': 'Oi {nome}! Só confirmando que minha mensagem chegou aí pra você 👀',
+  'tracks': [],
+  'battles': '',
+  'source': 'agencia'},
+ {'code': 'NR-2D-CASA',
+  'variant': '',
+  'stage': 'Cadência de não-resposta',
+  'title': '+2 dias · depois do D15 (quem já é da casa)',
+  'body': 'Oi {nome}! Sei que tem semana que a correria engole a gente. Sem pressa pra responder, só queria saber se tá tudo bem por aí 💜',
+  'tracks': [],
+  'battles': '',
+  'source': 'agencia'},
+ {'code': 'NR-3D-CASA',
+  'variant': '',
+  'stage': 'Cadência de não-resposta',
+  'title': '+3 dias · no privado, depois do D15 (quem já é da casa)',
+  'body': 'Oi {nome}, passando aqui no privado pra saber de você. Como você tá se sentindo com as LIVEs? 💜',
+  'tracks': [],
+  'battles': '',
+  'source': 'agencia'},
  {'code': 'ONB-D1-01',
   'variant': '',
   'stage': 'Dia 1 · Boas-vindas, materiais e grupo',
@@ -641,11 +668,10 @@ MESSAGES = [{'code': 'NR-24H',
   'variant': '',
   'stage': 'Sem LIVE depois do D15 · régua de 4, 14, 21 e 30 dias',
   'title': '14 dias sem LIVE · no privado, com oferta de conversa curta',
-  'body': 'Oi {nome}, tudo bem? Faz um tempinho que a gente não se fala. Como estão as coisas? Se quiser, a gente conversa rapidinho, do jeito que '
-          'for melhor pra você 💜',
+  'body': 'Oi {nome}, tudo bem? Faz um tempinho que a gente não se fala. Como estão as coisas por aí? 💜',
   'tracks': [],
   'battles': '',
-  'source': 'provisorio'},
+  'source': 'agencia'},
  {'code': 'REG-21',
   'variant': '',
   'stage': 'Sem LIVE depois do D15 · régua de 4, 14, 21 e 30 dias',
@@ -669,19 +695,20 @@ MESSAGES = [{'code': 'NR-24H',
   'variant': '',
   'stage': 'Leitura da semana',
   'title': 'Queda com horas e dias mantidos',
-  'body': 'Oi {nome}! Vi que você manteve o ritmo de LIVEs e, mesmo assim, os diamantes da semana vieram abaixo do seu normal. Isso acontece. Quer '
-          'que eu assista a uma LIVE sua pra gente achar o que ajustar?',
+  'body': 'Oi {nome}! Vi que você manteve o ritmo de LIVEs e, mesmo assim, os diamantes da semana vieram abaixo do seu normal. Isso acontece. '
+          '[feedback sobre a última LIVE assistida e o que dá pra ajustar, ou a dica de focar em networking]',
   'tracks': [],
   'battles': '',
-  'source': 'provisorio'},
+  'source': 'agencia'},
  {'code': 'REC-01',
   'variant': '',
   'stage': 'Leitura da semana',
   'title': 'Reconhecimento · semana subindo',
-  'body': '{nome}, que semana! 🚀 Seus diamantes ficaram bem acima do seu normal. O que você fez de diferente? Vale repetir o que funcionou.',
+  'body': '{nome}, que semana! 🚀 Seus diamantes ficaram bem acima do seu normal. O que você acha que aconteceu de diferente? Foi um presenteador '
+          'novo ou alguma dinâmica diferente em live? Vamos analisar para repetir o que funcionou.',
   'tracks': [],
   'battles': '',
-  'source': 'provisorio'},
+  'source': 'agencia'},
  {'code': 'ROD-APP',
   'variant': '',
   'stage': 'Rodízio · 4 dias sem contato',
@@ -746,7 +773,7 @@ MESSAGES = [{'code': 'NR-24H',
   'variant': '',
   'stage': 'Batalha oficial',
   'title': 'O que é e como pedir (formulário do pedido)',
-  'body': 'É uma batalha marcada pela Hera: você escolhe o dia, o horário, quantos rounds e quantos diamantes quer fazer, e a gente busca um '
+  'body': 'É uma batalha marcada pela Hera: você escolhe o dia, a hora, quantos rounds e quantos diamantes quer fazer, e a gente busca um '
           'oponente do seu nível, da Hera ou de outra agência. Como os dois lados se preparam e avisam o público antes, costuma render bem mais que '
           'a aleatória.\n'
           '\n'
@@ -755,7 +782,7 @@ MESSAGES = [{'code': 'NR-24H',
           '⚔️ PEDIDO DE BATALHA OFICIAL\n'
           '👤 Seu @:\n'
           '📆 Duas opções de data:\n'
-          '⏰ Horário:\n'
+          '⏰ Hora:\n'
           '🥊 Rounds: 1 / 3 / tanto faz\n'
           '💎 Quantos diamantes você quer fazer nessa batalha (se não souber, a gente sugere pelo seu histórico):\n'
           '🤝 Pode ser com criador de outra agência? sim / não\n'
@@ -793,7 +820,7 @@ MESSAGES = [{'code': 'NR-24H',
   'title': 'Atualização (algo mudou)',
   'body': '⚠️ ATUALIZAÇÃO DA SUA BATALHA\n'
           '\n'
-          'Mudou: [o que mudou, ex.: o oponente agora é @nome / o horário passou para 20h].\n'
+          'Mudou: [o que mudou, ex.: o oponente agora é @nome / a batalha passou para as 20h].\n'
           'O resto continua igual ao que combinamos 💜',
   'tracks': [],
   'battles': '',
@@ -847,8 +874,8 @@ MESSAGES = [{'code': 'NR-24H',
   'variant': '',
   'stage': 'Restrição ou banimento',
   'title': 'Primeira resposta',
-  'body': 'Calma, {nome}, a gente resolve junto 💜 Me manda um print da mensagem que apareceu e me conta o horário em que aconteceu. Você já fez o '
-          'recurso pelo app? Se não, eu te mostro o caminho.',
+  'body': 'Calma, {nome}, a gente resolve junto 💜 Me manda um print da mensagem que apareceu e me conta quando aconteceu (o dia e a hora). Você já '
+          'fez o recurso pelo app? Se não, eu te mostro o caminho.',
   'tracks': [],
   'battles': '',
   'source': 'playbook'},
@@ -877,8 +904,7 @@ MESSAGES = [{'code': 'NR-24H',
   'body': 'Entendo, {nome}. Antes de qualquer coisa: obrigada por avisar — isso já ajuda demais.\n'
           '\n'
           'Como você ainda tá nos seus primeiros 15 dias, é bem simples: só preciso entender o que pesou nessa decisão, pra ver se rolou algo que a '
-          'gente consiga ajustar. Se mesmo assim não for o momento, sem problema nenhum — eu mesma cuido de tudo por aqui, e você fica livre pra '
-          'voltar quando quiser, sem prazo de espera nenhum.',
+          'gente consiga ajustar. Se mesmo assim não for o momento, sem problema nenhum — eu mesma cuido de tudo por aqui.',
   'tracks': [],
   'battles': '',
   'source': 'playbook'},
@@ -927,7 +953,88 @@ MESSAGES = [{'code': 'NR-24H',
           'O código vale até {codigo_validade}. Depois é só entrar com o e-mail e a senha. Qualquer dúvida, me chama aqui!',
   'tracks': [],
   'battles': '',
-  'source': 'provisorio'}]
+  'source': 'agencia'}]
+
+# Dúvidas frequentes do roteiro online, revisadas pela Mariana em 18/11 (decisão 5: entram na biblioteca e na central de
+# dúvidas). Aqui, na voz da gestora, para copiar e colar no grupo. A graduação saiu ("o criador não precisa saber as regras
+# que o TikTok tem com as agências") e "O que é uma batalha oficial?" é a própria BAT-PEDIDO.
+_DUVIDAS = [
+    ("Dinheiro e saque", "DUV-SAQUE", "Como eu saco o que ganhei nas LIVEs?", "roteiro",
+     "É feito direto no app do TikTok 💜\n\n1. Vá no seu perfil, toque no menu (☰) e entre em Configurações e privacidade\n"
+     "2. Entre em Saldo (às vezes aparece como Recompensas de LIVE)\n3. Toque em Sacar\n"
+     "4. Escolha o método de pagamento (o app mostra as opções disponíveis, como Pix, conta bancária ou PayPal) e confirme o valor\n\n"
+     "⚠️ Cuidado pra não tocar em Trocar: essa opção transforma o saldo em moedas pra presentear e não dá pra desfazer.\n\n"
+     "Se não achar alguma tela, me manda um print que eu te guio."),
+    ("Dinheiro e saque", "DUV-SAQUE-TEMPO", "Quanto tempo demora pra cair?", "agencia",
+     "Depois que você pede o saque, o próprio app mostra quanto tempo deve levar. Normalmente leva alguns dias úteis, dependendo do "
+     "método escolhido. Se passar do tempo que o app mostrou, me avisa que eu te ajudo a abrir um chamado no suporte 💜"),
+    ("Dinheiro e saque", "DUV-PARTE", "A Hera fica com alguma parte?", "roteiro",
+     "Não. A Hera não fica com nenhuma parte dos seus ganhos. Quem paga a agência é o TikTok, separado do que você recebe. Com ou sem "
+     "agência, você recebe a mesma coisa."),
+    ("Dinheiro e saque", "DUV-IMPOSTO", "Preciso pagar imposto sobre o que ganho?", "roteiro",
+     "O que você ganha nas LIVEs é renda, então entra na sua declaração. Como cada caso é diferente (pessoa física, MEI ou empresa), "
+     "o ideal é conversar com um contador pra ver o melhor jeito pra você 💜"),
+    ("Dias válidos e regras do TikTok", "DUV-DIA-VALIDO", "O que é um dia válido?", "agencia",
+     "É um dia com pelo menos 1 hora de LIVE. Pode ser uma LIVE só ou várias somadas no mesmo dia (LIVEs com menos de 30 minutos não "
+     "entram na soma). O dia do TikTok vira às 21h de Brasília, então uma LIVE que passa das 21h conta uma parte em cada dia."),
+    ("Dias válidos e regras do TikTok", "DUV-14-DIAS", "O que o TikTok pede nos primeiros 14 dias?", "agencia",
+     "É regra do TikTok pra toda conta recém-agenciada: 5 dias válidos e 15 horas de LIVE no total dentro dos primeiros 14 dias. "
+     "Você escolhe os seus dias de LIVE, e eu te ajudo a montar a sua rotina 💜"),
+    ("Dias válidos e regras do TikTok", "DUV-TEMPO-LIVE", "Quanto tempo de LIVE eu preciso fazer? É só abrir?", "roteiro",
+     "É só abrir, sim! Pra aquele dia contar como dia válido no TikTok, a LIVE precisa somar pelo menos 1 hora no dia. Se ficar mais "
+     "tempo, melhor ainda: é quando mais gente te encontra. LIVEs com menos de 30 minutos não entram na soma."),
+    ("Dias válidos e regras do TikTok", "DUV-DIA-NAO-CONTOU", "Por que meu dia não contou como válido?", "agencia",
+     "Os motivos mais comuns são: a LIVE somou menos de 1h no dia, ou ela passou das 21h e o tempo ficou dividido entre dois dias. "
+     "Me manda o dia e a hora da LIVE que eu confiro no painel da agência 💜"),
+    ("Batalhas", "DUV-BATALHA", "O que é uma batalha?", "roteiro",
+     "É quando duas LIVEs se juntam na mesma tela por alguns minutos e o público de cada lado manda presentes. Ganha quem somar mais "
+     "pontos. Além de diamantes, a batalha leva seu perfil pra um público novo, que conhece você pela outra pessoa ⚔️"),
+    ("Batalhas", "DUV-COMECAR-BATALHA", "Como eu começo uma batalha?", "roteiro",
+     "Durante a LIVE, toque no ícone de batalha (ou de convidar) e escolha entre chamar alguém que você segue ou uma batalha aleatória. "
+     "Pra começar, o mais tranquilo é batalhar com alguém da Hera do seu nível. Quer que eu te indique alguém?"),
+    ("Batalhas", "DUV-PRECISA-BATALHA", "Eu preciso fazer batalha?", "roteiro",
+     "Não. Batalha é uma das estratégias que mais ajudam a crescer, mas não é obrigatória. Tem muita gente que cresce com co-host, "
+     "convidados e desafios com o chat. A gente monta o caminho que combina com você."),
+    ("Batalhas", "DUV-PERDER-BATALHA", "Se eu perder a batalha, perco alguma coisa?", "agencia",
+     "Não perde nada do que ganhou. Os presentes que você recebeu durante a batalha continuam sendo seus."),
+    ("Público e fã-clube", "DUV-FA-CLUBE", "O que é o fã-clube e o Heart Me?", "roteiro",
+     "O fã-clube é o grupo dos seus fãs mais próximos. Quem entra é o público: a pessoa toca no Heart Me, o coraçãozinho laranja na sua "
+     "LIVE (custa 1 moeda), e ganha um selo que vale 24h. No dia seguinte ela pode ativar de novo, e cada fã novo e cada reativação "
+     "contam. Quem está no fã-clube recebe aviso quando você entra ao vivo, então costuma voltar mais 💜"),
+    ("Público e fã-clube", "DUV-CAMPANHA-LIVE", "Abrindo a LIVE eu já participo das campanhas?", "agencia",
+     "Depende da campanha. Algumas contam sozinhas pra quem faz LIVE no período; outras precisam de inscrição pelo link da campanha. "
+     "Sempre que abrir uma que vale pra você, eu te mando o link e explico como pontuar."),
+    ("Público e fã-clube", "DUV-LIVE-ATIVIDADE", "Posso fazer LIVE fazendo outra coisa (limpando a casa, cozinhando)?", "roteiro",
+     "Pode sim! LIVE fazendo uma atividade costuma funcionar bem, desde que você continue aparecendo e conversando com quem chega. Só "
+     "evite ficar muito tempo fora da câmera ou em silêncio, porque o TikTok pode entender que a LIVE está parada."),
+    ("Público e fã-clube", "DUV-PUBLICO-VOLTAR", "Como eu faço o público voltar?", "roteiro",
+     "Três coisas ajudam muito: fazer LIVE em dias parecidos (o público aprende quando te encontrar), lembrar do fã-clube durante a LIVE "
+     "e postar cortes da LIVE nos vídeos, que trazem gente nova."),
+    ("Público e fã-clube", "DUV-EVENTO-LIVE", "Posso cadastrar minhas LIVEs pra avisar o público?", "agencia",
+     "Pode! Você consegue criar eventos de live e de batalhas no seu perfil para seus amigos adicionarem e receberem um lembrete na "
+     "hora que vai começar sua live."),
+    ("Conta e segurança", "DUV-RESTRICAO", "Minha LIVE foi interrompida ou recebi restrição. E agora?", "agencia",
+     "Calma, a gente resolve junto. Me manda um print da mensagem que apareceu e me conta quando aconteceu (o dia e a hora). Como "
+     "agência, a Hera tem um canal com o suporte do TikTok pra entender o motivo e, quando cabe, pedir revisão 💜"),
+    ("Conta e segurança", "DUV-NAO-PODE", "O que não posso fazer em LIVE?", "agencia",
+     "Os pontos que mais dão problema no começo são ficar muito tempo fora da câmera, roupas inapropriadas e conteúdo que o TikTok "
+     "considera impróprio. Na dúvida, me pergunta antes 💜"),
+    ("Conta e segurança", "DUV-TIKTOK-SHOP", "Posso fazer live de vendas (TikTok Shop)?", "roteiro",
+     "A Hera trabalha com LIVEs de entretenimento e interação (bate-papo, desafios, jogos e batalhas). Live de vendas e TikTok Shop não "
+     "fazem parte do nosso suporte."),
+    ("A Hera e os grupos", "DUV-GRUPOS", "Pra que serve cada grupo?", "roteiro",
+     "📅 Grupo Primeiro Mês: onde a gente acompanha de perto seus primeiros 30 dias.\n"
+     "📢 Grupo de avisos: novidades, aulas ao vivo e campanhas pra todo mundo.\n"
+     "💜 Grupo individual: seu espaço comigo, pra conversar sobre a sua evolução."),
+    ("A Hera e os grupos", "DUV-HORA-CERTA", "Tenho que fazer LIVE numa hora certa?", "agencia",
+     "Não. Quem decide quando fazer LIVE é você. A gente pode te mostrar em que momentos o público costuma estar mais ativo, mas a "
+     "escolha é sua."),
+    ("A Hera e os grupos", "DUV-CAMPANHAS", "Como funcionam as campanhas?", "agencia",
+     "São competições do TikTok ou da Hera com prêmios pra quem participa. Cada uma tem suas regras e um link oficial. Quando abrir "
+     "uma que combina com você, eu te mando o link e o resumo de como pontuar no seu grupo individual."),
+]
+MESSAGES += [{"code": code, "variant": "", "stage": f"Dúvidas frequentes · {cat}", "title": q, "body": a, "tracks": [], "battles": "",
+              "source": src} for cat, code, q, src, a in _DUVIDAS]
 
 # Modelos que saíram da biblioteca (resumo de números pelo WhatsApp e provisórios trocados pelos textos do Playbook)
 RETIRED = ["REL-MES", "LEMBRETE-SEMANA", "ONB-NL-D3"]

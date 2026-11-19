@@ -6,7 +6,8 @@
     <nav aria-label="Gestão">
       <a href="{% url 'g_dashboard' %}" class="{% if nav == 'dash' %}on{% endif %}">📊 Dashboard</a>
       <a href="{% url 'g_creators' %}" class="{% if nav == 'creators' %}on{% endif %}">👥 Creators</a>
-      {% if 'admin' in hera_roles %}<a href="{% url 'g_portfolios' %}" class="{% if nav == 'port' %}on{% endif %}">🗂️ Carteiras</a>{% endif %}
+      {% if 'admin' in hera_roles %}<a href="{% url 'g_portfolios' %}" class="{% if nav == 'port' %}on{% endif %}">🗂️ Carteiras</a>
+      <a href="{% url 'g_app_test' %}" class="{% if nav == 'teste' %}on{% endif %}">🧪 Teste do app</a>{% endif %}
       <a href="{% url 'g_onboarding' %}" class="{% if nav == 'onb' %}on{% endif %}">🌱 Onboarding</a>
       <a href="{% url 'g_graduation' %}" class="{% if nav == 'grad' %}on{% endif %}">🚀 Graduação</a>
       <a href="{% url 'g_campaigns' %}" class="{% if nav == 'camp' %}on{% endif %}">🏆 Campanhas</a>

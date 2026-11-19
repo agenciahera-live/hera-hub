@@ -1,11 +1,40 @@
-{% extends "gestao/base.html" %}
+{% extends "gestao/base.html" %}{% load hera %}
 {% block content %}
-<div class="row between"><h1>Campanhas</h1>{% if user.is_staff %}<a class="btn btn-primary btn-sm" href="/gestao/admin/engage/campaign/add/">Nova campanha</a>{% endif %}</div>
-<p><small>Campanhas oficiais: crie no Backstage e cadastre aqui só público, prêmios e o link do TikTok (o acompanhamento fica no TikTok, em tempo real). Campanhas internas (relâmpago, maratona, pontos) mostram aqui o progresso de quem participa, sem classificação.</small></p>
+<div class="row between"><h1>Campanhas</h1>{% if user.is_staff %}<a class="btn btn-sm" href="/gestao/admin/engage/campaign/add/">Campanha só do app</a>{% endif %}</div>
+<p><small>As campanhas do TikTok chegam sozinhas: o Claude lê no Backstage (Operações › Campanhas), junto com a leitura diária, as campanhas da plataforma e as dirigidas pela Agência, a situação de cada criador e o link de “Compartilhar”. <b>Não é preciso cadastrar aqui.</b>
+Marque como <b>Foco</b> as que a Hera quer oferecer: elas aparecem no app só para quem se qualifica, está inscrito ou já participa. <b>Não oferecer</b> tira a campanha do app e da sugestão para todos. Na ficha de cada criador, dá para escolher a campanha do momento dele.</small></p>
+{% if last_read %}<p><small>Última leitura: {{ last_read|sp:"%d/%m %H:%M" }}. O Backstage avisa que os dados de campanha podem atrasar de 2 a 3 horas.</small></p>
+{% else %}<ul class="messages"><li>Nenhuma leitura de campanhas chegou ainda. Ela vem pela mesma porta da leitura diária (ver Importar dados → Leitura automática).</li></ul>{% endif %}
 {% if uncovered %}<ul class="messages"><li>Tiers sem campanha ativa agora: {{ uncovered|join:", " }}.</li></ul>{% endif %}
-<div class="card table-wrap" style="padding:0"><table class="t"><thead><tr><th>Campanha</th><th>Período</th><th>Público</th><th>Métrica</th><th></th></tr></thead><tbody>
-{% for c in items %}<tr><td><a href="{% url 'g_campaign' c.pk %}"><b>{{ c.name }}</b></a>{% if c.featured %} <span class="pill gold">⭐ destaque</span>{% elif c.source == 'backstage' %} <span class="pill gray">não aparece no app</span>{% endif %}<br><small>{{ c.get_source_display }}</small></td><td>{{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }} {% if c.start <= today and today <= c.end %}<span class="pill cyan">ativa</span>{% endif %}</td>
+
+<h2>Lidas do Backstage <span class="pill">{{ read|length }}</span></h2>
+<div class="card table-wrap" style="padding:0"><table class="t"><thead><tr><th>Campanha</th><th>Período</th><th>Leitura</th><th>Sua carteira</th><th>No app</th></tr></thead><tbody>
+{% for c in read %}<tr id="c{{ c.pk }}"><td><b>{{ c.name }}</b>{% if c.featured %} <span class="pill gold">⭐ foco</span>{% elif c.do_not_offer %} <span class="pill gray">não oferecer</span>{% endif %}
+  <br><small>{{ c.get_backstage_tab_display|default:"Backstage" }}{% if c.tiktok_kind %} · {{ c.get_tiktok_kind_display }}{% endif %}{% if c.recommended_level %} · {{ c.recommended_level }}{% endif %}{% if c.mechanic %} · mecânica: {{ c.get_mechanic_display }}{% else %} · <span class="pill gold">sem mecânica</span>{% endif %}{% if c.prize_until %} · premia até o {{ c.prize_until }}º{% endif %}</small>
+  {% if c.what_to_do %}<br><small class="muted">🎯 {{ c.what_to_do|truncatechars:120 }}</small>{% endif %}</td>
+<td>{{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }} {% if c.active %}<span class="pill cyan">ativa</span>{% else %}<span class="pill gray">encerrada</span>{% endif %}</td>
+<td><small>{% if c.participants_n is not None %}{{ c.participants_n }}{% if c.eligible_n is not None %} / {{ c.eligible_n }}{% endif %} participantes{% endif %}{% if c.total_diamonds %}<br>{{ c.total_diamonds|intbr }} 💎{% endif %}</small></td>
+<td><small>{% if c.mine.qualifica %}{{ c.mine.qualifica }} pode{{ c.mine.qualifica|pluralize:"m" }} se inscrever<br>{% endif %}{% if c.mine.inscrito %}{{ c.mine.inscrito }} inscrito{{ c.mine.inscrito|pluralize }}<br>{% endif %}{% if c.mine.andamento %}{{ c.mine.andamento }} participando{% endif %}{% if not c.mine %}—{% endif %}</small></td>
+<td style="white-space:nowrap">{% if c.tiktok_url %}<a href="{{ c.tiktok_url }}" target="_blank" rel="noopener"><small>link ↗</small></a>{% else %}<span class="pill gold">sem link</span>{% endif %}
+  {% if can_edit %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="id" value="{{ c.pk }}"><input type="hidden" name="a" value="focus"><button class="btn btn-sm {% if not c.featured %}btn-purple{% endif %}">{% if c.featured %}Tirar do foco{% else %}Foco{% endif %}</button></form>
+  <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="id" value="{{ c.pk }}"><input type="hidden" name="a" value="do_not_offer"><button class="btn btn-sm">{% if c.do_not_offer %}Voltar a oferecer{% else %}Não oferecer{% endif %}</button></form>
+  <details style="white-space:normal;margin-top:6px"><summary><small>Conferir os dados</small></summary>
+    <form method="post" style="margin-top:6px;min-width:260px">{% csrf_token %}<input type="hidden" name="id" value="{{ c.pk }}"><input type="hidden" name="a" value="details">
+      <label>Mecânica principal</label><select name="mechanic"><option value="">—</option>{% for v, l in mechanics %}<option value="{{ v }}" {% if c.mechanic == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <label>Premia até a posição</label><input type="number" name="prize_until" min="1" value="{{ c.prize_until|default_if_none:'' }}">
+      <label>O que fazer (resumo para o criador)</label><textarea name="what_to_do" rows="3">{{ c.what_to_do }}</textarea>
+      <label>Prêmios</label><textarea name="prizes" rows="2">{{ c.prizes }}</textarea>
+      <label>Link da campanha (Compartilhar › Link)</label><input type="url" name="tiktok_url" value="{{ c.tiktok_url }}" placeholder="https://www.tiktok.com/t/...">
+      <button class="btn btn-sm btn-purple" style="margin-top:6px">Salvar</button></form></details>{% endif %}</td></tr>
+{% empty %}<tr><td class="empty" colspan="5">Nenhuma campanha lida ainda.</td></tr>{% endfor %}</tbody></table></div>
+
+{% if others %}
+<h2>Só do app</h2>
+<p><small>Campanhas cadastradas aqui à mão (como as antigas, de antes da leitura). Uma campanha da Hera criada no Backstage, em “Campanhas dirigidas pela Agência”, chega pela leitura e não precisa ser cadastrada.</small></p>
+<div class="card table-wrap" style="padding:0"><table class="t"><thead><tr><th>Campanha</th><th>Período</th><th>Público</th><th>Link</th><th></th></tr></thead><tbody>
+{% for c in others %}<tr><td><a href="{% url 'g_campaign' c.pk %}"><b>{{ c.name }}</b></a>{% if c.featured %} <span class="pill gold">⭐ foco</span>{% elif c.source == 'backstage' %} <span class="pill gray">não aparece no app</span>{% endif %}<br><small>{{ c.get_source_display }}</small></td><td>{{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }} {% if c.active %}<span class="pill cyan">ativa</span>{% endif %}</td>
 <td><small>{% if c.audience_tiers %}Tiers {{ c.audience_tiers|join:", " }}{% else %}Todos os Tiers{% endif %}{% if c.audience_groups %} · {{ c.audience_groups|join:", " }}{% endif %}{% if c.only_first_month %} · só novatos{% endif %}</small></td>
 <td>{% if c.tiktok_url %}<a href="{{ c.tiktok_url }}" target="_blank" rel="noopener">ver no TikTok</a>{% else %}<span class="pill gold">sem link do TikTok</span>{% endif %}</td><td>{% if user.is_staff %}<a class="btn btn-sm" href="/gestao/admin/engage/campaign/{{ c.pk }}/change/">Editar</a>{% endif %}</td></tr>
-{% empty %}<tr><td class="empty">Nenhuma campanha.</td></tr>{% endfor %}</tbody></table></div>
+{% endfor %}</tbody></table></div>
+{% endif %}
 {% endblock %}

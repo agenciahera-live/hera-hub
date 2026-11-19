@@ -81,6 +81,8 @@ class Creator(models.Model):
     suggested_agent_email = models.CharField("Agente no Backstage (sugestão de carteira)", max_length=200, blank=True)
     bio = models.TextField("sobre mim", blank=True)
     confirmed_username = models.BooleanField(default=False)
+    app_tester = models.BooleanField("participa do teste do app", default=False,
+                                     help_text="Marcado pelas sócias na tela Teste do app (passo 3.7).")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

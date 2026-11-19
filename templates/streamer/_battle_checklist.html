@@ -1,0 +1,13 @@
+<section class="card" id="checklist">
+  <div class="row between"><h2 style="margin:0">Checklist da batalha</h2><small class="num">{{ cl.n_done }} de {{ cl.n_total }}</small></div>
+  {% for label, itens in cl.groups %}
+  <p style="margin:10px 0 4px"><b>{{ label }}</b></p>
+  {% for it in itens %}
+  <form method="post" action="{% url 'battle_check' b.pk %}" hx-post="{% url 'battle_check' b.pk %}" hx-target="#checklist" hx-swap="outerHTML" style="margin:0">{% csrf_token %}
+    <input type="hidden" name="item" value="{{ it.key }}">
+    <button type="submit" aria-pressed="{% if it.done %}true{% else %}false{% endif %}" style="display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;padding:6px 0;color:inherit;font:inherit;cursor:pointer">
+      <span aria-hidden="true">{% if it.done %}✅{% else %}⬜{% endif %}</span><span{% if it.done %} style="text-decoration:line-through;opacity:.7"{% endif %}>{{ it.text }}</span>
+    </button>
+  </form>
+  {% endfor %}{% endfor %}
+</section>
