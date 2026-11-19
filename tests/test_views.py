@@ -203,9 +203,11 @@ class ViewTests(TestCase):
         self.assertFalse(b.promote)
         form = self.client.get(reverse("battle_new"))
         self.assertContains(form, "Batalha oficial")
-        for campo in ['name="kind"', 'name="opponent"', 'name="opponent_text"', 'name="promote"', 'name="duration_min"', "Pico de audiência", 'value="20:00"']:
+        # decisão de 19/11/2026: o criador não escolhe se o oponente é da Hera ou de outra agência
+        for campo in ['name="kind"', 'name="opponent"', 'name="opponent_text"', 'name="promote"', 'name="duration_min"', "Pico de audiência",
+                      'value="20:00"', 'name="other_agency"', "outra agência"]:
             self.assertNotContains(form, campo)
-        for campo in ['name="date2"', 'name="other_agency"', 'name="banner"', "1 round", "3 rounds", "Tanto faz"]:
+        for campo in ['name="date2"', 'name="banner"', "1 round", "3 rounds", "Tanto faz"]:
             self.assertContains(form, campo)
         # botão para a aula que explica a batalha oficial: só aparece quando existe uma aula marcada
         from engage.models import Course, Lesson

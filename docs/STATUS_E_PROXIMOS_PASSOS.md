@@ -558,7 +558,7 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.1 Painel das sócias | Números da visão, lista de aprovações (manter ou encerrar), sorteio semanal de 5 "Enviei" | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
 | 4.2 1:1 com o modelo novo | Canal e quem conduziu, bloco 1 automático, anotações, print, aviso de 30 dias, frequência mensal (Diamante e potencial) | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
 | 4.3 Itens do mês na fila | Resumo do mês, "Quase lá", nível novo, módulo concluído, sinais de risco dos Diamante | ✅ 19/11, aguardando aprovação; textos provisórios em revisão pela Mariana (detalhes abaixo) |
-| 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | A fazer |
+| 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | Decisão da Mariana de 19/11: **fica como está** (passo 3.3). Só mudou o pedido: o criador não escolhe mais se o oponente é da Hera ou de outra agência (campo `other_agency_ok` fica vazio; quem escolhe o oponente é a gestão) |
 | 4.5 Campanhas | 3 listas, acompanhamento na fila, aprovação das campanhas da agência | A fazer (decisão: a gestora vê a posição do criador na campanha?) |
 | 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
 | 4.7 Indique e ganhe | Link, indicações, quanto ganhou | A fazer (depende do regulamento) |

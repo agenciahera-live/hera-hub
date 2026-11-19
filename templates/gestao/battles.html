@@ -1,14 +1,14 @@
 {% extends "gestao/base.html" %}
 {% block content %}
 <h1>Batalhas oficiais</h1>
-<p><small>O criador pede pelo app, no modelo oficial (duas datas, a hora, rounds, diamantes, outra agência e banner), com pelo menos {{ notice_days }} dias de antecedência (Configurações da agência). Confirme com o oponente e a faixa de diamantes: o app mostra a batalha e o checklist para o criador. Depois, copie a confirmação, envie no grupo e marque <b>Enviei</b>. O resultado fica no quadro Batalhas da ficha.</small></p>
+<p><small>O criador pede pelo app, no modelo oficial (duas datas, a hora, rounds, diamantes e banner; o oponente, da Hera ou de outra agência, a gestão escolhe), com pelo menos {{ notice_days }} dias de antecedência (Configurações da agência). Confirme com o oponente e a faixa de diamantes: o app mostra a batalha e o checklist para o criador. Depois, copie a confirmação, envie no grupo e marque <b>Enviei</b>. O resultado fica no quadro Batalhas da ficha.</small></p>
 
 <h2>Pedidos para responder <span class="pill">{{ pending|length }}</span></h2>
 {% for b in pending %}
 <section class="card" id="b{{ b.pk }}">
   <div class="row between"><h3 style="margin:0"><a href="{% url 'g_creator' b.creator.pk %}">@{{ b.creator.username }}</a></h3><span class="pill {% if b.status == 'pendente' %}gray{% else %}gold{% endif %}">{{ b.get_status_display }}</span></div>
   <p style="margin:6px 0 0"><small>Pedido em {{ b.created_at|date:"d/m" }} · {{ b.get_rounds_display }}{% if b.goal_diamonds %} · quer fazer {{ b.goal_diamonds }} 💎{% else %} · diamantes: sugerir pelo histórico{% endif %}
-    · outra agência: {% if b.other_agency_ok is None %}não informou{% elif b.other_agency_ok %}sim{% else %}não, só da Hera{% endif %}{% if b.banner_help %} · <span class="pill">quer ajuda com o banner</span>{% endif %}</small></p>
+    {% if b.other_agency_ok is not None %}· outra agência: {% if b.other_agency_ok %}sim{% else %}não, só da Hera{% endif %}{% endif %}{% if b.banner_help %} · <span class="pill">quer ajuda com o banner</span>{% endif %}</small></p>
   {% if b.notes %}<p style="margin:4px 0 0"><small>Observações: {{ b.notes }}</small></p>{% endif %}
   {% if b.manager_reply %}<p style="margin:4px 0 0"><small>Resposta anterior: {{ b.manager_reply }}</small></p>{% endif %}
   <form method="post" class="grid-2" style="margin-top:10px;align-items:end">{% csrf_token %}

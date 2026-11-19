@@ -23,11 +23,6 @@
   <input id="goal" type="number" name="goal_diamonds" min="0" step="1000" inputmode="numeric" value="{{ data.goal_diamonds }}">
   <p style="margin:4px 0 0"><small>Se não souber, deixe em branco: a Hera sugere pelo seu histórico.</small></p>
   <fieldset style="border:0;padding:0;margin:12px 0 0">
-    <legend style="padding:0;font-weight:600">Pode ser com criador de outra agência?</legend>
-    <label class="check"><input type="radio" name="other_agency" value="sim" {% if data.other_agency == "sim" %}checked{% endif %} required> Sim</label>
-    <label class="check"><input type="radio" name="other_agency" value="nao" {% if data.other_agency == "nao" %}checked{% endif %}> Não, só da Hera</label>
-  </fieldset>
-  <fieldset style="border:0;padding:0;margin:12px 0 0">
     <legend style="padding:0;font-weight:600">Quer ajuda com o banner?</legend>
     <label class="check"><input type="radio" name="banner" value="sim" {% if data.banner == "sim" %}checked{% endif %}> Sim</label>
     <label class="check"><input type="radio" name="banner" value="nao" {% if data.banner != "sim" %}checked{% endif %}> Não</label>

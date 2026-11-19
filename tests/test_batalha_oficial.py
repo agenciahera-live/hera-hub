@@ -79,9 +79,9 @@ class BatalhaOficialTests(TestCase):
         self.assertContains(form, f"as datas começam em {primeiro:%d/%m}")
         self.assertContains(form, f'min="{primeiro:%Y-%m-%d}"')
         self.assertEqual(verificar_tom(_texto(form)), [])
-        # antes dos 7 dias, datas iguais, sem dizer se pode outra agência ou rounds inválido: não grava e explica
+        # antes dos 7 dias, datas iguais ou rounds inválido: não grava e explica (a pergunta da outra agência saiu em 19/11)
         for kw, msg in [({"date": _dia(6)}, "As datas começam em"), ({"date2": _dia(8)}, "duas datas diferentes"),
-                        ({"other_agency": ""}, "outra agência"), ({"rounds": "2"}, "quantos rounds"), ({"time": ""}, "a hora"),
+                        ({"rounds": "2"}, "quantos rounds"), ({"time": ""}, "a hora"),
                         ({"goal_diamonds": "muitos"}, "só com números")]:
             r = self._pedir(**kw)
             self.assertEqual(r.status_code, 200, kw)
@@ -93,7 +93,8 @@ class BatalhaOficialTests(TestCase):
         self.assertRedirects(r, reverse("battles"), fetch_redirect_response=False)
         (b,) = self._pedidos(self.a)
         self.assertEqual((b.date.isoformat(), b.other_options, b.rounds), (_dia(7), [{"date": _dia(10), "time": "20:30"}], 0))
-        self.assertEqual((b.goal_diamonds, b.other_agency_ok, b.banner_help, b.status), (None, False, True, "pendente"))
+        # o campo "outra agência" fica vazio mesmo que chegue no envio (o app não pergunta mais)
+        self.assertEqual((b.goal_diamonds, b.other_agency_ok, b.banner_help, b.status), (None, None, True, "pendente"))
         with system_context():
             self.assertTrue(Notification.objects.filter(user=self.gx, title__contains="pediu uma batalha oficial").exists())
             self.assertFalse(Notification.objects.filter(user=self.gy).exists())
@@ -114,9 +115,10 @@ class BatalhaOficialTests(TestCase):
         (b,) = self._pedidos(self.a)
         self.client.force_login(self.gx)
         tela = self.client.get(reverse("g_battles"))
-        for trecho in ["@streamer.a", "Tanto faz", "outra agência: não, só da Hera", "quer ajuda com o banner", "Tema de Natal",
+        for trecho in ["@streamer.a", "Tanto faz", "quer ajuda com o banner", "Tema de Natal",
                        "diamantes: sugerir pelo histórico", "Confirmar batalha"]:
             self.assertContains(tela, trecho)
+        self.assertNotContains(tela, "outra agência:")  # o criador não escolhe mais (decisão de 19/11)
         # status "aprovada" sem oponente não vale; confirmar exige oponente e 1 ou 3 rounds
         self.client.post(reverse("g_battles"), {"id": b.pk, "status": "aprovada"})
         self.client.post(reverse("g_battles"), {"id": b.pk, "a": "confirm", "choice": "1", "final_rounds": "0", "opponent": "@rival.demo"})

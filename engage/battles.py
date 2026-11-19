@@ -68,16 +68,14 @@ def build_request(creator, settings_, data, today=None):
         rounds = -1
     if rounds not in dict(BattleRequest.ROUNDS_ASK):
         raise BattleError("Escolha quantos rounds.")
-    other_agency = _yes_no(data.get("other_agency"))
-    if other_agency is None:
-        raise BattleError("Conte se pode ser com criador de outra agência.")
+    # decisão da Mariana de 19/11/2026: o criador não escolhe se o oponente é da Hera ou de outra agência (campo vazio)
     goal = (data.get("goal_diamonds") or "").replace(".", "").strip()
     if goal and not goal.isdigit():
         raise BattleError("Escreva os diamantes só com números.")
     return BattleRequest(
         creator=creator, kind="oficial", date=min(d1, d2), time=time, rounds=rounds,
         other_options=[{"date": max(d1, d2).isoformat(), "time": time.strftime("%H:%M")}],
-        goal_diamonds=int(goal) if goal else None, other_agency_ok=other_agency,
+        goal_diamonds=int(goal) if goal else None, other_agency_ok=None,
         banner_help=_yes_no(data.get("banner")) is True, notes=(data.get("notes") or "")[:1000],
     )
 
