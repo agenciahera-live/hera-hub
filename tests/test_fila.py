@@ -51,24 +51,33 @@ class GraduacaoNaFilaTests(TestCase):
     def tearDown(self):
         set_context()
 
+    # 28/09 é a última semana do mês: o aviso "perto de graduar" vira o item "Quase lá", com mensagem (passo 4.3)
     def test_conta_os_diamantes_do_mes_dentro_da_janela(self):
         fila = _fila(self.ag, self.perto, self.soma, self.graduou, self.veterano)
-        self.assertIn("perto_graduar", _codigos(fila, self.perto))
-        self.assertNotIn("perto_graduar", _codigos(fila, self.soma))
-        self.assertNotIn("perto_graduar", _codigos(fila, self.graduou))
-        self.assertNotIn("perto_graduar", _codigos(fila, self.veterano))
-        item = next(i for i in fila if i.creator.pk == self.perto.pk and i.code == "perto_graduar")
-        self.assertIn("70.000 diamantes neste mês", item.detail)
+        self.assertIn("quase_la", _codigos(fila, self.perto))
+        self.assertNotIn("perto_graduar", _codigos(fila, self.perto))
+        for c in (self.soma, self.graduou, self.veterano):  # ninguém deles está perto de graduar no mês
+            self.assertFalse([i for i in fila if i.creator.pk == c.pk and (i.code == "perto_graduar" or i.template == "QUASE-GRAD")], c.username)
+        # soma.demo tem 35 mil de 40 mil do próximo Tier: "Quase lá" do nível, não da graduação
+        self.assertEqual([i.template for i in fila if i.creator.pk == self.soma.pk and i.code == "quase_la"], ["QUASE-NIVEL"])
+        item = next(i for i in fila if i.creator.pk == self.perto.pk and i.code == "quase_la")
+        self.assertEqual(item.template, "QUASE-GRAD")
+        self.assertIn("70.000 de 80.000 diamantes neste mês", item.detail)
         self.assertIn("faltam 10.000", item.detail)
+
+    def test_fora_da_ultima_semana_continua_o_aviso_perto_de_graduar(self):
+        fila = _fila(self.ag, self.perto, today=dt.date(2026, 9, 23))
+        self.assertIn("perto_graduar", _codigos(fila, self.perto))
+        self.assertNotIn("quase_la", _codigos(fila, self.perto))
 
     def test_valores_vem_da_configuracao(self):
         with system_context():
             AgencySettings.objects.filter(agency=self.ag).update(graduation_window_days=30)
-        self.assertNotIn("perto_graduar", _codigos(_fila(self.ag, self.perto), self.perto))
+        self.assertNotIn("quase_la", _codigos(_fila(self.ag, self.perto), self.perto))
         with system_context():
             AgencySettings.objects.filter(agency=self.ag).update(graduation_window_days=90, graduation_diamonds=40_000)
         fila = _fila(self.ag, self.soma)
-        self.assertIn("perto_graduar", _codigos(fila, self.soma))  # 35 mil é 87% de 40 mil
+        self.assertIn("QUASE-GRAD", [i.template for i in fila if i.code == "quase_la"])  # 35 mil é 87% de 40 mil
 
 
 class EnvieiTiraDaFilaTests(TestCase):

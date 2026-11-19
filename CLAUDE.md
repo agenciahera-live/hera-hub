@@ -51,6 +51,8 @@ Versões antigas da visão ficam em `docs/arquivo/` e **não valem mais**. A pas
 
 26. **1:1** (passo 4.2; regras em `crm/one_on_one.py`; agenda em `/gestao/1a1/`). **O print não é enviado ao app** (decisão de 19/11/2026): a gestora guarda no drive dela e marca `print_saved`; não crie upload de print sem nova decisão. Completo = canal, blocos 1 a 5, 2 ações ou mais, próximo 1:1 e `print_saved` (`OneOnOne.missing`); só 1:1 completo conta na fila e no painel. Quem precisa de 1:1 todo mês: `monthly_reason` (grupo Diamante ou potencial de graduação), usado pela agenda, pela fila (`1a1_mes`) e pelo painel.
 
+27. **Itens do mês na fila** (passo 4.3; regras em `web/month_items.py`, ligados em `COLLECTORS`). Resumo do mês nos dias 1 a 7 ("menos constante" = menos dias válidos que o mês anterior, dias 1 a 5; constantes nos dias 6 e 7), nível novo, "Quase lá" na última semana (substitui os avisos `perto_tier` e `perto_graduar` nesses dias), módulo concluído e sinais de risco dos Diamante (`RiskSignal`, vale 30 dias; dois ou mais = `risco_diamante` na fila e aviso às sócias pela rotina). Os textos MES-*, NIVEL-NOVO, QUASE-* e MODULO-OK são provisórios até a revisão da Mariana.
+
 O verificador de tom fica em `engage/tom.py`: `verificar_tom` para as telas do criador (teste `tests/test_tom.py`) e `verificar_tom_mensagem` para as mensagens da gestão (teste `tests/test_biblioteca.py`).
 
 ## Regras que nunca podem ser quebradas

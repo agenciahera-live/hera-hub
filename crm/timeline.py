@@ -78,6 +78,8 @@ def timeline(creator, limit=60):
         out.append(Entry(x.requested_at, "🗳️", f"Pedido às sócias: {x.get_kind_display().lower()}", x.note or x.reason, x.requested_by))
         if x.decided_at:
             out.append(Entry(x.decided_at, "🗳️", f"Decisão das sócias: {x.decision_label}", x.decision_note, x.decided_by))
+    for x in creator.risk_signals.select_related("author")[:limit]:  # sinais de risco pela conversa (passo 4.3)
+        out.append(Entry(x.created_at, "🚩", f"Sinal de risco: {x.get_kind_display().lower()}", x.note, x.author))
     for x in creator.access_codes.select_related("created_by")[:limit]:
         out.append(Entry(x.created_at, "🔑", "Código de acesso ao app gerado", "", x.created_by))
         if x.used_at:

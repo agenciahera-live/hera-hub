@@ -452,6 +452,14 @@ def draw_history(agency, weeks=8):
     return sorted(rows.values(), key=lambda r: r["week"], reverse=True)
 
 
+def _risks(agency, today):
+    """Lista "Diamante em risco" (passo 4.3): quem tem sinais pelos números ou pela conversa."""
+    from .month_items import diamonds_at_risk
+
+    return [{"c": c, "total": r["total"], "labels": r["numbers"] + [s.get_kind_display().lower() for s in r["talk_kinds"]]}
+            for c, r in diamonds_at_risk(agency, today)]
+
+
 # ------------------------------------------------------------------ tudo junto
 def overview(agency, today=None):
     today = today or E.tiktok_today()
@@ -466,4 +474,5 @@ def overview(agency, today=None):
                         .select_related("creator", "decided_by").order_by("-decided_at")[:10]),
         "draw": ensure_draw(agency, local), "draw_week": week_start(local), "draw_history": draw_history(agency),
         "draw_from": week_start(local) - dt.timedelta(days=7), "draw_to": week_start(local) - dt.timedelta(days=1),
+        "risks": _risks(agency, today),
     }

@@ -557,3 +557,21 @@ class QueueDay(models.Model):
 
     class Meta:
         unique_together = [("agency", "manager", "day")]
+
+
+class RiskSignal(models.Model):
+    """Sinal de risco de um criador Diamante marcado pela gestora a partir da conversa (Playbook, seção 5; passo 4.3).
+
+    Vale por 30 dias (decisão da Mariana de 19/11/2026); o registro fica na linha do tempo. Só a gestão vê."""
+
+    KINDS = [("demorou", "Demorou a responder"), ("tom", "Mudou o tom"), ("outra_agencia", "Falou de outra agência"),
+             ("reclamou", "Reclamou de algo")]
+    VALID_DAYS = 30
+    creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="risk_signals")
+    kind = models.CharField(max_length=20, choices=KINDS)
+    note = models.CharField("observação", max_length=240, blank=True)
+    author = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]

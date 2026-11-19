@@ -10,6 +10,8 @@ Situação em 18/11/2026: MVP construído; passos 1 a 3 da visão feitos em 11/1
 
 > **19/11/2026: publicada a etapa 3** (passos 3.3 a 3.7, commit `0e4435e`). Deploy no Railway com sucesso; as 13 migrações rodaram sem erro (de `core.0012` a `web.0009`). O serviço `rotina-diaria` mostra "Last run succeeded" e a leitura automática do Backstage chegou às 12h30. O Dashboard de produção abriu com o menu novo "Teste do app". Ninguém recebeu código de acesso; a trava do teste está desligada até as sócias configurarem o teste. Avisos do `check --deploy` que já existiam e não impedem o app de ligar: HSTS e redirecionamento para HTTPS (o Railway já serve por HTTPS).
 
+> **19/11/2026: publicados os passos 4.1 e 4.2** (commit `d1ef474`). Deploy com sucesso; as 3 migrações rodaram sem erro (`crm.0011`, `crm.0012`, `web.0010`). Em produção, o Painel das sócias abriu em menos de 1 segundo com todas as seções, e a tela 1:1 abriu com 7 criadores que precisam de 1:1 todo mês e ainda não têm 1:1 completo.
+
 > ⚠️ **Os logins de demonstração (`@hera.demo` e `@semana.demo`, senha `hera-demo-2026`) não podem existir em produção.** Detalhes na seção 0, "Logins de demonstração não podem existir em produção".
 
 ## 0. Plano atual (visão final de 14/11/2026)
@@ -553,7 +555,7 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | --- | --- | --- |
 | 4.1 Painel das sócias | Números da visão, lista de aprovações (manter ou encerrar), sorteio semanal de 5 "Enviei" | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
 | 4.2 1:1 com o modelo novo | Canal e quem conduziu, bloco 1 automático, anotações, print, aviso de 30 dias, frequência mensal (Diamante e potencial) | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
-| 4.3 Itens do mês na fila | Resumo do mês, "Quase lá", nível novo, módulo concluído, sinais de risco dos Diamante | A fazer |
+| 4.3 Itens do mês na fila | Resumo do mês, "Quase lá", nível novo, módulo concluído, sinais de risco dos Diamante | ✅ 19/11, aguardando aprovação; textos provisórios em revisão pela Mariana (detalhes abaixo) |
 | 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | A fazer |
 | 4.5 Campanhas | 3 listas, acompanhamento na fila, aprovação das campanhas da agência | A fazer (decisão: a gestora vê a posição do criador na campanha?) |
 | 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
@@ -618,6 +620,33 @@ Decisão da Mariana de 19/11: **o print não é enviado ao app.** A gestora guar
 | Quem conduziu pode ser uma gestora ou uma sócia ativa | Às vezes a sócia conduz o 1:1 de um criador Diamante |
 | O 1:1 continua só na gestão | Visão: o registro não aparece no app do criador |
 
+### Passo 4.3, o que mudou (itens do mês na fila)
+
+Decisões da Mariana de 19/11: **"menos constante" = menos dias válidos no mês que fechou do que no anterior**; **o sinal de risco marcado pela gestora vale 30 dias**. Regras em `web/month_items.py`.
+
+- **Resumo do mês (dias 1 a 7):** do dia 1 ao 5, quem foi menos constante (MES-APOIO); nos dias 6 e 7, os constantes (MES-PARABENS). Quem fez mais LIVE (horas, dias ou batalhas) e recebeu menos diamantes recebe a 2.5 do Playbook (APO-05). Item sem "Enviei" segue até o dia 7. Fica de fora quem não fez LIVE no mês (a régua cuida) e quem está nos 14 dias (o roteiro cuida). Sem números no WhatsApp: a mensagem aponta para o app.
+- **Nível novo (dias 1 a 7):** quem subiu de Tier no mês que fechou recebe NIVEL-NOVO no lugar do resumo.
+- **Quase lá (últimos 7 dias do mês):** os avisos "perto do próximo Tier" e "perto de graduar" (85% ou mais) viram mensagem com prioridade 1 (QUASE-NIVEL, QUASE-GRAD), uma por semana. Fora da última semana, os avisos continuam como antes. "Perto de prêmio de campanha" entra no 4.5.
+- **Módulo concluído:** quem terminou todas as aulas de um módulo nos últimos 3 dias (MODULO-OK, com a próxima aula aberta).
+- **Sinais de risco dos criadores Diamante** (Playbook, seção 5): pelos números (queda de 30% ou mais; horas abaixo de 70% ou 2 dias válidos a menos que a média das 3 semanas anteriores; batalhas abaixo da metade da média, quando a média é 3 ou mais; nenhum fã novo com 5h ou mais de LIVE) e pela conversa (quadro novo na ficha: demorou a responder, mudou o tom, falou de outra agência, reclamou de algo; o mesmo tipo marcado duas vezes conta uma). Um sinal: aviso na ficha. Dois ou mais: item "Diamante com N sinais de risco" na fila (prioridade 1, conversa em até 48 horas), aviso às sócias pela rotina diária (um por criador a cada 7 dias) e a lista "Diamante em risco" no topo do painel das sócias. Os sinais marcados entram na linha do tempo.
+- **6 mensagens provisórias** na biblioteca (etapa "Itens do mês"; migração `engage/0026`). Revisão: `HERA\creator-hub\Mensagens do passo 4.3 - itens do mes (para revisar).txt`.
+
+**Segurança:** `crm_risksignal` (interna: a gestão que vê o criador lê; quem edita marca; o criador nunca lê). Migração `web/0011_rls_sinais_de_risco.py`.
+
+**Como testar:** `tests/test_itens_do_mes.py` (9 testes). Dois testes antigos usavam 28/09 (última semana do mês) e foram atualizados para o "Quase lá" (`test_fila.py`, `test_fila_do_dia.py`).
+
+**Conferência (19/11):** 286 testes passando e 1 pulado (o mesmo de antes). Não aberto no navegador; as telas (ficha com o quadro de sinais e o painel com a lista) foram conferidas pelos testes.
+
+**Decisões pequenas do 4.3:**
+
+| Decisão | Motivo |
+| --- | --- |
+| "Batalhas em queda forte" = menos da metade da média das 3 semanas anteriores, quando a média é 3 ou mais | O Playbook não define o número; com poucas batalhas, qualquer variação pareceria queda |
+| "Horas ou dias abaixo do normal" usa o mesmo corte do diagnóstico de queda (70% das horas ou 2 dias válidos a menos) | Regras v2 do Acompanhamento Semanal |
+| Quem é Diamante = Tier do mês fechado no grupo Diamante | Mesma regra do 1:1 mensal |
+| O resumo do mês não entra para quem não fez LIVE no mês nem para quem está nos 14 dias | Esses criadores já têm roteiro próprio (régua e onboarding) |
+| O aviso às sócias sai pela rotina das 6h, não na hora em que a gestora marca o sinal | A conta junta números da leitura diária e sinais da conversa; uma vez por dia basta para "conversa em até 48 horas" |
+
 ### ⚠️ Logins de demonstração não podem existir em produção
 
 Estes logins têm senha conhecida (`hera-demo-2026`) e servem só para demonstração no computador da Hera:
@@ -638,6 +667,8 @@ Três proteções: os dois comandos se recusam a rodar em produção; o app não
   3. Cadência depois do D15 com a versão para quem já é da casa: NR-24H-CASA, NR-2D-CASA e NR-3D-CASA (a fila escolhe sozinha pela fase; o +5 dias é o mesmo para todos).
   4. Mural de batalhas continua sem o bloco de destaques.
 - [x] **Decisão 5 (dúvidas frequentes do roteiro), 18/11:** entram **nas duas**. Na biblioteca de mensagens já entraram 23 respostas (códigos DUV-*, etapa "Dúvidas frequentes", migração `engage/0020`), com os textos revisados; a graduação saiu e "O que é uma batalha oficial?" é a própria BAT-PEDIDO. O quadro de graduação do Meu progresso **fica** para os testes iniciais.
+- [ ] **Mensagens do passo 4.3 (itens do mês):** 6 textos provisórios em `HERA\creator-hub\Mensagens do passo 4.3 - itens do mes (para revisar).txt`, com 2 perguntas (textos e o número de diamantes no "Quase lá").
+- [ ] **Roteiro do teste do app (passo 3.7):** `HERA\creator-hub\Roteiro do teste do app - passo 3.7 (para revisar).txt`, com 4 perguntas.
 - [ ] **Central de dúvidas (passo 3.5):** as respostas do roteiro entraram adaptadas para o criador, junto com a revisão "Tier → Nível". Falta a Mariana revisar `HERA\creator-hub\Central de duvidas - revisao do passo 3.5 (para revisar).txt` (substitui o arquivo antigo de 11/11), com 4 pontos de atenção.
 - [ ] **Cobertura e quem cobre (passo 2.7) e a aprovação da etapa 2:** a Mariana decide depois do teste da gestão (18/11).
 - [ ] **Cobertura (passo 2.7):** quem cobre enxerga a carteira inteira da gestora ausente, só naquele dia, e só registra contato. Confirmar se está bom assim, ou se o acesso deve ficar restrito aos criadores com item que não pode esperar.

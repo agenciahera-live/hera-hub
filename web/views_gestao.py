@@ -290,6 +290,13 @@ def creator_detail(request, pk):
         from engage import plan as plan_rules
 
         ctx["creator_plan"] = plan_rules.for_creator(c)
+        # sinais de risco dos criadores Diamante (passo 4.3): números e conversa
+        from crm.one_on_one import diamond_min_tier
+
+        from . import month_items
+
+        ctx["risk"] = month_items.risk_for(c, ctx["week"], ctx["tier"], diamond_min_tier(c.agency))
+        ctx["risk_kinds"] = C.RiskSignal.KINDS
     elif tab == "1a1":
         from crm import one_on_one
 
@@ -540,6 +547,13 @@ def creator_action(request, pk):
         _academy_action(request, c, a)
     elif a == "campaign_pick":
         _campaign_pick(request, c)
+    elif a == "risk_signal":  # sinal de risco pela conversa (Diamante, passo 4.3); vale 30 dias
+        kind = request.POST.get("kind", "")
+        if kind in dict(C.RiskSignal.KINDS):
+            C.RiskSignal.objects.create(creator=c, kind=kind, note=request.POST.get("note", "").strip()[:240], author=request.user)
+            messages.success(request, f"Sinal registrado: {dict(C.RiskSignal.KINDS)[kind].lower()}. Ele vale por {C.RiskSignal.VALID_DAYS} dias.")
+        else:
+            messages.error(request, "Escolha o sinal na lista.")
     elif a == "reminder_add":
         due, text = _date(request.POST.get("due_date")), request.POST.get("text", "").strip()[:240]
         if due and text:

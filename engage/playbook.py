@@ -1036,6 +1036,31 @@ _DUVIDAS = [
 MESSAGES += [{"code": code, "variant": "", "stage": f"Dúvidas frequentes · {cat}", "title": q, "body": a, "tracks": [], "battles": "",
               "source": src} for cat, code, q, src, a in _DUVIDAS]
 
+# Itens do mês na fila (passo 4.3, 19/11/2026). O Playbook não traz texto para eles: entram como provisórios e vão para a
+# revisão da Mariana (arquivo "Mensagens do passo 4.3"). Sem resumo de números pelo WhatsApp: o número fica no app.
+_MES = [
+    ("MES-PARABENS", "Resumo do mês · parabéns (constante)",
+     "{nome}, fechou o mês! 💜 Você manteve a sua constância e isso faz toda a diferença. O resumo do seu mês já está no app, em "
+     "“Meu progresso”. O que você achou do mês? Quer pensar junto no próximo?"),
+    ("MES-APOIO", "Resumo do mês · apoio (menos constante)",
+     "{nome}, fechou o mês! Vi que este mês teve menos dias de LIVE que o anterior, e tá tudo bem: cada mês tem o seu ritmo. "
+     "Como você está? Se quiser, a gente conversa sobre o que pode ajudar no próximo 💜"),
+    ("NIVEL-NOVO", "Nível novo · parabéns",
+     "{nome}, parabéns! 🎉 Você fechou o mês no Nível {nivel_novo}. Isso é resultado da sua dedicação. Já dá pra ver no app, em "
+     "“Meu nível”. O que você acha que fez a diferença?"),
+    ("QUASE-NIVEL", "Quase lá · perto do próximo nível",
+     "{nome}, você está a {faltam} 💎 do Nível {proximo_nivel}, e o mês fecha em {fim_do_mes}. Dá pra chegar! Quer pensar junto no "
+     "que pode ajudar nesses últimos dias? 💜"),
+    ("QUASE-GRAD", "Quase lá · perto da graduação",
+     "{nome}, faltam {faltam} 💎 para a sua graduação deste mês (regra do TikTok: {graduacao} 💎 em um mês). Dá pra chegar! Quer "
+     "pensar junto no que pode ajudar até {fim_do_mes}? 💜"),
+    ("MODULO-OK", "Módulo da Hera Academy concluído",
+     "{nome}, vi que você terminou o módulo “{modulo}” na Hera Academy 👏 Mandou bem! {proxima_frase}Me conta o que você "
+     "mais gostou?"),
+]
+MESSAGES += [{"code": code, "variant": "", "stage": "Itens do mês", "title": title, "body": body, "tracks": [], "battles": "",
+              "source": "provisorio"} for code, title, body in _MES]
+
 # Modelos que saíram da biblioteca (resumo de números pelo WhatsApp e provisórios trocados pelos textos do Playbook)
 RETIRED = ["REL-MES", "LEMBRETE-SEMANA", "ONB-NL-D3"]
 

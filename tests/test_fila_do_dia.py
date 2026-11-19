@@ -229,7 +229,9 @@ class FilaDoDiaTests(TestCase):
         q = self._fila(c)
         mensagens = [i for i in q if i.is_message]
         self.assertEqual([(i.code, i.block) for i in mensagens], [("aniversario", 2)])  # o que tem data vem antes do dado
-        self.assertEqual(q.deferred, 1)  # a queda espera o próximo dia livre
+        # a queda espera o próximo dia livre; o "Quase lá" também (28/09 é a última semana do mês e há 35 mil de 40 mil
+        # do próximo Tier, passo 4.3)
+        self.assertEqual(q.deferred, 2)
         self.client.force_login(self.g)
         self.client.post(reverse("g_sent", args=[c.pk, "ANIV-DIA"]), {"text": "Parabéns, do jeito que a gestora ajustou"})
         with system_context():

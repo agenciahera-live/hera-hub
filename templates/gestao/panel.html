@@ -26,6 +26,15 @@
     <li><small><b>{{ ap.decision_label }}</b> · {% if ap.creator %}@{{ ap.creator.username }}{% else %}{{ ap.get_kind_display }}{% endif %} · {{ ap.decided_at|sp:"%d/%m" }} por {{ ap.decided_by.first_name|default:ap.decided_by.email }}{% if ap.decision_note %} · “{{ ap.decision_note }}”{% endif %}</small></li>{% endfor %}</ul></details>{% endif %}
 </section>
 
+{# ------------------------------------------------------------ Diamante em risco (passo 4.3) #}
+<section class="card" id="risco">
+  <h2>Diamante em risco <small>sinais pelos números e pela conversa (Playbook)</small></h2>
+  {% if risks %}<ul class="list">{% for r in risks %}
+    <li class="row between" style="gap:8px"><span><a href="{% url 'g_creator' r.c.pk %}"><b>@{{ r.c.username }}</b></a><br><small>{{ r.labels|join:"; " }}</small></span>
+      {% if r.total >= 2 %}<span class="pill pink">{{ r.total }} sinais: conversa em até 48 horas</span>{% else %}<span class="pill gold">1 sinal: observar</span>{% endif %}</li>{% endfor %}</ul>
+  {% else %}<p class="empty">Nenhum criador Diamante com sinal de risco.</p>{% endif %}
+</section>
+
 {# ------------------------------------------------------------ resultado do mês #}
 <section class="card">
   <h2>Resultado do mês <small>dados até {{ results.0.end_ref|date:"d/m"|default:"—" }}</small></h2>

@@ -143,16 +143,17 @@ ITEM_TYPES = {
     "plano_vencido": (2, "Plano de ação vencido"),
     "campanha": (2, "Acompanhamento de campanha: a construir (depende da leitura de campanhas)"),
     "rodada_batalhas": (2, "Rodada de batalhas oficiais do dia 8: a construir (módulo de batalhas)"),
-    "resumo_mes": (2, "Resumo do mês, dias 1 a 7: a construir"),
+    "resumo_mes": (2, "Resumo do mês, dias 1 a 7 (passo 4.3)"),
     # bloco 3: o que vem do dado
     "queda": (3, "Queda na semana"),
     "subindo": (3, "Subindo na semana"),
     "irregular": (3, "Semana irregular"),
     "perto_tier": (3, "Perto do próximo Tier"),
     "perto_graduar": (3, "Perto de graduar"),
-    "quase_la": (3, "Quase lá, última semana do mês: a construir"),
-    "nivel_novo": (3, "Nível novo: a construir"),
-    "modulo_concluido": (3, "Módulo de curso concluído: a construir (etapa 3)"),
+    "quase_la": (3, "Quase lá, última semana do mês (passo 4.3)"),
+    "nivel_novo": (3, "Nível novo, dias 1 a 7 (passo 4.3)"),
+    "modulo_concluido": (3, "Módulo da Hera Academy concluído (passo 4.3)"),
+    "risco_diamante": (3, "Diamante com dois sinais de risco ou mais: conversa em até 48 horas (passo 4.3)"),
     # bloco 4
     "rodizio": (4, "Rodízio: dias sem mensagem individual"),
 }
@@ -531,6 +532,22 @@ def _monthly_1a1_items(ctx):
     return queue_items(ctx)
 
 
+def _in_last_week(today):
+    from .month_items import in_last_week
+
+    return in_last_week(today)
+
+
+def _month_items(name):
+    """Itens do mês (passo 4.3): regras em web/month_items.py. O "nível novo" sai junto com o resumo do mês."""
+    def collect(ctx):
+        from . import month_items
+
+        return getattr(month_items, name)(ctx)
+
+    return collect
+
+
 def _to_build(_ctx):
     """Tipo já declarado em ITEM_TYPES que ainda não gera itens (depende de módulo que não existe)."""
     return []
@@ -545,10 +562,10 @@ COLLECTORS = {
     "1a1_mes": _monthly_1a1_items,
     "campanha": _to_build,          # dia seguinte à abertura, metade, véspera do fechamento, dia seguinte ao fim
     "rodada_batalhas": _to_build,   # dia 8: batalhas oficiais do mês seguinte para Ouro e Diamante
-    "resumo_mes": _to_build,        # dias 1 a 7: primeiro quem foi menos constante
-    "quase_la": _to_build,          # última semana: perto do próximo nível, da graduação ou de prêmio
-    "nivel_novo": _to_build,
-    "modulo_concluido": _to_build,
+    "resumo_mes": _month_items("summary_items"),   # dias 1 a 7: primeiro quem foi menos constante (e o nível novo)
+    "quase_la": _month_items("almost_items"),      # última semana: perto do próximo nível ou da graduação (prêmio no 4.5)
+    "modulo_concluido": _month_items("module_items"),
+    "risco_diamante": _month_items("risk_items"),
 }
 
 
@@ -643,13 +660,15 @@ def action_queue(creators, agency, today=None, now=None, raw=False):
         elif ws.state == "irregular" and ws.base >= 2000 and today.weekday() >= 2 and not sent_since("APO-03", week_start):
             add("irregular", ws.priority, f"Semana irregular ({ws.segment_label})",
                 f"{semana} em {w.valid_days} dia{'s' if w.valid_days != 1 else ''} válido{'s' if w.valid_days != 1 else ''}. Conversa sobre rotina.", "APO-03")
-        if snap:
+        # na última semana do mês, "perto" vira o item "Quase lá", com mensagem (passo 4.3, web/month_items.py)
+        last_week = _in_last_week(today)
+        if snap and not last_week:
             tier, _ = E.official_tier(c, today, rules)
             nxt = E.next_tier_rule(tier, rules)
             if nxt and nxt.min_diamonds * settings_.near_tier_pct / 100 <= snap.diamonds < nxt.min_diamonds:
                 add("perto_tier", 3, f"Perto do Tier {nxt.tier}", f"{fmt_int(snap.diamonds)} de {fmt_int(nxt.min_diamonds)} diamantes neste mês.")
         # Graduação: diamantes do mês corrente, só dentro da janela (regra do TikTok, valores em AgencySettings)
-        grad = E.graduation_status(c, snap, settings_, today)
+        grad = None if last_week else E.graduation_status(c, snap, settings_, today)
         if grad and not grad["graduated"] and grad["diamonds"] >= grad["target"] * settings_.near_tier_pct / 100:
             add("perto_graduar", 3, f"Perto de graduar ({fmt_int(grad['target'])} no mês)",
                 f"{fmt_int(grad['diamonds'])} diamantes neste mês · faltam {fmt_int(grad['missing'])} · janela de graduação até {grad['window_end']:%d/%m}.")

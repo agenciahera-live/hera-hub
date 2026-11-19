@@ -60,8 +60,9 @@ class VerificadorDeTomDasMensagensTests(SimpleTestCase):
                 self.assertIn((m["code"], ""), chaves, m["code"])
         codigos = {m["code"] for m in playbook.MESSAGES}
         self.assertFalse(codigos & set(playbook.RETIRED))  # sem resumo de números pelo WhatsApp
-        # as 4 provisórias ganharam o texto da Hera em 18/11, junto com a cadência para quem já é da casa
-        self.assertEqual([m["code"] for m in playbook.MESSAGES if m["source"] == "provisorio"], [])
+        # as 4 provisórias ganharam o texto da Hera em 18/11; as do passo 4.3 (itens do mês) esperam a revisão da Mariana
+        self.assertEqual([m["code"] for m in playbook.MESSAGES if m["source"] == "provisorio"],
+                         ["MES-PARABENS", "MES-APOIO", "NIVEL-NOVO", "QUASE-NIVEL", "QUASE-GRAD", "MODULO-OK"])
         self.assertEqual({m["code"] for m in playbook.MESSAGES if m["source"] == "agencia" and not m["code"].startswith("DUV-")},
                          {"REG-14", "QUEDA-01", "REC-01", "CONVITE-APP", "NR-24H-CASA", "NR-2D-CASA", "NR-3D-CASA"})
         # decisão 5: 23 dúvidas frequentes do roteiro na biblioteca, sem a graduação e sem repetir a BAT-PEDIDO
