@@ -1,0 +1,24 @@
+{% load hera %}<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recibo — Indique e Ganhe Hera</title>
+<style>
+  body{font-family:Georgia,"Times New Roman",serif;color:#111;background:#fff;max-width:760px;margin:32px auto;padding:0 24px;line-height:1.6}
+  h1{font-weight:400;font-size:2rem;margin:0 0 16px}
+  table{border-collapse:collapse;width:100%;margin:18px 0;font-family:Arial,sans-serif;font-size:.95rem}
+  th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}th{background:#f4f1ea;font-weight:400}
+  .sign{margin-top:48px}.line{display:inline-block;min-width:280px;border-bottom:1px solid #111}
+  .noprint{font-family:Arial,sans-serif;font-size:.85rem;background:#f4f1ea;padding:8px 12px;margin-bottom:20px}
+  @media print{.noprint{display:none}body{margin:0}}
+</style></head><body>
+<p class="noprint">Confira os dados, imprima ou salve em PDF (Ctrl+P) e envie para assinar. <button onclick="window.print()">Imprimir</button></p>
+<h1>Recibo — Indique e Ganhe Hera</h1>
+<p>Eu, <b>{% if pix %}{{ pix.full_name }}{% else %}<span class="line"></span>{% endif %}</b>, CPF <b>{% if pix %}{{ pix.cpf_display }}{% else %}<span class="line" style="min-width:140px"></span>{% endif %}</b>, perfil <b>@{{ referrer.username }}</b>,
+declaro que recebi da <b>{{ st.legal_name|default:"HERA AGÊNCIA E MARKETING DIGITAL" }}</b>, CNPJ <b>{% if st.cnpj %}{{ st.cnpj }}{% else %}<span class="line" style="min-width:160px"></span>{% endif %}</b>,
+a quantia de <b>R$ {{ total|floatformat:2 }}</b>, paga via Pix em <b>{% if paid_at %}{{ paid_at|date:"d/m/Y" }}{% else %}___/___/_____{% endif %}</b>, referente aos bônus do Programa Indique e Ganhe Hera do mês de <b>{{ month|date:"m/Y" }}</b>, conforme o regulamento do programa.</p>
+<table><thead><tr><th>Indicada (@)</th><th>Referência (Mês 1, 2, 3 ou Graduação)</th><th>Valor (R$)</th></tr></thead><tbody>
+{% for b in items %}<tr><td>@{{ b.referral.referred.username }}</td><td>{{ b.get_kind_display }}</td><td>{{ b.amount|floatformat:2 }}</td></tr>{% endfor %}
+<tr><td><b>Total</b></td><td></td><td><b>{{ total|floatformat:2 }}</b></td></tr></tbody></table>
+<p>Declaro que esse valor é um bônus da campanha de indicação, eventual e ligado às metas do regulamento, e que não constitui salário nem gera vínculo de emprego com a Hera. Dou quitação dos valores acima, referentes ao mês indicado.</p>
+<p class="sign"><span class="line"></span>, ___/___/_____</p>
+<p class="sign"><span class="line"></span><br>Assinatura</p>
+</body></html>

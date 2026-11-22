@@ -18,12 +18,20 @@
 {% if sees_money %}
 <section class="card" id="pagar">
   <h2>Bônus a pagar de {{ month|date:"m/Y" }} <small>até {{ pay_until|date:"d/m" }} · só sócias e financeiro</small></h2>
-  {% if to_pay %}<div class="table-wrap"><table class="t"><thead><tr><th>Quem indicou</th><th>Referência</th><th>Total</th></tr></thead><tbody>
-  {% for x in to_pay %}<tr><td><b>@{{ x.referrer.username }}</b></td><td><small>{% for b in x.items %}@{{ b.referral.referred.username }} · {{ b.get_kind_display }}: R$ {{ b.amount|floatformat:"-2" }}{% if b.paid_at %} (pago em {{ b.paid_at|date:"d/m" }}){% endif %}{% if not forloop.last %}<br>{% endif %}{% endfor %}</small></td>
-    <td><b>R$ {{ x.total|floatformat:"-2" }}</b></td></tr>{% endfor %}
-  <tr><td colspan="2"><b>Total do mês</b></td><td><b>R$ {{ pay_total|floatformat:"-2" }}</b></td></tr></tbody></table></div>
+  {% if open_months %}<p><small>Meses com bônus ainda sem pagamento: {% for m in open_months %}<a href="?mes={{ m|date:'Y-m' }}#pagar">{{ m|date:"m/Y" }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</small></p>{% endif %}
+  {% if to_pay %}<div class="table-wrap"><table class="t"><thead><tr><th>Quem indicou</th><th>Pix</th><th>Referência</th><th>Total</th><th>Pagamento e recibo</th></tr></thead><tbody>
+  {% for x in to_pay %}<tr><td><b>@{{ x.referrer.username }}</b></td>
+    <td><small>{% if x.pix %}{{ x.pix.full_name }}<br>CPF {{ x.pix.cpf_display }}<br>{{ x.pix.get_key_type_display }}: <span class="num">{{ x.pix.key }}</span>{% else %}<span class="pill gold">sem Pix cadastrado</span>{% endif %}</small></td>
+    <td><small>{% for b in x.items %}@{{ b.referral.referred.username }} · {{ b.get_kind_display }}: R$ {{ b.amount|floatformat:"-2" }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</small></td>
+    <td><b>R$ {{ x.total|floatformat:"-2" }}</b></td>
+    <td><small>{% if x.paid_at %}✅ Pago em {{ x.paid_at|date:"d/m" }}<br>
+        {% if x.receipt_at %}✅ Recibo recebido em {{ x.receipt_at|date:"d/m" }}{% else %}
+        <form method="post" class="row" style="gap:4px;margin-top:4px">{% csrf_token %}<input type="hidden" name="a" value="receipt"><input type="hidden" name="referrer" value="{{ x.referrer.pk }}"><input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><input type="date" name="on" value="{{ today|date:'Y-m-d' }}"><button class="btn btn-sm">Recibo recebido</button></form>{% endif %}
+      {% else %}<form method="post" class="row" style="gap:4px">{% csrf_token %}<input type="hidden" name="a" value="paid"><input type="hidden" name="referrer" value="{{ x.referrer.pk }}"><input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><input type="date" name="on" value="{{ today|date:'Y-m-d' }}"><button class="btn btn-sm btn-purple">Pago</button></form>{% endif %}
+      <a href="{% url 'g_referral_receipt' x.referrer.pk month|date:'Y-m' %}" target="_blank" rel="noopener">Recibo para imprimir ↗</a></small></td></tr>{% endfor %}
+  <tr><td colspan="3"><b>Total do mês</b></td><td><b>R$ {{ pay_total|floatformat:"-2" }}</b></td><td></td></tr></tbody></table></div>
   {% else %}<p class="empty">Nenhum bônus a pagar deste mês.</p>{% endif %}
-  <p><small>Calculado pela rotina diária quando o mês fecha, com os dados do Backstage. O Pix e a marcação de “pago” entram na parte 2.</small></p>
+  <p><small>Calculado pela rotina diária quando o mês fecha, com os dados do Backstage. Ao marcar “Pago”, a pessoa recebe um aviso no app. O recibo sai preenchido: imprima ou salve em PDF, envie para assinar e, ao receber de volta, marque “Recibo recebido” (o arquivo assinado fica no drive do financeiro).</small></p>
 </section>
 {% endif %}
 

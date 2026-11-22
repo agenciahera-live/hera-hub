@@ -563,7 +563,7 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | Decisão da Mariana de 19/11: **fica como está** (passo 3.3). Só mudou o pedido: o criador não escolhe mais se o oponente é da Hera ou de outra agência (campo `other_agency_ok` fica vazio; quem escolhe o oponente é a gestão) |
 | 4.5 Campanhas | Posição na leitura (só gestão), 3 listas, acompanhamento na fila, aprovação das sócias das campanhas novas da plataforma | ✅ 22/11, aprovado e enviado ao GitHub (commit `16ec373`; detalhes abaixo) |
 | 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
-| 4.7 Indique e ganhe | Link, indicações, quanto ganhou | Parte 1 ✅ 22/11 (registro, validação, cálculo e telas), aguardando aprovação; parte 2 (Pix, "pago" e recibo) a fazer |
+| 4.7 Indique e ganhe | Link, indicações, quanto ganhou | ✅ 22/11, partes 1 (registro, validação, cálculo e telas) e 2 (Pix, "pago" e recibo), aguardando aprovação (detalhes abaixo) |
 
 ### Passo 4.1, o que mudou (Painel das sócias)
 
@@ -691,7 +691,25 @@ Pedido da Mariana de 22/11, antes do 4.6, com o regulamento de novembro (`HERA\c
 
 **Como testar:** `tests/test_indique_e_ganhe.py` (8 testes). **Conferência (22/11):** 315 testes passando e 2 pulados (os mesmos). Migrações aplicadas no banco local. Não aberto no navegador.
 
-**Parte 2 (aprovada em 22/11, em andamento):** feito só a base: tabela `PixInfo` (nome, CPF, tipo e chave; só o próprio criador grava; leem ele, sócias e financeiro; RLS em `web/migrations/0015_rls_pix.py`), campos `receipt_at`/`receipt_by` no bônus, razão social e CNPJ em Configurações da agência (`core/0015`), e o Pix apagado na anonimização. **Falta:** formulário do Pix na tela Indique e ganhe (com validação do CPF e dados parcialmente escondidos), "Pago em" e "Recibo recebido" na tela Indicações (com aviso ao criador), página do recibo preenchido para imprimir, testes (inclusive isolamento do Pix) e conferência. Ainda não rodei os testes com essa base.
+### Passo 4.7, parte 2, o que mudou (Pix, pagamento e recibo)
+
+Aprovada em 22/11 (decisões 2A e 3A).
+
+- **App do criador › Indique e ganhe › Meus dados para o Pix:** nome completo, CPF (conferido pelos dígitos), tipo de chave (CPF, e-mail, celular ou aleatória) e a chave. Depois de guardados aparecem parcialmente escondidos ("***.982.***-25"). Tabela `PixInfo`, feita para servir também às premiações (passo 4.6): **só o próprio criador grava; leem ele, as sócias e o financeiro**; a gestora não (RLS em `web/migrations/0015_rls_pix.py`). Apagados na anonimização (LGPD), junto com o link de indicação.
+- **Gestão › Indicações › Bônus a pagar** (sócias e financeiro): o Pix completo de cada pessoa ("sem Pix cadastrado" quando falta), **"Pago"** com a data (avisa quem indicou no sininho: "Bônus do Indique e ganhe pago 💜"), **"Recibo recebido"** com a data (só depois do pagamento) e o link **"Recibo para imprimir"**; atalho para meses antigos com bônus ainda sem pagamento.
+- **Recibo** (`/gestao/indicacoes/recibo/<criador>/<AAAA-MM>/`, só sócias e financeiro): o modelo "Recibo — Indique e Ganhe Hera" preenchido (nome, CPF, @, razão social e CNPJ, total, data do Pix, mês e a tabela de indicadas com Mês 1, 2, 3 ou Graduação), pronto para imprimir ou salvar em PDF. O arquivo assinado fica no drive do financeiro; o app só marca "recibo recebido" (o mesmo jeito do print do 1:1).
+- **Configurações da agência:** razão social e CNPJ para o recibo (o CNPJ começa vazio: preencher).
+
+**Como testar:** `tests/test_indique_e_ganhe.py` (11 testes: CPF, cadastro do Pix, pagamento, recibo, aviso e isolamento do Pix no banco).
+
+**Decisões pequenas do 4.7 (parte 2):**
+
+| Decisão | Motivo |
+| --- | --- |
+| "Pago" e "recibo recebido" valem para o mês inteiro de quem indicou | O recibo do modelo é um por mês, com todas as indicadas |
+| Dá para marcar "Pago" sem Pix cadastrado (com aviso) | O financeiro pode ter pago por outro caminho; o aviso mostra que falta o cadastro |
+| No recibo, "Assinatura da indicadora" virou "Assinatura" | Linguagem neutra; o resto do texto é o do modelo da Hera, palavra por palavra |
+| O CPF não é criptografado à parte | O banco já é fechado ao público e o RLS limita a leitura; criptografia extra entra se a revisão jurídica pedir |
 
 **Decisões pequenas do 4.7 (parte 1):**
 

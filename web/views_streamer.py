@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -255,6 +256,14 @@ def referral(request):
     if not R.eligible(c):
         raise Http404
     priv, _ = CreatorPrivate.objects.get_or_create(creator=c)
+    if request.method == "POST" and request.POST.get("a") == "pix":  # dados para receber (parte 2; decisão 2A)
+        P_ = request.POST
+        try:
+            R.save_pix(c, P_.get("full_name", ""), P_.get("cpf", ""), P_.get("key_type", ""), P_.get("key", ""))
+            messages.success(request, "Dados do Pix guardados. 💜")
+        except R.ReferralError as e:
+            messages.error(request, str(e))
+        return redirect(reverse("referral") + "#pix")
     if request.method == "POST":
         raw = request.POST.get("link", "")
         link = _tiktok_link(raw)
@@ -270,7 +279,10 @@ def referral(request):
     for b in ReferralBand.objects.filter(agency=c.agency):
         bands.setdefault(b.program_month, []).append(b)
     ctx = R.for_referrer(c)
-    ctx.update({"nav": "home", "link": priv.referral_link, "st": st, "bands": sorted(bands.items())})
+    from crm.models import PixInfo
+
+    ctx.update({"nav": "home", "link": priv.referral_link, "st": st, "bands": sorted(bands.items()),
+                "pix": PixInfo.objects.filter(creator=c).first(), "key_types": PixInfo.KEY_TYPES})
     return render(request, "streamer/referral.html", ctx)
 
 

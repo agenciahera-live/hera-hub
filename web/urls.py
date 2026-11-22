@@ -72,4 +72,5 @@ urlpatterns = [
     path("gestao/pesquisas/<int:pk>/", G.survey_results, name="g_survey"),
     path("gestao/relatorios/", G.reports, name="g_reports"),
     path("gestao/indicacoes/", G.referrals_view, name="g_referrals"),
+    path("gestao/indicacoes/recibo/<int:referrer>/<str:month>/", G.referral_receipt, name="g_referral_receipt"),
 ]

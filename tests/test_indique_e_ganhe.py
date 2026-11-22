@@ -210,6 +210,85 @@ class IndiqueEGanheTests(TestCase):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("g_panel")), "Indique e ganhe:")
 
+    # ------------------------------------------------------------ parte 2: Pix, pagamento e recibo
+    CPF = "52998224725"  # CPF de exemplo, válido só no cálculo (gerador de testes)
+
+    def test_cpf_e_cadastro_do_pix_pelo_criador(self):
+        self.assertTrue(R.valid_cpf(self.CPF))
+        self.assertFalse(R.valid_cpf("52998224724"))
+        self.assertFalse(R.valid_cpf("11111111111"))
+        self.client.force_login(self.u_quem)
+        url = reverse("referral")
+        r = self.client.post(url, {"a": "pix", "full_name": "Quem Indica Demo", "cpf": "529.982.247-24", "key_type": "cpf"}, follow=True)
+        self.assertContains(r, "Confira o CPF")
+        r = self.client.post(url, {"a": "pix", "full_name": "Quem", "cpf": self.CPF, "key_type": "cpf"}, follow=True)
+        self.assertContains(r, "nome completo")
+        self.client.post(url, {"a": "pix", "full_name": "Quem Indica Demo", "cpf": "529.982.247-25", "key_type": "email", "key": "quem@teste.demo"})
+        tela = self.client.get(url)
+        self.assertContains(tela, "***.982.***-25")  # parcialmente escondido
+        self.assertContains(tela, "qu***@teste.demo")
+        self.assertNotContains(tela, "529.982.247-25")
+        self.assertEqual(verificar_tom(_texto(tela)), [])
+
+    def _pagavel(self):
+        from data import engine as E
+        from crm.models import PixInfo
+
+        self._registrar()
+        mes = E.prev_month(E.tiktok_today())
+        with system_context():
+            r = self._ref()
+            r.status = "valida"
+            r.save()
+            ReferralBonus.objects.create(referral=r, kind="m1", month=mes, amount=Decimal("30"))
+            PixInfo.objects.create(creator=self.quem, full_name="Quem Indica Demo", cpf=self.CPF, key_type="cpf", key=self.CPF)
+        return mes
+
+    def test_financeiro_marca_pago_recibo_e_o_criador_e_avisado(self):
+        mes = self._pagavel()
+        url = reverse("g_referrals")
+        self.client.force_login(self.fin)
+        tela = self.client.get(url)
+        self.assertContains(tela, "529.982.247-25")  # o financeiro vê o Pix completo
+        r = self.client.post(url, {"a": "receipt", "referrer": self.quem.pk, "month": f"{mes:%Y-%m}"}, follow=True)
+        self.assertContains(r, "Marque o pagamento antes do recibo")
+        self.client.post(url, {"a": "paid", "referrer": self.quem.pk, "month": f"{mes:%Y-%m}", "on": "2026-12-15"})
+        recibo = self.client.get(reverse("g_referral_receipt", args=[self.quem.pk, f"{mes:%Y-%m}"]))
+        for trecho in ["Quem Indica Demo", "529.982.247-25", "@quem.indica.demo", "@indicada.demo", "Mês 1", "15/12/2026"]:
+            self.assertContains(recibo, trecho)
+        self.client.post(url, {"a": "receipt", "referrer": self.quem.pk, "month": f"{mes:%Y-%m}", "on": "2026-12-18"})
+        with system_context():
+            from engage.models import Notification
+
+            b = ReferralBonus.objects.get(referral__referred=self.indicada)
+            self.assertEqual((b.paid_at, b.paid_by_id, b.receipt_at), (dt.date(2026, 12, 15), self.fin.pk, dt.date(2026, 12, 18)))
+            self.assertTrue(Notification.objects.filter(user=self.u_quem, title="Bônus do Indique e ganhe pago 💜").exists())
+        self.client.force_login(self.u_quem)
+        tela = self.client.get(reverse("referral"))
+        self.assertContains(tela, "pago em 15/12")
+        self.assertRegex(_texto(tela), r"Já recebi R\$ 30")
+        # a gestora não marca pagamento nem abre o recibo
+        self.client.force_login(self.gx)
+        self.assertEqual(self.client.post(url, {"a": "paid", "referrer": self.quem.pk, "month": f"{mes:%Y-%m}"}).status_code, 403)
+        self.assertEqual(self.client.get(reverse("g_referral_receipt", args=[self.quem.pk, f"{mes:%Y-%m}"])).status_code, 403)
+
+    def test_banco_isola_o_pix(self):
+        from crm.models import PixInfo
+
+        self._pagavel()
+        with as_user(self.u_quem):
+            self.assertEqual(PixInfo.objects.count(), 1)
+        for u in (self.gx, self.gy, self.u_outro, self.u_indicada):
+            with as_user(u):
+                self.assertEqual(PixInfo.objects.count(), 0)
+        with as_user(self.fin):
+            self.assertEqual(PixInfo.objects.count(), 1)
+            self.assertEqual(PixInfo.objects.update(key="outra"), 0)  # o financeiro lê, não troca
+        with as_user(self.admin):
+            self.assertEqual(PixInfo.objects.count(), 1)
+        with as_user(self.u_outro), self.assertRaises(DatabaseError), transaction.atomic():
+            PixInfo.objects.create(creator=self.indicada, full_name="X Y", cpf=self.CPF, key_type="cpf", key=self.CPF)
+
     # ------------------------------------------------------------ isolamento no banco
     def test_banco_isola_indicacao_e_valores(self):
         self._registrar()

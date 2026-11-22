@@ -259,13 +259,120 @@ def eligible(creator):
     return not (creator.partner_group_id and not creator.partner_group.is_direct)
 
 
+def _payable(agency, month):
+    return (ReferralBonus.objects.filter(referral__agency=agency, referral__status="valida", month=month, amount__gt=0)
+            .select_related("referral__referrer", "referral__referred"))
+
+
 def month_to_pay(agency, month):
-    """Bônus do mês apurado a pagar (indicações válidas, valor acima de zero), por quem indicou. Sócias e financeiro."""
+    """Bônus do mês apurado a pagar (indicações válidas, valor acima de zero), por quem indicou, com o Pix cadastrado.
+    Só sócias e financeiro (o banco também barra os valores e o Pix para os outros papéis)."""
+    from .models import PixInfo
+
     out = {}
-    qs = (ReferralBonus.objects.filter(referral__agency=agency, referral__status="valida", month=month, amount__gt=0)
-          .select_related("referral__referrer", "referral__referred"))
-    for b in qs:
+    for b in _payable(agency, month):
         d = out.setdefault(b.referral.referrer_id, {"referrer": b.referral.referrer, "items": [], "total": Decimal(0)})
         d["items"].append(b)
         d["total"] += b.amount
+    pix = {p.creator_id: p for p in PixInfo.objects.filter(creator_id__in=out)}
+    for cid, d in out.items():
+        d["pix"] = pix.get(cid)
+        d["paid_at"] = d["items"][0].paid_at if all(b.paid_at for b in d["items"]) else None
+        d["receipt_at"] = d["items"][0].receipt_at if all(b.receipt_at for b in d["items"]) else None
     return sorted(out.values(), key=lambda x: x["referrer"].username)
+
+
+def months_open(agency):
+    """Meses com bônus válido ainda sem pagamento (para o financeiro não esquecer mês antigo)."""
+    return sorted(set(ReferralBonus.objects.filter(referral__agency=agency, referral__status="valida", amount__gt=0,
+                                                   paid_at__isnull=True).values_list("month", flat=True)))
+
+
+# ------------------------------------------------------------------ Pix (decisão 2A de 22/11: no app; vale também para o 4.6)
+def valid_cpf(cpf):
+    """Confere os dois dígitos verificadores do CPF (só números)."""
+    if len(cpf) != 11 or not cpf.isdigit() or cpf == cpf[0] * 11:
+        return False
+    for n in (9, 10):
+        s = sum(int(cpf[i]) * (n + 1 - i) for i in range(n))
+        if (s * 10 % 11) % 10 != int(cpf[n]):
+            return False
+    return True
+
+
+def save_pix(creator, full_name, cpf, key_type, key):
+    """O próprio criador cadastra ou troca os dados do Pix. A chave precisa ser da conta do CPF cadastrado (regulamento)."""
+    import re as _re
+
+    from .models import PixInfo
+
+    full_name = " ".join((full_name or "").split())[:160]
+    cpf = _re.sub(r"\D", "", cpf or "")
+    key = (key or "").strip()[:140]
+    if len(full_name.split()) < 2:
+        raise ReferralError("Escreva o nome completo, como está no CPF.")
+    if not valid_cpf(cpf):
+        raise ReferralError("Confira o CPF: os números não batem.")
+    if key_type not in dict(PixInfo.KEY_TYPES):
+        raise ReferralError("Escolha o tipo da chave Pix.")
+    if key_type == "cpf":
+        key = cpf
+    elif key_type == "email" and not _re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", key):
+        raise ReferralError("Confira o e-mail da chave Pix.")
+    elif key_type == "telefone":
+        key = _re.sub(r"\D", "", key)
+        if len(key) not in (10, 11, 12, 13):
+            raise ReferralError("Confira o celular da chave Pix, com DDD.")
+    elif key_type == "aleatoria" and len(key) < 20:
+        raise ReferralError("Cole a chave aleatória completa.")
+    pix, _ = PixInfo.objects.update_or_create(creator=creator, defaults={"full_name": full_name, "cpf": cpf, "key_type": key_type, "key": key})
+    return pix
+
+
+# ------------------------------------------------------------------ pagamento e recibo (decisão 3A de 22/11)
+def _group(agency, referrer_id, month):
+    items = list(_payable(agency, month).filter(referral__referrer_id=referrer_id))
+    if not items:
+        raise ReferralError("Não há bônus válido desse mês para esta pessoa.")
+    return items
+
+
+def mark_paid(agency, referrer_id, month, user, paid_on):
+    """O financeiro (ou uma sócia) marca o Pix do mês como pago. Avisa quem indicou no sininho do app."""
+    from engage.services import notify
+
+    items = [b for b in _group(agency, referrer_id, month) if not b.paid_at]
+    if not items:
+        raise ReferralError("Este mês já está marcado como pago.")
+    for b in items:
+        b.paid_at, b.paid_by = paid_on, user
+        b.save(update_fields=["paid_at", "paid_by"])
+    total = sum(b.amount for b in items)
+    referrer = items[0].referral.referrer
+    if referrer.user_id:
+        notify(user_id=referrer.user_id, kind="indique", title="Bônus do Indique e ganhe pago 💜",
+               body=f"R$ {total:.2f}".replace(".", ",") + f" referente a {month:%m/%Y}, por Pix.", url="/indique-e-ganhe/")
+    return total
+
+
+def mark_receipt(agency, referrer_id, month, user, received_on):
+    """O financeiro marca que recebeu o recibo assinado. Só depois do pagamento."""
+    items = _group(agency, referrer_id, month)
+    if not all(b.paid_at for b in items):
+        raise ReferralError("Marque o pagamento antes do recibo.")
+    for b in items:
+        b.receipt_at, b.receipt_by = received_on, user
+        b.save(update_fields=["receipt_at", "receipt_by"])
+
+
+def receipt(agency, referrer_id, month):
+    """Dados do recibo do mês (modelo "Recibo — Indique e Ganhe Hera"), preenchido para imprimir e assinar fora do app."""
+    from core.models import AgencySettings
+
+    from .models import PixInfo
+
+    items = _group(agency, referrer_id, month)
+    referrer = items[0].referral.referrer
+    return {"referrer": referrer, "pix": PixInfo.objects.filter(creator_id=referrer_id).first(), "month": month,
+            "items": items, "total": sum(b.amount for b in items), "paid_at": items[0].paid_at if all(b.paid_at for b in items) else None,
+            "st": AgencySettings.objects.get(agency=agency)}

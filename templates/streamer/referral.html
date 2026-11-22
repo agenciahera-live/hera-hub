@@ -25,6 +25,20 @@
   <p style="margin:8px 0 0"><small>O bônus de cada mês é conferido pela Hera com os dados do TikTok LIVE Backstage quando o mês fecha, e pago por Pix até o dia 20 do mês seguinte.</small></p>
 </section>
 
+<section class="card" id="pix">
+  <h2 style="margin-bottom:4px">Meus dados para o Pix</h2>
+  {% if pix %}<p style="margin:0 0 8px"><small>{{ pix.full_name }} · CPF {{ pix.cpf_masked }} · chave {{ pix.get_key_type_display }}: {{ pix.key_masked }}</small></p>{% endif %}
+  <details {% if not pix %}open{% endif %}><summary><small>{% if pix %}Trocar os dados do Pix{% else %}Cadastrar para receber o bônus{% endif %}</small></summary>
+  <form method="post" style="margin-top:8px" x-data="{t: '{{ pix.key_type|default:'cpf' }}'}">{% csrf_token %}<input type="hidden" name="a" value="pix">
+    <label>Nome completo (como no CPF)</label><input type="text" name="full_name" maxlength="160" autocomplete="name">
+    <label>CPF</label><input type="text" name="cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00">
+    <label>Tipo de chave Pix</label><select name="key_type" x-model="t">{% for v, l in key_types %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+    <div x-show="t !== 'cpf'"><label>Chave Pix</label><input type="text" name="key" maxlength="140"></div>
+    <button class="btn btn-purple btn-block" style="margin-top:10px">Guardar dados do Pix</button>
+  </form></details>
+  <p style="margin:8px 0 0"><small>A chave precisa ser de uma conta no seu CPF. Só você, o financeiro e as sócias da Hera veem estes dados.</small></p>
+</section>
+
 <section class="card">
   <h2 style="margin-bottom:4px">Minhas indicações</h2>
   {% if rows %}<ul class="list">

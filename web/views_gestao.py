@@ -1357,6 +1357,24 @@ def referrals_view(request):
     ag = request.agency
     roles = staff_roles(request.user)
     is_admin, sees_money = Role.ADMIN in roles, bool(roles & {Role.ADMIN, Role.FINANCEIRO})
+    if request.method == "POST" and request.POST.get("a") in ("paid", "receipt"):  # parte 2: pagamento e recibo
+        if not sees_money:
+            raise PermissionDenied
+        P = request.POST
+        month, who, on = _month_param(P.get("month")), _int(P.get("referrer")) or 0, _date(P.get("on")) or timezone.localdate()
+        if month is None:
+            raise Http404
+        try:
+            if P["a"] == "paid":
+                total = referrals.mark_paid(ag, who, month, request.user, on)
+                messages.success(request, f"Pago em {on:%d/%m}: R$ {total:.2f}".replace(".", ",") + ". A pessoa foi avisada no app.")
+            else:
+                referrals.mark_receipt(ag, who, month, request.user, on)
+                messages.success(request, "Recibo assinado registrado.")
+            AuditLog.objects.create(agency=ag, actor=request.user, action=f"indique_{P['a']}", target=f"{who} {month:%m/%Y}")
+        except referrals.ReferralError as e:
+            messages.error(request, str(e))
+        return redirect(reverse("g_referrals") + f"?mes={month:%Y-%m}#pagar")
     if request.method == "POST":
         if not is_admin:
             raise PermissionDenied
@@ -1372,12 +1390,36 @@ def referrals_view(request):
     handles = referrals.handles({r.referred_id for r in rows} | {r.referrer_id for r in rows})  # só o @ (pode cruzar carteiras)
     for r in rows:
         r.referred_handle, r.referrer_handle = handles.get(r.referred_id, ""), handles.get(r.referrer_id, "")
-    month = E.prev_month(E.tiktok_today())
+    month = _month_param(request.GET.get("mes")) or E.prev_month(E.tiktok_today())
     to_pay = referrals.month_to_pay(ag, month) if sees_money else []
     return render(request, "gestao/referrals.html", {
         "nav": "referrals", "pending": [r for r in rows if r.status == ""], "others": [r for r in rows if r.status != ""],
         "is_admin": is_admin, "sees_money": sees_money, "to_pay": to_pay, "month": month,
-        "pay_total": sum(x["total"] for x in to_pay), "pay_until": E.month_end(month) + dt.timedelta(days=20)})
+        "open_months": [m for m in referrals.months_open(ag) if m != month] if sees_money else [],
+        "pay_total": sum(x["total"] for x in to_pay), "pay_until": E.month_end(month) + dt.timedelta(days=20),
+        "today": timezone.localdate()})
+
+
+def _month_param(v):
+    """"2026-11" → 01/11/2026 (None se vier errado)."""
+    try:
+        y, m = str(v or "").split("-")[:2]
+        return dt.date(int(y), int(m), 1)
+    except (TypeError, ValueError):
+        return None
+
+
+@staff_required(Role.ADMIN, Role.FINANCEIRO)
+def referral_receipt(request, referrer, month):
+    """Recibo do Indique e ganhe preenchido (modelo da Hera), para imprimir ou salvar em PDF e mandar assinar."""
+    m = _month_param(month)
+    if m is None:
+        raise Http404
+    try:
+        ctx = referrals.receipt(request.agency, referrer, m)
+    except referrals.ReferralError:
+        raise Http404 from None
+    return render(request, "gestao/referral_receipt.html", ctx)
 
 
 # ================================================================== conteúdos
