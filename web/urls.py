@@ -20,6 +20,7 @@ urlpatterns = [
     path("perfil/", V.profile, name="profile"),
     path("meu-plano/", V.my_plan, name="my_plan"),
     path("meu-mes/<int:year>/<int:month>/", V.my_month, name="my_month"),
+    path("indique-e-ganhe/", V.referral, name="referral"),
     path("notificacoes/", V.notifications, name="notifications"),
     path("avisos/", V.announcements, name="announcements"),
     path("duvidas/", V.faq, name="faq"),
@@ -70,4 +71,5 @@ urlpatterns = [
     path("gestao/conteudos/", G.content, name="g_content"),
     path("gestao/pesquisas/<int:pk>/", G.survey_results, name="g_survey"),
     path("gestao/relatorios/", G.reports, name="g_reports"),
+    path("gestao/indicacoes/", G.referrals_view, name="g_referrals"),
 ]

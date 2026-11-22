@@ -127,6 +127,13 @@
 </section>
 {% endif %}
 
+{# 10. Indique e ganhe (passo 4.7): fecha a tela como o caminho de renda extra #}
+{% if referral_ok %}<a class="tile" style="margin-bottom:14px" href="{% url 'referral' %}">
+  <div class="label">🎁 Indique e ganhe</div>
+  <div class="value" style="font-size:1.05rem">Indique pessoas para a Hera e ganhe bônus</div>
+  <div class="sub">Seu link, suas indicações e quanto já ganhou ›</div>
+</a>{% endif %}
+
 <div class="more-links">
   <a class="btn btn-sm" href="{% url 'announcements' %}">📣 Avisos{% if pinned %} · 1 fixado{% endif %}</a>
   <a class="btn btn-sm" href="{% url 'offers' %}">🎁 Benefícios</a>

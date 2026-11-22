@@ -118,6 +118,8 @@ class CreatorPrivate(models.Model):
     # Aniversário: só dia e mês (o ano não é pedido). Informado no primeiro acesso ou pela gestão.
     birth_day = models.PositiveSmallIntegerField("dia do aniversário", null=True, blank=True)
     birth_month = models.PositiveSmallIntegerField("mês do aniversário", null=True, blank=True)
+    # Indique e ganhe (passo 4.7): o link de indicação do app do TikTok, que o próprio criador cola e guarda
+    referral_link = models.URLField("link de indicação (Indique e ganhe)", blank=True)
 
 
 class CreatorUsername(models.Model):
@@ -575,3 +577,68 @@ class RiskSignal(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+# ------------------------------------------------------------------ Indique e ganhe (passo 4.7; regras em crm/referrals.py)
+class ReferralBand(models.Model):
+    """Faixa do regulamento do Indique e ganhe (novembro de 2026): no mês N da pessoa indicada, horas E dias válidos
+    mínimos e o bônus. Vale a maior faixa atingida, sem somar. Editável em Configurações (nada fixo no código)."""
+
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="referral_bands")
+    program_month = models.PositiveSmallIntegerField("mês da pessoa indicada (1, 2 ou 3)")
+    min_hours = models.PositiveSmallIntegerField("horas de LIVE no mês")
+    min_valid_days = models.PositiveSmallIntegerField("dias válidos no mês")
+    amount = models.DecimalField("bônus (R$)", max_digits=8, decimal_places=2)
+
+    class Meta:
+        ordering = ["program_month", "min_hours"]
+        verbose_name = "faixa do Indique e ganhe"
+        verbose_name_plural = "faixas do Indique e ganhe"
+
+    def __str__(self):
+        return f"Mês {self.program_month}: {self.min_hours}h e {self.min_valid_days} dias → R$ {self.amount}"
+
+
+class Referral(models.Model):
+    """Uma indicação do Indique e ganhe: quem indicou (`referrer`) e a pessoa indicada (`referred`).
+
+    Nasce quando a gestão preenche "indicado por" na ficha (decisão da Mariana de 22/11/2026, 1A). O app confere sozinho
+    o que dá para conferir (`auto_issue`: já fez parte da Hera, grupo parceiro); o resto as sócias conferem e marcam
+    válida ou não validada. Quem indicou vê só a situação, nunca os números da pessoa indicada.
+    Só o sistema e as sócias gravam (RLS em web/migrations/0014)."""
+
+    STATUSES = [("", "Em andamento"), ("valida", "Válida"), ("nao_validada", "Não validada")]
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="referrals")
+    referred = models.OneToOneField(Creator, on_delete=models.CASCADE, related_name="referral", verbose_name="pessoa indicada")
+    referrer = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="referrals_made", verbose_name="quem indicou")
+    registered_at = models.DateTimeField("registrada em", default=timezone.now)
+    registered_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    late = models.BooleanField("registrada depois da entrada", default=False)
+    auto_issue = models.CharField("o que o app encontrou", max_length=160, blank=True)
+    status = models.CharField(max_length=14, choices=STATUSES, blank=True, default="")
+    reason = models.CharField("motivo (não validada)", max_length=240, blank=True)
+    decided_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-registered_at"]
+
+
+class ReferralBonus(models.Model):
+    """Bônus de uma indicação em um mês fechado (Mês 1, 2, 3) ou o bônus único de graduação. Calculado pela rotina
+    diária com os dados do Backstage; `amount` 0 = o mês não gerou bônus, com o motivo em forma de fato.
+    Quem indicou lê os dele; só as sócias e o financeiro leem todos; a gestora não vê valores."""
+
+    KINDS = [("m1", "Mês 1"), ("m2", "Mês 2"), ("m3", "Mês 3"), ("grad", "Graduação")]
+    referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name="bonuses")
+    kind = models.CharField(max_length=4, choices=KINDS)
+    month = models.DateField("mês apurado")
+    amount = models.DecimalField("bônus (R$)", max_digits=8, decimal_places=2, default=0)
+    reason = models.CharField("por que não gerou bônus", max_length=200, blank=True)
+    computed_at = models.DateTimeField(default=timezone.now)
+    paid_at = models.DateField("pago em", null=True, blank=True)  # parte 2 (Pix e pagamento)
+    paid_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        unique_together = [("referral", "kind")]
+        ordering = ["month", "kind"]

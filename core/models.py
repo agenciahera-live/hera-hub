@@ -70,6 +70,19 @@ class AgencySettings(models.Model):
     app_test_only_testers = models.BooleanField(
         "teste do app: só quem participa recebe código de acesso", default=False,
         help_text="Ligado, a gestão só consegue gerar código de acesso para os criadores marcados no teste.")
+    # Indique e ganhe (passo 4.7; regulamento de novembro de 2026). As faixas de cada mês ficam em "Faixas do Indique e ganhe".
+    referral_referrer_min_hours = models.PositiveSmallIntegerField(
+        "Indique e ganhe: horas de LIVE de quem indicou no mês", default=25,
+        help_text="Para receber o bônus de um mês, quem indicou precisa ter feito estas horas e os dias válidos abaixo naquele mês.")
+    referral_referrer_min_days = models.PositiveSmallIntegerField("Indique e ganhe: dias válidos de quem indicou no mês", default=8)
+    referral_entry_cutoff_day = models.PositiveSmallIntegerField(
+        "Indique e ganhe: entrada até o dia (Mês 1 = mês da entrada)", default=15,
+        help_text="Se a pessoa indicada entrar depois deste dia, o Mês 1 passa a ser o mês seguinte.")
+    referral_m2_min_diamonds = models.PositiveIntegerField("Indique e ganhe: diamantes mínimos no Mês 2", default=10_000)
+    referral_m3_min_diamonds = models.PositiveIntegerField("Indique e ganhe: diamantes mínimos no Mês 3", default=25_000)
+    referral_graduation_bonus = models.DecimalField(
+        "Indique e ganhe: bônus único de graduação (R$)", max_digits=8, decimal_places=2, default=50,
+        help_text="A pessoa indicada graduou (a mesma regra da graduação acima).")
 
     class Meta:
         verbose_name = "configurações da agência"

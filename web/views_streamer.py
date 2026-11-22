@@ -62,8 +62,11 @@ def root(request):
 @streamer_required
 def home(request):
     """Meu progresso: a tela inicial do app (visão). A lógica fica em web/progress.py."""
+    from crm.referrals import eligible
+
     ctx = P.my_progress(request.creator)
     ctx["nav"] = "home"
+    ctx["referral_ok"] = eligible(request.creator)  # Indique e ganhe: só criadores da Hera (passo 4.7)
     return render(request, "streamer/home.html", ctx)
 
 
@@ -231,6 +234,44 @@ def my_plan(request):
     ctx = plan_rules.for_creator(c)
     ctx["nav"] = "home"
     return render(request, "streamer/plan.html", ctx)
+
+
+# ---------------------------------------------------------------- Indique e ganhe (passo 4.7)
+def _tiktok_link(v):
+    import re
+
+    v = (v or "").strip()
+    return v if re.match(r"^https://([a-z0-9-]+\.)*tiktok\.com/", v, re.IGNORECASE) else None
+
+
+@streamer_required
+def referral(request):
+    """Indique e ganhe: meu link, minhas indicações (só a situação, nunca os números da pessoa indicada), quanto já
+    ganhei e as regras do programa (regras em crm/referrals.py). Vale só para criadores da Hera."""
+    from crm import referrals as R
+    from crm.models import ReferralBand
+
+    c = request.creator
+    if not R.eligible(c):
+        raise Http404
+    priv, _ = CreatorPrivate.objects.get_or_create(creator=c)
+    if request.method == "POST":
+        raw = request.POST.get("link", "")
+        link = _tiktok_link(raw)
+        if raw.strip() and link is None:
+            messages.error(request, "Cole o link de indicação do app do TikTok (começa com https:// e é do tiktok.com).")
+        else:
+            priv.referral_link = link or ""
+            priv.save(update_fields=["referral_link"])
+            messages.success(request, "Link guardado. 💜" if link else "Link apagado.")
+        return redirect("referral")
+    st = AgencySettings.objects.get(agency=c.agency)
+    bands = {}
+    for b in ReferralBand.objects.filter(agency=c.agency):
+        bands.setdefault(b.program_month, []).append(b)
+    ctx = R.for_referrer(c)
+    ctx.update({"nav": "home", "link": priv.referral_link, "st": st, "bands": sorted(bands.items())})
+    return render(request, "streamer/referral.html", ctx)
 
 
 # ---------------------------------------------------------------- dúvidas (Q&A)

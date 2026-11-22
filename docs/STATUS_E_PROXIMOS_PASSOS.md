@@ -563,7 +563,7 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | Decisão da Mariana de 19/11: **fica como está** (passo 3.3). Só mudou o pedido: o criador não escolhe mais se o oponente é da Hera ou de outra agência (campo `other_agency_ok` fica vazio; quem escolhe o oponente é a gestão) |
 | 4.5 Campanhas | Posição na leitura (só gestão), 3 listas, acompanhamento na fila, aprovação das sócias das campanhas novas da plataforma | ✅ 22/11, aprovado e enviado ao GitHub (commit `16ec373`; detalhes abaixo) |
 | 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
-| 4.7 Indique e ganhe | Link, indicações, quanto ganhou | A fazer (depende do regulamento) |
+| 4.7 Indique e ganhe | Link, indicações, quanto ganhou | Parte 1 ✅ 22/11 (registro, validação, cálculo e telas), aguardando aprovação; parte 2 (Pix, "pago" e recibo) a fazer |
 
 ### Passo 4.1, o que mudou (Painel das sócias)
 
@@ -676,6 +676,31 @@ Decisões da Mariana de 22/11: **1A** a gestora vê a posição do criador (só 
 | Sem aviso de posição para quem está em 1º | A mensagem CAMP-POS fala em "próxima posição" |
 | Quem ganhou não recebe item no fim | A mensagem de parabéns já pede o Pix: entra no passo 4.6 |
 | "Duas olhadas por semana" das campanhas com ranking diário ficou de fora | A leitura não diz qual campanha tem ranking diário; a queda de posição cobre o meio do caminho |
+
+### Passo 4.7, parte 1, o que mudou (Indique e ganhe)
+
+Pedido da Mariana de 22/11, antes do 4.6, com o regulamento de novembro (`HERA\creator-hub\Regulamento - Indique e ganhe hera - Nov.pdf`). Decisões de 22/11: **1A** a indicação vem do "indicado por" da ficha, preenchido no dia da entrada; **2A** o Pix fica no app, visível só para o financeiro e as sócias (parte 2, vale também para o 4.6); **3A** o app gera o recibo preenchido, o criador assina fora e o financeiro marca "recibo recebido" (parte 2); **4 ok** nas interpretações: horas **e** dias da faixa; "indicada ativa" = ainda na Hera; graduação = a mesma regra do app; meses que fecharam antes da saída continuam devidos; as tabelas aparecem no app como "regra do programa". Regras em `crm/referrals.py`.
+
+- **Registro:** preencher ou trocar o "indicado por" na ficha cria a indicação (`Referral`), "em andamento". Registrada mais de 14 dias (janela do onboarding) depois da entrada fica marcada "registrada depois da entrada". O app marca sozinho como **não validada**, com o motivo, quem já fez parte da Hera (tem saída registrada antes) e quem é de grupo parceiro. Depois de um bônus pago, o "indicado por" não pode mais ser trocado.
+- **Gestão › 🎁 Indicações** (`/gestao/indicacoes/`): para validar (as sócias marcam válida ou não validada; o motivo é obrigatório e quem indicou vê), as já decididas e, **só para as sócias e o financeiro**, os bônus a pagar do mês que fechou, por quem indicou, com o total e o dia 20. A gestora vê a situação das indicações da carteira, nunca valores. **Painel das sócias › Premiações e indicações:** para validar, válidas e o total do mês.
+- **Cálculo** (rotina diária, `compute`, meses fechados, nunca mexe em bônus pago): Mês 1 = mês da entrada (depois do dia 15, o seguinte); a maior faixa (horas e dias válidos), com 10 mil diamantes no Mês 2 e 25 mil no Mês 3; quem indicou precisa de 25h e 8 dias válidos naquele mês; saída de qualquer um dos dois antes do fim do mês zera aquele mês e os seguintes; graduação = bônus único de R$ 50. Os motivos de "sem bônus" nunca citam números da pessoa indicada.
+- **App do criador › Indique e ganhe** (`/indique-e-ganhe/`, botão no fim do Meu progresso; só criadores da Hera): meu link (só link do tiktok.com, com "Copiar"), quanto já ganhei (a receber e já recebido), minhas indicações (o @, a situação e o bônus de cada mês, sem os números da pessoa indicada) e as regras do programa, em linguagem neutra.
+- **Configurações:** "Faixas do Indique e ganhe" (13 faixas do regulamento) e, em Configurações da agência, as horas e os dias de quem indicou, o dia de corte da entrada, os diamantes dos Meses 2 e 3 e o bônus de graduação.
+
+**Segurança:** `crm_referral` (lê a gestão que vê qualquer um dos dois e o próprio criador que indicou; a pessoa indicada não lê; só o sistema e as sócias gravam) e `crm_referralbonus` (lê quem indicou, só os dele, as sócias e o financeiro; a gestora não). Migração `web/0014_rls_indique_e_ganhe.py`. O "indicado por" já preenchido virou indicação "em andamento" (`crm/0015`).
+
+**Como testar:** `tests/test_indique_e_ganhe.py` (8 testes). **Conferência (22/11):** 315 testes passando e 2 pulados (os mesmos). Migrações aplicadas no banco local. Não aberto no navegador.
+
+**Parte 2 (a fazer, com aprovação):** cadastro do Pix (CPF e chave) no app, "Pago em" pelo financeiro, recibo preenchido e "recibo recebido".
+
+**Decisões pequenas do 4.7 (parte 1):**
+
+| Decisão | Motivo |
+| --- | --- |
+| "Registrada depois da entrada" = mais de 14 dias depois da data de entrada | A ficha só existe depois da leitura do Backstage; dentro dos 14 dias do onboarding ainda é "no dia da entrada" na prática. As sócias decidem |
+| A gestora não vê os valores do bônus | O pagamento é das sócias e do financeiro; a gestora acompanha a situação |
+| Bônus calculado também com a indicação "em andamento"; só conta "a receber" depois de validada | Quem indicou vê "R$ X quando a indicação for validada" |
+| Graduação: o mês da graduação precisa ter fechado antes da saída | Mesma regra dos meses |
 
 ### Resumo do mês no app (pedido da Mariana de 19/11, entre os passos 4.3 e 4.4)
 

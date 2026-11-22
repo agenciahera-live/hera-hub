@@ -1,0 +1,39 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block content %}
+<h1>Indicações <small>Indique e ganhe</small></h1>
+<p><small>A indicação nasce no “indicado por” da ficha do criador, que deve ser preenchido no dia da entrada, conferindo o link ou o código usado. O app recusa sozinho quem já fez parte da Hera e quem é de grupo parceiro; o resto as sócias conferem (perfil secundário, conta duplicada, outro programa de indicação). Quem indicou vê no app só a situação e o bônus, nunca os números da pessoa indicada. Faixas e valores: Configurações › Faixas do Indique e ganhe e Configurações da agência.</small></p>
+
+<section class="card" id="validar">
+  <h2>Para validar <span class="pill {% if pending %}pink{% endif %}">{{ pending|length }}</span></h2>
+  {% if pending %}<div class="table-wrap"><table class="t"><thead><tr><th>Pessoa indicada</th><th>Quem indicou</th><th>Registrada</th>{% if is_admin %}<th>Decisão das sócias</th>{% endif %}</tr></thead><tbody>
+  {% for r in pending %}<tr id="r{{ r.pk }}"><td><b>@{{ r.referred_handle }}</b></td><td>@{{ r.referrer_handle }}</td>
+    <td><small>{{ r.registered_at|sp:"%d/%m/%Y" }}{% if r.late %} <span class="pill gold">registrada depois da entrada</span>{% endif %}</small></td>
+    {% if is_admin %}<td><form method="post" class="row" style="gap:6px;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="referral" value="{{ r.pk }}">
+      <input type="text" name="reason" maxlength="240" placeholder="Motivo, se não validar (quem indicou vê)" style="min-width:200px;flex:1">
+      <button class="btn btn-sm btn-purple" name="status" value="valida">Válida</button><button class="btn btn-sm" name="status" value="nao_validada">Não validada</button></form></td>{% endif %}</tr>
+  {% endfor %}</tbody></table></div>{% else %}<p class="empty">Nenhuma indicação esperando.</p>{% endif %}
+  {% if not is_admin %}<p><small>Quem valida são as sócias.</small></p>{% endif %}
+</section>
+
+{% if sees_money %}
+<section class="card" id="pagar">
+  <h2>Bônus a pagar de {{ month|date:"m/Y" }} <small>até {{ pay_until|date:"d/m" }} · só sócias e financeiro</small></h2>
+  {% if to_pay %}<div class="table-wrap"><table class="t"><thead><tr><th>Quem indicou</th><th>Referência</th><th>Total</th></tr></thead><tbody>
+  {% for x in to_pay %}<tr><td><b>@{{ x.referrer.username }}</b></td><td><small>{% for b in x.items %}@{{ b.referral.referred.username }} · {{ b.get_kind_display }}: R$ {{ b.amount|floatformat:"-2" }}{% if b.paid_at %} (pago em {{ b.paid_at|date:"d/m" }}){% endif %}{% if not forloop.last %}<br>{% endif %}{% endfor %}</small></td>
+    <td><b>R$ {{ x.total|floatformat:"-2" }}</b></td></tr>{% endfor %}
+  <tr><td colspan="2"><b>Total do mês</b></td><td><b>R$ {{ pay_total|floatformat:"-2" }}</b></td></tr></tbody></table></div>
+  {% else %}<p class="empty">Nenhum bônus a pagar deste mês.</p>{% endif %}
+  <p><small>Calculado pela rotina diária quando o mês fecha, com os dados do Backstage. O Pix e a marcação de “pago” entram na parte 2.</small></p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Já decididas <span class="pill">{{ others|length }}</span></h2>
+  {% if others %}<ul class="list">{% for r in others %}<li id="r{{ r.pk }}"><b>@{{ r.referred_handle }}</b> indicada por @{{ r.referrer_handle }} · <span class="pill {% if r.status == 'valida' %}cyan{% else %}gray{% endif %}">{{ r.get_status_display }}</span>
+    <br><small>{{ r.registered_at|sp:"%d/%m/%Y" }}{% if r.reason %} · {{ r.reason }}{% endif %}{% if r.decided_at %} · decidido em {{ r.decided_at|sp:"%d/%m" }}{% else %} · pelo app{% endif %}</small>
+    {% if is_admin %}<details><summary><small>Mudar a decisão</small></summary><form method="post" class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">{% csrf_token %}<input type="hidden" name="referral" value="{{ r.pk }}">
+      <input type="text" name="reason" maxlength="240" placeholder="Motivo, se não validar" value="{{ r.reason }}" style="min-width:200px;flex:1">
+      <button class="btn btn-sm btn-purple" name="status" value="valida">Válida</button><button class="btn btn-sm" name="status" value="nao_validada">Não validada</button></form></details>{% endif %}
+  </li>{% endfor %}</ul>{% else %}<p class="empty">Nenhuma.</p>{% endif %}
+</section>
+{% endblock %}

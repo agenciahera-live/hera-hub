@@ -1,0 +1,58 @@
+{% extends "streamer/base.html" %}{% load hera %}
+{% block title %}Indique e ganhe · Hera{% endblock %}
+{% block content %}
+<a href="/"><small>← Meu progresso</small></a>
+<h1>Indique e ganhe 🎁</h1>
+<p class="hint" style="margin:0 2px 12px">Indique pessoas para a Hera e ganhe bônus conforme a pessoa indicada evolui nas LIVEs nos primeiros 3 meses, com um bônus extra se ela graduar.</p>
+
+<form method="post" class="card">{% csrf_token %}
+  <h2 style="margin-bottom:4px">Meu link</h2>
+  <p style="margin:0 0 8px"><small>Cole aqui o seu link de indicação do app do TikTok. Ele fica guardado para você copiar quando quiser.</small></p>
+  <input type="url" name="link" id="meu-link" value="{{ link }}" placeholder="https://www.tiktok.com/..." aria-label="Meu link de indicação">
+  <div class="row" style="gap:8px;margin-top:10px">
+    <button class="btn btn-purple" style="flex:1">Guardar link</button>
+    {% if link %}<button type="button" class="btn" style="flex:1" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('meu-link').value).then(()=>{this.textContent='Copiado ✅'})">Copiar</button>{% endif %}
+  </div>
+  <p style="margin:8px 0 0"><small>A pessoa precisa entrar na Hera pelo seu link ou código. Indicação avisada depois da entrada não vale.</small></p>
+</form>
+
+<section class="card">
+  <h2 style="margin-bottom:4px">Quanto já ganhei</h2>
+  <div class="row" style="gap:12px">
+    <div style="flex:1"><small class="muted">A receber</small><br><b style="font-size:1.3em">R$ {{ due|floatformat:"-2" }}</b></div>
+    <div style="flex:1"><small class="muted">Já recebi</small><br><b style="font-size:1.3em">R$ {{ paid|floatformat:"-2" }}</b></div>
+  </div>
+  <p style="margin:8px 0 0"><small>O bônus de cada mês é conferido pela Hera com os dados do TikTok LIVE Backstage quando o mês fecha, e pago por Pix até o dia 20 do mês seguinte.</small></p>
+</section>
+
+<section class="card">
+  <h2 style="margin-bottom:4px">Minhas indicações</h2>
+  {% if rows %}<ul class="list">
+    {% for x in rows %}<li>
+      <div class="row between" style="gap:8px"><b>@{{ x.handle }}</b>
+        <span class="pill {% if x.r.status == 'valida' %}cyan{% elif x.r.status == 'nao_validada' %}gray{% else %}gold{% endif %}">{{ x.status }}</span></div>
+      {% if x.r.status == 'nao_validada' and x.r.reason %}<small class="muted">{{ x.r.reason }}</small>{% endif %}
+      {% if x.r.status == '' %}<small class="muted">A Hera está conferindo esta indicação.</small>{% endif %}
+      {% for y in x.bonuses %}<div class="row between" style="gap:8px;margin-top:6px"><small>{{ y.label }} · {{ y.b.month|date:"m/Y" }}</small>
+        <small>{% if y.payable %}<b>R$ {{ y.b.amount|floatformat:"-2" }}</b> · {% if y.b.paid_at %}pago em {{ y.b.paid_at|date:"d/m" }}{% else %}a receber{% endif %}{% elif y.b.amount and x.r.status == '' %}R$ {{ y.b.amount|floatformat:"-2" }} quando a indicação for validada{% elif y.b.reason %}{{ y.b.reason }}{% else %}sem bônus{% endif %}</small></div>{% endfor %}
+    </li>{% endfor %}
+  </ul>{% else %}<p class="empty" style="padding:12px 8px">Nenhuma indicação por enquanto. Quando alguém entrar pelo seu link, aparece aqui.</p>{% endif %}
+</section>
+
+<details class="card">
+  <summary><b>Regras do programa</b> <span class="pill">regra do programa</span></summary>
+  <p><small>Vale para criadores da Hera. Para receber o bônus de um mês, quem indicou precisa ter feito pelo menos {{ st.referral_referrer_min_hours }}h de LIVE e {{ st.referral_referrer_min_days }} dias válidos naquele mesmo mês.</small></p>
+  <p><small><b>Quem pode ser indicado:</b> pessoas que nunca fizeram parte da Hera. Não vale indicar a si mesmo, perfis secundários ou quem já está na base da agência.</small></p>
+  <p><small><b>Mês 1</b> é o mês em que a pessoa indicada entra na Hera. Se ela entrar depois do dia {{ st.referral_entry_cutoff_day }}, o Mês 1 passa a ser o mês seguinte.</small></p>
+  <p><small>O bônus de cada mês depende das horas e dos dias válidos de LIVE da pessoa indicada naquele mês. Vale a maior faixa atingida, sem somar faixas.</small></p>
+  {% for n, rows in bands %}
+  <p style="margin:10px 0 4px"><b>Mês {{ n }}</b>{% if n == 2 %} <small>(com pelo menos {{ st.referral_m2_min_diamonds|intbr }} 💎 no mês)</small>{% elif n == 3 %} <small>(com pelo menos {{ st.referral_m3_min_diamonds|intbr }} 💎 no mês)</small>{% endif %}</p>
+  <table class="t" style="width:100%"><thead><tr><th>Horas de LIVE</th><th>Dias válidos</th><th>Bônus</th></tr></thead><tbody>
+    {% for b in rows %}<tr><td>{{ b.min_hours }}h</td><td>{{ b.min_valid_days }}</td><td>R$ {{ b.amount|floatformat:"-2" }}</td></tr>{% endfor %}</tbody></table>
+  {% endfor %}
+  <p><small><b>Graduação:</b> se a pessoa indicada graduar ({{ st.graduation_diamonds|intbr }} 💎 em um mês, dentro dos primeiros {{ st.graduation_window_days }} dias na Hera), você recebe um bônus único de R$ {{ st.referral_graduation_bonus|floatformat:"-2" }}, além dos bônus mensais.</small></p>
+  <p><small><b>Pagamento:</b> por Pix, na conta do CPF cadastrado de quem indicou, até o dia 20 do mês seguinte. Os bônus estão sujeitos à tributação aplicável, tratada pela Hera.</small></p>
+  <p><small>Cada pessoa indicada gera bônus em um programa de indicação só. Autoindicação, perfis falsos, contas duplicadas ou qualquer tentativa de burlar as regras cancelam os bônus relacionados. Se você ou a pessoa indicada saírem da Hera, os bônus dos meses seguintes deixam de ser devidos.</small></p>
+  <p><small>A Hera pode mudar ou encerrar o programa, com aviso nos grupos oficiais. Os bônus já conquistados continuam garantidos.</small></p>
+</details>
+{% endblock %}

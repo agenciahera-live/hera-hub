@@ -396,6 +396,11 @@ def _save_profile(request, c):
             return
     if (ref["pk"] if ref else None) != c.referred_by_id:
         old = referrals.handle_of(c.referred_by_id)
+        try:  # Indique e ganhe (passo 4.7): a indicação acompanha o "indicado por"
+            referrals.register(c, ref["pk"] if ref else None, request.user)
+        except referrals.ReferralError as e:
+            messages.error(request, str(e))
+            return
         changes.append(f"Indicado por: {('@' + old) if old else '—'} → {('@' + ref['username']) if ref else '—'}")
         c.referred_by_id = ref["pk"] if ref else None
     if "first_live_planned" in P:
@@ -1340,6 +1345,39 @@ def campaign_detail(request, pk):
     visible = set(scoped_creators(request.user).values_list("pk", flat=True))
     rows = [s for s in camp.standings.all() if s.creator_id_ref in visible]
     return render(request, "gestao/campaign.html", {"nav": "camp", "camp": camp, "rows": rows})
+
+
+# ================================================================== Indique e ganhe (passo 4.7)
+@staff_required()
+def referrals_view(request):
+    """Indicações: a gestão vê a situação das indicações da carteira; as sócias validam; as sócias e o financeiro veem os
+    bônus a pagar do mês fechado (regras em crm/referrals.py). A gestora não vê valores."""
+    from crm.models import Referral
+
+    ag = request.agency
+    roles = staff_roles(request.user)
+    is_admin, sees_money = Role.ADMIN in roles, bool(roles & {Role.ADMIN, Role.FINANCEIRO})
+    if request.method == "POST":
+        if not is_admin:
+            raise PermissionDenied
+        r = get_object_or_404(Referral, pk=_int(request.POST.get("referral")) or 0, agency=ag)
+        try:
+            referrals.decide(r, request.user, request.POST.get("status", ""), request.POST.get("reason", ""))
+            AuditLog.objects.create(agency=ag, actor=request.user, action=f"indicacao_{r.status}", target=str(r.pk))
+            messages.success(request, "Indicação validada." if r.status == "valida" else "Indicação marcada como não validada.")
+        except referrals.ReferralError as e:
+            messages.error(request, str(e))
+        return redirect(reverse("g_referrals") + f"#r{r.pk}")
+    rows = list(Referral.objects.filter(agency=ag).order_by("status", "-registered_at"))
+    handles = referrals.handles({r.referred_id for r in rows} | {r.referrer_id for r in rows})  # só o @ (pode cruzar carteiras)
+    for r in rows:
+        r.referred_handle, r.referrer_handle = handles.get(r.referred_id, ""), handles.get(r.referrer_id, "")
+    month = E.prev_month(E.tiktok_today())
+    to_pay = referrals.month_to_pay(ag, month) if sees_money else []
+    return render(request, "gestao/referrals.html", {
+        "nav": "referrals", "pending": [r for r in rows if r.status == ""], "others": [r for r in rows if r.status != ""],
+        "is_admin": is_admin, "sees_money": sees_money, "to_pay": to_pay, "month": month,
+        "pay_total": sum(x["total"] for x in to_pay), "pay_until": E.month_end(month) + dt.timedelta(days=20)})
 
 
 # ================================================================== conteúdos

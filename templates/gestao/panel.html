@@ -181,6 +181,9 @@
 
 <section class="card">
   <h2>Premiações e indicações</h2>
-  <p class="empty">Entram nos passos 4.6 (premiações) e 4.7 (Indique e ganhe).</p>
+  <p><b>Indique e ganhe:</b> {{ referrals.pending }} indicaç{{ referrals.pending|pluralize:"ão,ões" }} para validar · {{ referrals.valid }} válida{{ referrals.valid|pluralize }} ·
+    bônus de {{ referrals.month|date:"m/Y" }}: <b>R$ {{ referrals.total|floatformat:"-2" }}</b> para {{ referrals.people }} pessoa{{ referrals.people|pluralize }}.
+    <a href="{% url 'g_referrals' %}">Abrir Indicações ›</a></p>
+  <p class="empty">Premiações entram no passo 4.6.</p>
 </section>
 {% endblock %}

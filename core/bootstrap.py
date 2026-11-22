@@ -114,6 +114,9 @@ def setup_agency(name="Agência Hera", slug="hera"):
     from engage.library import sync_defaults
 
     sync_defaults(agency)  # biblioteca de mensagens do Playbook: só cria o que falta, nunca mexe em texto já editado
+    from crm.referrals import ensure_bands
+
+    ensure_bands(agency)  # faixas do regulamento do Indique e ganhe (passo 4.7), editáveis em Configurações
     if not FaqItem.objects.filter(agency=agency).exists():
         FaqItem.objects.bulk_create(
             [FaqItem(agency=agency, category=c, question=q, answer=a, keywords=k) for c, q, a, k in D.FAQ]

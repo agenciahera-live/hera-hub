@@ -4,7 +4,7 @@ from django.contrib import admin
 
 from core.access import get_agency
 from core.models import Agency, AgencySettings, AuditLog, Membership, PartnerGroup
-from crm.models import OnboardingItem
+from crm.models import OnboardingItem, ReferralBand
 from data.models import GroupRule, ImportTemplate, TierRule
 from engage import models as M
 from engage.services import publish_announcement
@@ -168,6 +168,14 @@ class OnboardingItemAdmin(AgencyScopedAdmin):
 @admin.register(PartnerGroup)
 class PartnerGroupAdmin(AgencyScopedAdmin):
     list_display = ("name", "is_direct", "streamer_access_enabled")
+
+
+@admin.register(ReferralBand)
+class ReferralBandAdmin(AgencyScopedAdmin):
+    """Faixas do Indique e ganhe (passo 4.7): mês da pessoa indicada, horas e dias válidos mínimos e o bônus."""
+
+    list_display = ("program_month", "min_hours", "min_valid_days", "amount")
+    list_filter = ("program_month",)
 
 
 @admin.register(AgencySettings)

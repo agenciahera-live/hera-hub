@@ -91,6 +91,10 @@ class Command(BaseCommand):
                 month_items.notify_risks(ag)
                 # resumo do mês no app: nos dias 2 e 3, avisa o criador no sininho que o resumo chegou
                 month_summary.notify_ready(ag)
+                # Indique e ganhe (passo 4.7): bônus dos meses que já fecharam (nunca mexe em bônus pago)
+                from crm.referrals import compute as compute_referrals
+
+                compute_referrals(ag)
                 fresh = data_freshness(ag)
                 if fresh is None or (timezone.now() - fresh).days >= st.stale_data_days:
                     for m in Membership.objects.filter(agency=ag, role__in=["admin", "gestora"], active=True):

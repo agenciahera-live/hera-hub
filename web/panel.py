@@ -476,7 +476,20 @@ def overview(agency, today=None):
         "draw_from": week_start(local) - dt.timedelta(days=7), "draw_to": week_start(local) - dt.timedelta(days=1),
         "risks": _risks(agency, today),
         "campaigns_waiting": _campaigns_waiting(agency),
+        "referrals": _referrals(agency, today),
     }
+
+
+def _referrals(agency, today):
+    """Indique e ganhe (passo 4.7): para validar, válidas e o bônus do mês que fechou."""
+    from crm import referrals as R
+    from crm.models import Referral
+
+    month = E.prev_month(today)
+    to_pay = R.month_to_pay(agency, month)
+    qs = Referral.objects.filter(agency=agency)
+    return {"pending": qs.filter(status="").count(), "valid": qs.filter(status="valida").count(), "month": month,
+            "total": sum(x["total"] for x in to_pay), "people": len(to_pay)}
 
 
 def _campaigns_waiting(agency):
