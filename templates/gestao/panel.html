@@ -21,7 +21,21 @@
       </form></td>
     </tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="empty">Nenhum pedido esperando.</p>{% endif %}
-  <p><small>A gestora pede pela fila do dia, nos itens de encerramento (até o D14, D15 e 30 dias sem LIVE). Qualquer uma das sócias decide; a decisão vai para a linha do tempo da ficha e a gestora é avisada. Campanha nova e premiação entram nesta lista nos passos 4.5 e 4.6.</small></p>
+  <p><small>A gestora pede pela fila do dia, nos itens de encerramento (até o D14, D15 e 30 dias sem LIVE). Qualquer uma das sócias decide; a decisão vai para a linha do tempo da ficha e a gestora é avisada. Premiação entra nesta lista no passo 4.6.</small></p>
+
+  <h3 style="margin-top:14px">Campanhas novas do TikTok {% if campaigns_waiting %}<span class="pill pink">{{ campaigns_waiting|length }} esperando</span>{% endif %}</h3>
+  <p><small>Chegam pela leitura do Backstage. Confira o que o Claude propôs lendo as regras (mecânica principal, até que posição premia, prêmios e nível recomendado) e aprove. Até a aprovação, a campanha não aparece no app, na ficha, na sugestão nem na fila. “Não oferecer” vale para todos.</small></p>
+  {% for c in campaigns_waiting %}
+  <details class="card" style="margin:8px 0;padding:10px" id="camp{{ c.pk }}"><summary><b>{{ c.name }}</b> · {{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }}{% if c.tiktok_kind %} · {{ c.get_tiktok_kind_display }}{% endif %}{% if c.participants_n is not None %} · {{ c.participants_n }}{% if c.eligible_n is not None %} / {{ c.eligible_n }}{% endif %} participantes{% endif %}{% if c.tiktok_url %} · <a href="{{ c.tiktok_url }}" target="_blank" rel="noopener">ver no TikTok ↗</a>{% endif %}</summary>
+    <form method="post" style="margin-top:8px;max-width:560px">{% csrf_token %}<input type="hidden" name="a" value="campaign"><input type="hidden" name="campaign" value="{{ c.pk }}">
+      <label>Mecânica principal</label><select name="mechanic"><option value="">—</option>{% for v, l in campaign_mechanics %}<option value="{{ v }}" {% if c.mechanic == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <label>Premia até a posição</label><input type="number" name="prize_until" min="1" value="{{ c.prize_until|default_if_none:'' }}">
+      <label>Prêmios</label><textarea name="prizes" rows="2">{{ c.prizes }}</textarea>
+      <label>Nível recomendado</label><input type="text" name="recommended_level" maxlength="60" value="{{ c.recommended_level }}">
+      <label>O que fazer (resumo para o criador)</label><textarea name="what_to_do" rows="3">{{ c.what_to_do }}</textarea>
+      <div class="row" style="gap:6px;margin-top:8px"><button class="btn btn-sm btn-purple" name="decision" value="aprovar">Aprovar</button><button class="btn btn-sm" name="decision" value="recusar">Não oferecer</button></div>
+    </form></details>
+  {% empty %}<p class="empty">Nenhuma campanha esperando.</p>{% endfor %}
   {% if decided %}<details><summary><small>Últimas decisões</small></summary><ul class="list">{% for ap in decided %}
     <li><small><b>{{ ap.decision_label }}</b> · {% if ap.creator %}@{{ ap.creator.username }}{% else %}{{ ap.get_kind_display }}{% endif %} · {{ ap.decided_at|sp:"%d/%m" }} por {{ ap.decided_by.first_name|default:ap.decided_by.email }}{% if ap.decision_note %} · “{{ ap.decision_note }}”{% endif %}</small></li>{% endfor %}</ul></details>{% endif %}
 </section>

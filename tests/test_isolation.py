@@ -54,6 +54,29 @@ class DatabaseIsolationTests(TestCase):
         with as_user(self.ua):
             self.assertEqual(Note.objects.count(), 0)
 
+    def test_campaign_position_only_for_staff_and_written_only_by_the_reading(self):
+        """Passo 4.5: a posição na campanha é só da gestão; o criador nunca lê, nem a dele; só a leitura grava."""
+        from django.db import DatabaseError, transaction
+        from django.utils import timezone
+
+        from engage.models import Campaign, CampaignPosition
+
+        with system_context():
+            camp = Campaign.objects.create(agency=self.ag, name="Campanha isolamento", rules="-", start=dt.date(2026, 9, 1),
+                                           end=dt.date(2026, 9, 30))
+            CampaignPosition.objects.create(campaign=camp, creator=self.a, position=8, read_at=timezone.now())
+            CampaignPosition.objects.create(campaign=camp, creator=self.b, position=3, read_at=timezone.now())
+            camp2 = Campaign.objects.create(agency=self.ag, name="Outra", rules="-", start=dt.date(2026, 9, 1), end=dt.date(2026, 9, 30))
+        with as_user(self.ua):
+            self.assertEqual(CampaignPosition.objects.count(), 0)  # nem a própria
+        with as_user(self.gx):
+            self.assertEqual(list(CampaignPosition.objects.values_list("creator__username", flat=True)), ["streamer.a"])
+            self.assertEqual(CampaignPosition.objects.filter(creator=self.a).update(position=1), 0)  # a gestão não edita
+            with self.assertRaises(DatabaseError), transaction.atomic():
+                CampaignPosition.objects.create(campaign=camp2, creator=self.a, position=2, read_at=timezone.now())  # nem da carteira dela
+        with as_user(self.admin):
+            self.assertEqual(CampaignPosition.objects.count(), 2)
+
     def test_streamer_cannot_write_other_creator(self):
         with as_user(self.ua):
             updated = Creator.objects.filter(pk=self.b.pk).update(display_name="hack")

@@ -561,7 +561,7 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.2 1:1 com o modelo novo | Canal e quem conduziu, bloco 1 automático, anotações, print, aviso de 30 dias, frequência mensal (Diamante e potencial) | ✅ 19/11, aguardando aprovação (detalhes abaixo) |
 | 4.3 Itens do mês na fila | Resumo do mês, "Quase lá", nível novo, módulo concluído, sinais de risco dos Diamante | ✅ 19/11, aguardando aprovação; textos provisórios em revisão pela Mariana (detalhes abaixo) |
 | 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | Decisão da Mariana de 19/11: **fica como está** (passo 3.3). Só mudou o pedido: o criador não escolhe mais se o oponente é da Hera ou de outra agência (campo `other_agency_ok` fica vazio; quem escolhe o oponente é a gestão) |
-| 4.5 Campanhas | 3 listas, acompanhamento na fila, aprovação das campanhas da agência | A fazer (decisão: a gestora vê a posição do criador na campanha?) |
+| 4.5 Campanhas | Posição na leitura (só gestão), 3 listas, acompanhamento na fila, aprovação das sócias das campanhas novas da plataforma | ✅ 22/11, aguardando aprovação (detalhes abaixo) |
 | 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
 | 4.7 Indique e ganhe | Link, indicações, quanto ganhou | A fazer (depende do regulamento) |
 
@@ -650,6 +650,32 @@ Decisões da Mariana de 19/11: **"menos constante" = menos dias válidos no mês
 | Quem é Diamante = Tier do mês fechado no grupo Diamante | Mesma regra do 1:1 mensal |
 | O resumo do mês não entra para quem não fez LIVE no mês nem para quem está nos 14 dias | Esses criadores já têm roteiro próprio (régua e onboarding) |
 | O aviso às sócias sai pela rotina das 6h, não na hora em que a gestora marca o sinal | A conta junta números da leitura diária e sinais da conversa; uma vez por dia basta para "conversa em até 48 horas" |
+
+### Passo 4.5, o que mudou (Campanhas)
+
+Decisões da Mariana de 22/11: **1A** a gestora vê a posição do criador (só a frase de cada um, sem tabela); **2B** as campanhas novas **da plataforma** (as dos criadores) passam pela aprovação das sócias, e as dirigidas pela Agência ficam como estão; **3** "perto de prêmio" = na faixa premiada ou até 3 posições depois dela. Regras em `engage/campaigns.py`.
+
+- **Leitura com posição:** cada linha de "criadores" pode trazer `posicao`, `pontos` e `pontos_para_subir` (instruções novas em Importar dados › Leitura automática). Tabela nova `CampaignPosition`: **só a gestão lê, o criador nunca (nem a dele), só a leitura grava** (`web/migrations/0013`). Guarda a posição do dia de leitura anterior (reenviar no mesmo dia não apaga a queda). Leitura sem a tabela de classificação não apaga as posições de antes.
+- **Aprovação das sócias:** campanha nova da plataforma chega "aguardando as sócias" e não aparece no app, na ficha, na sugestão, na fila nem nas listas. **Painel das sócias › Aprovações › Campanhas novas do TikTok:** mecânica, premia até, prêmios, nível recomendado e resumo (o que o Claude propôs), com "Aprovar" e "Não oferecer". Antes disso, a gestora não marca foco; o que as sócias recusam a gestora não volta a oferecer. Campanhas antigas e as da Agência não mudam.
+- **Campanhas › Acompanhamento da sua carteira:** três listas (pode se inscrever e não se inscreveu; perto de prêmio; pode perder posição), com a frase "está em 12º, faltam 800 pontos para o 11º (fora da faixa premiada, que vai até o 10º)". Ordem: a campanha que fecha primeiro e o @, nunca a posição.
+- **Fila do dia** (só a campanha do momento de cada criador, porque a gestora só oferece essa): `campanha_inscricao` (ROD-CAMP, do dia seguinte à abertura e de novo da metade, enquanto a leitura mostrar "qualifica-se"); `campanha_posicao` (CAMP-POS com a campanha, a posição e os pontos já preenchidos: na metade e na véspera, para quem está perto de prêmio, ou quando caiu de posição perto da faixa, no máximo a cada 3 dias; nunca no último dia; na última semana do mês, prioridade 1, que é o "Quase lá" de campanha); `campanha_fim` (APO-06, "chegou muito perto", até 2 dias depois do fim, para quem terminou até 3 posições depois da faixa premiada). Campanhas de até 3 dias: só abertura e véspera. Textos do Playbook, sem mensagem nova.
+
+**Como testar:** `tests/test_acompanhamento_campanhas.py` (8 testes), mais o isolamento da posição em `tests/test_isolation.py` e os testes do 3.4 atualizados para a aprovação (`tests/test_campanhas.py`).
+
+**Conferência (22/11):** 307 testes, todos passando, 2 pulados (Playwright não instalado; o teste do 1:1 porque era domingo). Um teste antigo proibia a palavra "posição" em todas as telas da gestão (`tests/test_tom.py`); com a decisão 1A, a tela Campanhas da gestão pode mostrar a posição, e "ranking" continua proibido em todas as telas. Migrações aplicadas no banco local. Não aberto no navegador.
+
+**Falta para funcionar no dia a dia:** copiar as instruções novas (Importar dados › Leitura automática) para o Claude da leitura diária. Sem a posição na leitura, só a lista "pode se inscrever" e o item de inscrição funcionam.
+
+**Decisões pequenas do 4.5:**
+
+| Decisão | Motivo |
+| --- | --- |
+| A aprovação fica na própria campanha (`Campaign.approval`), numa seção do painel, e não em `ApprovalRequest` | A sócia confere os campos da campanha junto com a decisão; o pedido de manter ou encerrar é por criador |
+| O acompanhamento na fila é só da campanha do momento | Visão: "o sistema escolhe uma campanha por criador, e a gestora só envia essa"; as listas mostram todas |
+| Sem "premia até" conferido, ninguém fica "perto de prêmio" | Não dá para saber a faixa premiada |
+| Sem aviso de posição para quem está em 1º | A mensagem CAMP-POS fala em "próxima posição" |
+| Quem ganhou não recebe item no fim | A mensagem de parabéns já pede o Pix: entra no passo 4.6 |
+| "Duas olhadas por semana" das campanhas com ranking diário ficou de fora | A leitura não diz qual campanha tem ranking diário; a queda de posição cobre o meio do caminho |
 
 ### Resumo do mês no app (pedido da Mariana de 19/11, entre os passos 4.3 e 4.4)
 

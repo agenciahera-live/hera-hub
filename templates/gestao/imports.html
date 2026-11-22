@@ -58,7 +58,10 @@ No Backstage, em Operações › Campanhas, leia sem mudar nada:
    prêmios, a mecânica principal (batalha, horas, fa_clube, presentes, cohost ou videos) e até que posição premia.
    O link: na prévia, "Compartilhar" › "Link" (https://www.tiktok.com/t/...). Só para campanha que ainda não tem link.
 2. "Por criador": para cada criador, o @ e a situação em cada campanha (qualifica-se, inscrito, em andamento, encerrada).
-3. Campanhas dirigidas pela Agência › Gestão da campanha: as campanhas da Hera, do mesmo jeito (use "aba": "agencia").
+3. Tabela de classificação de cada campanha aberta (filtro por gerente): para cada criador da Hera que aparece, a posição,
+   os pontos e quantos pontos faltam para subir uma posição (pontos de quem está logo acima menos os dele). Vai na mesma
+   linha do item 2. Não envie nome nem @ de criador de outra agência.
+4. Campanhas dirigidas pela Agência › Gestão da campanha: as campanhas da Hera, do mesmo jeito (use "aba": "agencia").
 Envie em JSON:
 Endereço: {{ api_campaigns_url }}
 curl.exe -sS -H "Authorization: Bearer {{ key_once }}" -H "Content-Type: application/json" --data-binary "@C:\caminho\campanhas.json" {{ api_campaigns_url }}
@@ -66,8 +69,11 @@ Formato:
 {"campanhas": [{"id": "ID do Backstage, se houver", "nome": "...", "aba": "plataforma", "inicio": "2026-11-16", "fim": "2026-12-01",
   "tipo": "missao", "nivel_recomendado": "nível 1", "participantes": 0, "elegiveis": 2, "diamantes": 0,
   "link": "https://www.tiktok.com/t/...", "resumo": "...", "premios": "...", "mecanica": "presentes", "premia_ate": 10}],
- "criadores": [{"usuario": "@exemplo", "campanha": "ID ou nome da campanha", "situacao": "inscrito"}]}
-Não envie posição nem ranking de ninguém: o app não mostra isso.</pre>
+ "criadores": [{"usuario": "@exemplo", "campanha": "ID ou nome da campanha", "situacao": "inscrito",
+                "posicao": 8, "pontos": 15300, "pontos_para_subir": 1200}]}
+Sem a tabela de classificação, deixe "posicao", "pontos" e "pontos_para_subir" de fora (as posições da leitura anterior ficam).
+A posição é só para a gestão: o app do criador não mostra posição nem ranking.
+Campanha nova da plataforma só aparece depois da aprovação das sócias: proponha a mecânica, "premia_ate" e os prêmios lendo a imagem das regras.</pre>
     <button type="button" class="btn btn-sm btn-purple" onclick="heraCopy(this,'port-key')">Copiar instruções com a chave</button>
   {% endif %}
   {% if can_key %}

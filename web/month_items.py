@@ -6,7 +6,8 @@
   Sem números no WhatsApp: o resumo fica no app.
 - Nível novo (dias 1 a 7): quem subiu de Tier no mês que fechou. Entra no lugar do resumo do mês.
 - Quase lá (última semana do mês): perto do próximo nível ou da graduação (o mesmo corte de "perto", 85%) vira mensagem
-  com prioridade. "Perto de prêmio de campanha" entra no passo 4.5.
+  com prioridade. "Perto de prêmio de campanha" é o item `campanha_posicao` (engage/campaigns.py, passo 4.5), que na
+  última semana do mês também sobe para a prioridade 1.
 - Módulo concluído: terminou todas as aulas de um módulo da Hera Academy nos últimos 3 dias.
 - Sinais de risco dos criadores Diamante: pelos números e pela conversa (marcados na ficha, valem 30 dias). Um sinal:
   aviso na ficha. Dois ou mais: conversa em até 48 horas (prioridade 1) e aviso às sócias (rotina diária).

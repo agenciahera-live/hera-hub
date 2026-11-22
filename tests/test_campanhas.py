@@ -97,7 +97,12 @@ class CampanhasTests(TestCase):
         with system_context():
             return Campaign.objects.get(agency=self.ag, name=name)
 
+    def _aprovar(self, *names):  # passo 4.5: campanha nova da plataforma espera as sócias
+        with system_context():
+            Campaign.objects.filter(agency=self.ag, name__in=names, approval="aguardando").update(approval="aprovada")
+
     def _foco(self, *names):
+        self._aprovar(*names)
         with system_context():
             Campaign.objects.filter(agency=self.ag, name__in=names).update(featured=True)
 
@@ -116,6 +121,8 @@ class CampanhasTests(TestCase):
                          ("backstage", False, "batalha", "batalha", 10, 3100))
         self.assertEqual(duelo.tiktok_url, "https://www.tiktok.com/t/ZTeste01/")
         self.assertEqual(self._camp("Constância Teste").backstage_tab, "agencia")
+        # passo 4.5: a da plataforma espera as sócias; a dirigida pela Agência não passa pela aprovação
+        self.assertEqual((duelo.approval, self._camp("Constância Teste").approval, j["para_aprovar"]), ("aguardando", "", 1))
         with system_context():
             self.assertTrue(Notification.objects.filter(user=self.gx, title="Campanhas novas lidas do Backstage").exists())
             self.assertEqual(CampaignParticipant.objects.get(campaign=duelo, creator=self.b).status, "qualifica")
@@ -128,7 +135,7 @@ class CampanhasTests(TestCase):
         j = self._enviar(leitura).json()
         self.assertEqual((j["campanhas_novas"], j["campanhas_atualizadas"]), (0, 2))
         duelo = self._camp("Duelo Teste")
-        self.assertEqual((duelo.mechanic, duelo.featured), ("horas", True))
+        self.assertEqual((duelo.mechanic, duelo.featured, duelo.approval), ("horas", True, "aguardando"))  # a releitura não aprova
         with system_context():
             self.assertEqual(Campaign.objects.filter(agency=self.ag).count(), 2)
             self.assertFalse(CampaignParticipant.objects.filter(campaign=duelo, creator=self.b).exists())
@@ -197,7 +204,11 @@ class CampanhasTests(TestCase):
 
     def test_gestora_escolhe_campanha_fora_do_foco_so_para_um_criador(self):
         self._enviar(self._leitura())  # nada é foco
-        self.client.force_login(self.gx)
+        self.client.force_login(self.gx)  # antes da aprovação das sócias, a campanha não é opção na ficha
+        self.client.post(reverse("g_creator_action", args=[self.a.pk]), {"a": "campaign_pick", "campaign": self._camp("Duelo Teste").pk})
+        with system_context():
+            self.assertFalse(CampaignPick.objects.filter(creator=self.a).exists())
+        self._aprovar("Duelo Teste")
         self.client.post(reverse("g_creator_action", args=[self.a.pk]), {"a": "campaign_pick", "campaign": self._camp("Duelo Teste").pk})
         self.client.force_login(self.ua)
         self.assertContains(self.client.get(reverse("campaigns")), "Duelo Teste")
@@ -214,6 +225,11 @@ class CampanhasTests(TestCase):
         self._enviar(self._leitura())
         duelo = self._camp("Duelo Teste")
         self.client.force_login(self.gx)
+        tela = self.client.get(reverse("g_campaigns"))
+        self.assertContains(tela, "aguardando as sócias")
+        self.client.post(reverse("g_campaigns"), {"id": duelo.pk, "a": "focus"})
+        self.assertFalse(self._camp("Duelo Teste").featured)  # passo 4.5: antes da aprovação, a gestora não marca foco
+        self._aprovar("Duelo Teste")
         tela = self.client.get(reverse("g_campaigns"))
         for trecho in ["Lidas do Backstage", "Duelo Teste", "Desafio de batalha", "3 / 16 participantes", "1 inscrito", "1 pode se inscrever",
                        "Foco", "Não oferecer", "sem link"]:

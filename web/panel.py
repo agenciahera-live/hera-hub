@@ -475,4 +475,12 @@ def overview(agency, today=None):
         "draw": ensure_draw(agency, local), "draw_week": week_start(local), "draw_history": draw_history(agency),
         "draw_from": week_start(local) - dt.timedelta(days=7), "draw_to": week_start(local) - dt.timedelta(days=1),
         "risks": _risks(agency, today),
+        "campaigns_waiting": _campaigns_waiting(agency),
     }
+
+
+def _campaigns_waiting(agency):
+    """Campanhas novas do TikTok esperando a aprovação das sócias (passo 4.5)."""
+    from engage.campaigns import waiting_approval
+
+    return waiting_approval(agency)

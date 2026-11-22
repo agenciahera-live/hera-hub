@@ -11,6 +11,13 @@ foco, com o resumo da regra e o botão para o TikTok. Nunca posição nem rankin
 Campanha do momento: a escolha da gestora na ficha (`CampaignPick`) vence; sem escolha, a de melhor encaixe com o que
 o criador já faz nas últimas semanas (`suggest`), com o motivo em uma frase para a gestora. A chance (participantes
 sobre elegíveis e até que posição premia) entra quando a leitura traz os números.
+
+Passo 4.5 (decisões da Mariana de 22/11/2026):
+- Campanha nova da plataforma chega "aguardando" e só vale depois da aprovação das sócias no painel (`approve`).
+- A leitura traz a posição e os pontos de cada criador da Hera (`CampaignPosition`), que só a gestão vê, uma frase por
+  criador (`position_phrase`). Nunca uma tabela ordenada por posição: o app não tem ranking em nenhuma tela.
+- Três listas para a gestão (`follow_lists`) e o acompanhamento na fila do dia (`queue_items`), na agenda do Playbook.
+- "Perto de prêmio" = na faixa premiada ou até 3 posições depois dela (`NEAR_PRIZE_POSITIONS`).
 """
 import datetime as dt
 import re
@@ -20,12 +27,16 @@ from django.utils import timezone
 
 from data import engine as E
 
-from .models import Campaign, CampaignParticipant, CampaignPick
+from .models import Campaign, CampaignParticipant, CampaignPick, CampaignPosition
 from .services import matches_audience
 
 CREATOR_STATUS_LABEL = {"qualifica": "Você pode se inscrever", "inscrito": "Inscrição feita", "andamento": "Valendo agora", "": ""}
 MAX_CAMPAIGNS = 300
 MAX_STATUS_ROWS = 20000
+NEAR_PRIZE_POSITIONS = 3  # "perto de prêmio": até 3 posições depois da última premiada (decisão de 22/11)
+SHORT_CAMPAIGN_DAYS = 3  # campanhas de até 3 dias: só abertura e véspera (Playbook, "Acompanhamento de campanha")
+AFTER_END_DAYS = 2  # "dia seguinte ao fim": o item fica até 2 dias depois do fim, até o "Enviei"
+DROP_REPEAT_DAYS = 3  # "pode perder posição": no máximo um aviso a cada 3 dias por criador
 
 
 class ReadingError(ValueError):
@@ -35,18 +46,20 @@ class ReadingError(ValueError):
 # ---------------------------------------------------------------- o que vale para o criador
 def _visible_qs(agency, today):
     return (Campaign.objects.filter(agency=agency, published=True, do_not_offer=False, start__lte=today, end__gte=today)
-            .prefetch_related("participants"))
+            .exclude(approval__in=("aguardando", "recusada")).prefetch_related("participants"))
 
 
-def creator_campaigns(creator, facts, today=None, pick=None, include_unfocused=False):
+def creator_campaigns(creator, facts, today=None, pick=None, include_unfocused=False, camps=None):
     """Campanhas que o criador vê no app: as de foco em que participa, mais a escolhida para ele pela gestora.
 
-    `include_unfocused`: também as do TikTok que não são foco (opções da gestora na ficha)."""
+    `include_unfocused`: também as do TikTok que não são foco (opções da gestora na ficha).
+    `pick=False`: sem escolha da gestora (sem consultar). `camps`: as campanhas visíveis já carregadas (fila do dia).
+    `facts=None`: o público só é calculado se alguma campanha precisar dele (as cadastradas à mão)."""
     today = today or E.tiktok_today()
     pick = pick if pick is not None else CampaignPick.objects.filter(creator=creator).first()
     picked_id = pick.campaign_id if pick else None
     out = []
-    for c in _visible_qs(creator.agency, today):
+    for c in (camps if camps is not None else _visible_qs(creator.agency, today)):
         if c.source == "backstage" and not c.featured and c.pk != picked_id and not include_unfocused:
             continue  # do TikTok, só o que a gestão escolheu como foco (ou a campanha do momento escolhida para ele)
         rows = list(c.participants.all())
@@ -56,6 +69,10 @@ def creator_campaigns(creator, facts, today=None, pick=None, include_unfocused=F
                 continue
             status = mine.status
         else:
+            if facts is None:
+                from .services import creator_facts
+
+                facts = creator_facts(creator, today)
             if not matches_audience(c, facts):
                 continue
             status = ""
@@ -144,9 +161,9 @@ def suggest(items, p):
 
 
 def campaign_of_the_moment(creator, items, snaps=None, pick=None):
-    """A escolha da gestora vence (inclusive "nenhuma"); sem escolha, a sugestão pela nota."""
+    """A escolha da gestora vence (inclusive "nenhuma"); sem escolha, a sugestão pela nota. `pick=False`: sem escolha."""
     pick = pick if pick is not None else CampaignPick.objects.filter(creator=creator).first()
-    if pick is not None:
+    if pick:
         if pick.campaign_id is None:
             return None
         it = next((x for x in items if x["c"].pk == pick.campaign_id), None)
@@ -211,7 +228,8 @@ def receive_reading(agency, payload, now=None):
         raise ReadingError("“criadores” precisa ser uma lista.")
     if len(camps) > MAX_CAMPAIGNS or len(rows) > MAX_STATUS_ROWS:
         raise ReadingError("Leitura grande demais para a tela de campanhas do Backstage.")
-    counts = {"campanhas_novas": 0, "campanhas_atualizadas": 0, "situacoes": 0, "criadores_desconhecidos": 0, "sem_link": 0}
+    counts = {"campanhas_novas": 0, "campanhas_atualizadas": 0, "situacoes": 0, "criadores_desconhecidos": 0, "sem_link": 0,
+              "para_aprovar": 0, "posicoes": 0}
     with transaction.atomic():
         by_key = {}
         for raw in camps:
@@ -233,6 +251,9 @@ def receive_reading(agency, payload, now=None):
             if c is None:
                 c = Campaign(agency=agency, backstage_key=key[:160], source="backstage", featured=False, published=True,
                              rules=str(raw.get("regras") or raw.get("resumo") or "")[:4000], **fields)
+                if c.backstage_tab == "plataforma":  # decisão de 22/11: campanha nova do TikTok espera as sócias
+                    c.approval = "aguardando"
+                    counts["para_aprovar"] += 1
                 c.what_to_do = str(raw.get("resumo") or "")[:1000]
                 c.prizes = str(raw.get("premios") or "")[:1000]
                 c.tiktok_url = link
@@ -260,6 +281,7 @@ def receive_reading(agency, payload, now=None):
 
         found = {}
         new_rows = {}
+        new_pos = {}  # (campanha, criador) -> (posição, pontos, pontos para subir)
         for r in rows:
             if not isinstance(r, dict):
                 continue
@@ -275,6 +297,11 @@ def receive_reading(agency, payload, now=None):
                 counts["criadores_desconhecidos"] += 1
                 continue
             new_rows[(camp.pk, creator.pk)] = status
+            pos = _int(re.sub(r"\D", "", str(r.get("posicao") or "")))  # aceita "8", "8º" e "#8"
+            if pos:  # posição na tabela de classificação (passo 4.5): só a gestão vê
+                new_pos[(camp.pk, creator.pk)] = (pos, _int(r.get("pontos")), _int(r.get("pontos_para_subir")))
+        _save_positions(by_key, new_pos, now)
+        counts["posicoes"] = len(new_pos)
         touched = {c.pk for c in by_key.values()}
         if rows:  # sem a lista de criadores, a situação de antes continua valendo
             old = CampaignParticipant.objects.filter(campaign_id__in=touched, from_backstage=True)
@@ -287,3 +314,194 @@ def receive_reading(agency, payload, now=None):
                     obj.save(update_fields=["status", "updated_at"])
                 counts["situacoes"] += 1
     return counts
+
+
+def _save_positions(by_key, new_pos, now):
+    """Grava a posição de cada criador, campanha por campanha. Só troca as campanhas que vieram com alguma posição
+    nesta leitura (uma leitura sem a tabela de classificação não apaga as posições de antes). A posição anterior
+    guardada é a do último dia de leitura antes de hoje, para "pode perder posição" (reenviar no mesmo dia não apaga)."""
+    with_pos = {cid for cid, _ in new_pos}
+    if not with_pos:
+        return
+    today = timezone.localtime(now).date()
+    old = {(p.campaign_id, p.creator_id): p for p in CampaignPosition.objects.filter(campaign_id__in=with_pos)}
+    CampaignPosition.objects.filter(pk__in=[p.pk for k, p in old.items() if k not in new_pos]).delete()
+    for (cid, crid), (pos, pts, to_next) in new_pos.items():
+        p = old.get((cid, crid))
+        if p is None:
+            CampaignPosition.objects.create(campaign_id=cid, creator_id=crid, position=pos, points=pts, to_next=to_next, read_at=now)
+            continue
+        if timezone.localtime(p.read_at).date() < today:
+            p.prev_position = p.position
+        p.position, p.points, p.to_next, p.read_at = pos, pts, to_next, now
+        p.save()
+
+
+# ---------------------------------------------------------------- aprovação das sócias (passo 4.5)
+class ApprovalError(ValueError):
+    pass
+
+
+def waiting_approval(agency):
+    return list(Campaign.objects.filter(agency=agency, approval="aguardando").order_by("end", "name"))
+
+
+def approve(campaign, user, decision, mechanic="", prize_until=None, prizes="", recommended_level="", what_to_do=""):
+    """Uma sócia confere os quatro campos da visão (mecânica principal, até que posição premia, prêmios e nível
+    recomendado, mais o resumo para o criador) e aprova, ou decide não oferecer. Quem chama confere que é sócia."""
+    if campaign.approval != "aguardando":
+        raise ApprovalError("Esta campanha já foi decidida.")
+    if decision not in ("aprovar", "recusar"):
+        raise ApprovalError("Escolha aprovar ou não oferecer.")
+    campaign.approved_by, campaign.approved_at = user, timezone.now()
+    if decision == "recusar":
+        campaign.approval, campaign.do_not_offer, campaign.featured = "recusada", True, False
+    else:
+        campaign.approval = "aprovada"
+        campaign.mechanic = mechanic if mechanic in dict(Campaign.MECHANICS) else ""
+        campaign.prize_until = prize_until or None
+        campaign.prizes = (prizes or "")[:1000]
+        campaign.recommended_level = (recommended_level or "")[:60]
+        campaign.what_to_do = (what_to_do or "")[:1000]
+    campaign.save()
+    return campaign
+
+
+# ---------------------------------------------------------------- posição: uma frase por criador, só para a gestão
+def _n(x):
+    return f"{int(x):,}".replace(",", ".")
+
+
+def near_prize(campaign, position):
+    """Na faixa premiada ou até 3 posições depois dela. Sem "premia até" conferido, não dá para saber."""
+    return bool(campaign.prize_until and position and position <= campaign.prize_until + NEAR_PRIZE_POSITIONS)
+
+
+def position_phrase(campaign, p):
+    """"está em 8º, faltam 1.200 pontos para o 7º (premia até o 10º)". Nunca cita outro criador."""
+    txt = f"está em {p.position}º"
+    if p.to_next and p.position > 1:
+        txt += f", faltam {_n(p.to_next)} pontos para o {p.position - 1}º"
+    if campaign.prize_until:
+        txt += " (na faixa premiada" if p.position <= campaign.prize_until else " (fora da faixa premiada"
+        txt += f", que vai até o {campaign.prize_until}º)"
+    if p.prev_position and p.position > p.prev_position:
+        txt += f"; caiu do {p.prev_position}º"
+    return txt
+
+
+def follow_lists(agency, creator_ids, today=None):
+    """As três listas do acompanhamento (visão, "Campanhas: o que a gestora acompanha"), só da carteira de quem vê.
+
+    Ordem: a campanha que fecha primeiro, depois o @ (nunca a posição: não é ranking)."""
+    today = today or E.tiktok_today()
+    camps = {c.pk: c for c in Campaign.objects.filter(agency=agency, published=True, do_not_offer=False, start__lte=today,
+                                                       end__gte=today).exclude(approval__in=("aguardando", "recusada"))}
+    out = {"inscricao": [], "premio": [], "queda": []}
+    if not camps:
+        return out
+    for p in (CampaignParticipant.objects.filter(campaign_id__in=camps, creator_id__in=creator_ids, status="qualifica")
+              .select_related("creator")):
+        out["inscricao"].append({"c": camps[p.campaign_id], "creator": p.creator, "why": "pode se inscrever e ainda não se inscreveu"})
+    for p in CampaignPosition.objects.filter(campaign_id__in=camps, creator_id__in=creator_ids).select_related("creator"):
+        c = camps[p.campaign_id]
+        row = {"c": c, "creator": p.creator, "why": position_phrase(c, p)}
+        if near_prize(c, p.position):
+            out["premio"].append(row)
+        if p.prev_position and p.position > p.prev_position:
+            out["queda"].append(row)
+    for k in out:
+        out[k].sort(key=lambda r: (r["c"].end, r["c"].name, r["creator"].username))
+    return out
+
+
+# ---------------------------------------------------------------- acompanhamento na fila do dia (Playbook)
+def checkpoints(c):
+    """Agenda de uma campanha: dia seguinte à abertura, metade e véspera do fechamento (as de até 3 dias: só abertura e
+    véspera). O "dia seguinte ao fim" é tratado à parte."""
+    days = (c.end - c.start).days + 1
+    pts = {"abertura": c.start + dt.timedelta(days=1), "vespera": c.end - dt.timedelta(days=1)}
+    if days > SHORT_CAMPAIGN_DAYS:
+        pts["metade"] = c.start + dt.timedelta(days=days // 2)
+    return pts
+
+
+def campaign_vars(c):
+    """Variáveis da ROD-CAMP (campanha, resumo da regra e link)."""
+    rule = (c.what_to_do or "").strip().rstrip(".")
+    return {"campanha": c.name, "campanha_regra": (rule[:1].lower() + rule[1:]) if rule else "[resumo da regra]",
+            "campanha_link": c.tiktok_url or "[link]"}
+
+
+def _sent_since(contacts, code, date):
+    return any(x.template_code == code and timezone.localtime(x.sent_at).date() >= date for x in contacts)
+
+
+def queue_items(ctx):
+    """Itens "campanha_*" da fila do dia. A gestora só envia a campanha do momento de cada criador (visão, "Uma campanha
+    de cada vez por criador"); o que ela vê de todas as campanhas fica nas listas da tela Campanhas.
+
+    - campanha_inscricao (ROD-CAMP): pode se inscrever e não se inscreveu, a partir do dia seguinte à abertura e de novo
+      a partir da metade; sai com o "Enviei" ou quando a leitura mostrar a inscrição.
+    - campanha_posicao (CAMP-POS, com a posição e os pontos preenchidos): perto de prêmio, na metade e na véspera; ou
+      caiu de posição perto da faixa premiada (no máximo a cada 3 dias). Nunca no último dia (os dados atrasam de 2 a 3
+      horas e a véspera é o momento de falar). Na última semana do mês, é o "Quase lá" de campanha (prioridade 1).
+    - campanha_fim (APO-06): terminou até 3 posições depois da faixa premiada, nos 2 dias depois do fim.
+    """
+    from web.month_items import in_last_week
+    from web.services import QueueItem
+
+    today, agency, info = ctx["today"], ctx["agency"], ctx["info"]
+    ids = list(info)
+    camps = list(_visible_qs(agency, today))
+    ended = list(Campaign.objects.filter(agency=agency, published=True, do_not_offer=False,
+                                         end__gte=today - dt.timedelta(days=AFTER_END_DAYS), end__lt=today)
+                 .exclude(approval__in=("aguardando", "recusada")))
+    if not camps and not ended:
+        return []
+    picks = {p.creator_id: p for p in CampaignPick.objects.filter(creator_id__in=ids)}
+    positions = {(p.campaign_id, p.creator_id): p for p in
+                 CampaignPosition.objects.filter(campaign_id__in=[c.pk for c in camps + ended], creator_id__in=ids)}
+    prio_pos = 1 if in_last_week(today) else 2
+    out = []
+    for pk, d in info.items():
+        c_obj, contacts = d["c"], d["contacts"]
+        pick = picks.get(pk) or False
+        moment = campaign_of_the_moment(c_obj, creator_campaigns(c_obj, None, today, pick=pick, camps=camps), snaps=d["snaps"], pick=pick)
+        if moment:
+            it = moment["item"]
+            c, status = it["c"], it["status"]
+            pts = checkpoints(c)
+            passed = sorted((day, name) for name, day in pts.items() if day <= today)
+            stage_day, stage = passed[-1] if passed else (None, None)
+            p = positions.get((c.pk, pk))
+            if status == "qualifica" and stage in ("abertura", "metade") and not _sent_since(contacts, "ROD-CAMP", stage_day):
+                out.append(QueueItem(c_obj, "campanha_inscricao", 2, f"Campanha: pode se inscrever em “{c.name}”",
+                                     f"Campanha do momento, fecha em {c.end:%d/%m}. Ainda não se inscreveu pela leitura do Backstage. "
+                                     "Envie o link e o resumo da regra.", "ROD-CAMP", vars=campaign_vars(c)))
+            elif p and p.position > 1 and today < c.end and near_prize(c, p.position):
+                dropped = bool(p.prev_position and p.position > p.prev_position)
+                due = stage in ("metade", "vespera") and not _sent_since(contacts, "CAMP-POS", stage_day)
+                due_drop = dropped and not _sent_since(contacts, "CAMP-POS", today - dt.timedelta(days=DROP_REPEAT_DAYS - 1))
+                if due or due_drop:
+                    when = {"metade": "metade da campanha", "vespera": "véspera do fechamento"}.get(stage, "")
+                    why = "caiu de posição" if due_drop and not due else (when or "perto de prêmio")
+                    out.append(QueueItem(c_obj, "campanha_posicao", prio_pos, f"Campanha: perto de prêmio em “{c.name}”",
+                                         f"{why[:1].upper() + why[1:]}: {position_phrase(c, p)}. Fecha em {c.end:%d/%m}. "
+                                         "Confira no TikTok antes de enviar (os dados atrasam de 2 a 3 horas) e não cite outro criador.",
+                                         "CAMP-POS", vars={"_replace": {"[campanha]": c.name, "[X]": str(p.position),
+                                                                        **({"[Y]": _n(p.to_next)} if p.to_next else {})}}))
+        # dia seguinte ao fim: chegou perto (até 3 posições depois da faixa premiada) e não ganhou
+        for c in ended:
+            p = positions.get((c.pk, pk))
+            if not p or not c.prize_until or not (c.prize_until < p.position <= c.prize_until + NEAR_PRIZE_POSITIONS):
+                continue
+            if not (c.featured or (pick and pick.campaign_id == c.pk)):
+                continue  # a gestora só acompanha a campanha que ofereceu
+            if _sent_since(contacts, "APO-06", c.end + dt.timedelta(days=1)):
+                continue
+            out.append(QueueItem(c_obj, "campanha_fim", 3, f"Campanha: chegou perto em “{c.name}”",
+                                 f"Terminou em {p.position}º e a campanha premiou até o {c.prize_until}º. Mensagem 2.6 (perdeu por pouco).",
+                                 "APO-06", vars={"_replace": {"[campanha]": c.name}}))
+            break
+    return out

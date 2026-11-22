@@ -142,7 +142,7 @@ ITEM_TYPES = {
     "1a1_atrasado": (2, "1:1 atrasado"),
     "1a1_mes": (2, "1:1 do mês: Diamante e potencial de graduação sem 1:1 completo há 30 dias (passo 4.2)"),
     "plano_vencido": (2, "Plano de ação vencido"),
-    "campanha": (2, "Acompanhamento de campanha: a construir (depende da leitura de campanhas)"),
+    "campanha": (2, "Acompanhamento de campanha: inscrição, perto de prêmio e chegou perto (passo 4.5)"),
     "rodada_batalhas": (2, "Rodada de batalhas oficiais do dia 8: a construir (módulo de batalhas)"),
     "resumo_mes": (2, "Resumo do mês, dias 1 a 7 (passo 4.3)"),
     # bloco 3: o que vem do dado
@@ -300,14 +300,11 @@ def _pick_rotation(creator, last_code):
     lesson = next_lesson(creator, facts)
     if lesson:
         options.append(("ROD-AULA", {"proxima_aula": lesson.title}))
-    from engage.campaigns import campaign_of_the_moment
+    from engage.campaigns import campaign_of_the_moment, campaign_vars
 
     moment = campaign_of_the_moment(creator, visible_campaigns(creator, facts, E.tiktok_today()))  # a gestora só oferece essa
     if moment:
-        camp = moment["item"]["c"]
-        rule = (camp.what_to_do or "").strip().rstrip(".")
-        options.append(("ROD-CAMP", {"campanha": camp.name, "campanha_regra": (rule[:1].lower() + rule[1:]) if rule else "[resumo da regra]",
-                                     "campanha_link": camp.tiktok_url or "[link]"}))
+        options.append(("ROD-CAMP", campaign_vars(moment["item"]["c"])))
     # "Vaga de batalha" (ROD-BAT) entra aqui quando o mural de batalhas existir (módulo de batalhas)
     options.append(("ROD-PERG", {}))
     for code, extra in options:
@@ -566,6 +563,13 @@ def _month_items(name):
     return collect
 
 
+def _campaign_items(ctx):
+    """Acompanhamento de campanha (passo 4.5): regras em engage/campaigns.py:queue_items."""
+    from engage.campaigns import queue_items
+
+    return queue_items(ctx)
+
+
 def _to_build(_ctx):
     """Tipo já declarado em ITEM_TYPES que ainda não gera itens (depende de módulo que não existe)."""
     return []
@@ -578,10 +582,10 @@ COLLECTORS = {
     "restricao": _restriction_items,
     "visita": _visit_items,
     "1a1_mes": _monthly_1a1_items,
-    "campanha": _to_build,          # dia seguinte à abertura, metade, véspera do fechamento, dia seguinte ao fim
+    "campanha": _campaign_items,    # dia seguinte à abertura, metade, véspera do fechamento, dia seguinte ao fim
     "rodada_batalhas": _to_build,   # dia 8: batalhas oficiais do mês seguinte para Ouro e Diamante
     "resumo_mes": _month_items("summary_items"),   # dias 1 a 7: primeiro quem foi menos constante (e o nível novo)
-    "quase_la": _month_items("almost_items"),      # última semana: perto do próximo nível ou da graduação (prêmio no 4.5)
+    "quase_la": _month_items("almost_items"),      # última semana: perto do próximo nível ou da graduação (prêmio de campanha: "campanha", prioridade 1)
     "modulo_concluido": _month_items("module_items"),
     "risco_diamante": _month_items("risk_items"),
 }

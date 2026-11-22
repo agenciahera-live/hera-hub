@@ -856,12 +856,24 @@ def partners_panel(request):
                 sc = get_object_or_404(C.SentCheck, pk=_int(request.POST.get("check")) or 0, agency=ag)
                 panel.check_sent(sc, request.user, request.POST.get("result", ""), request.POST.get("note", "").strip())
                 messages.success(request, "Conferência registrada.")
-        except panel.PanelError as e:
+            elif a == "campaign":  # passo 4.5: campanha nova do TikTok
+                from engage import campaigns as campaign_rules
+
+                P = request.POST
+                camp = get_object_or_404(M.Campaign, pk=_int(P.get("campaign")) or 0, agency=ag)
+                campaign_rules.approve(camp, request.user, P.get("decision", ""), mechanic=P.get("mechanic", ""),
+                                       prize_until=_int(P.get("prize_until")), prizes=P.get("prizes", ""),
+                                       recommended_level=P.get("recommended_level", ""), what_to_do=P.get("what_to_do", ""))
+                AuditLog.objects.create(agency=ag, actor=request.user, action=f"campanha_{camp.approval}", target=camp.name[:200])
+                messages.success(request, f"“{camp.name}”: " + ("aprovada. A gestão já pode escolher como foco." if camp.approval == "aprovada"
+                                                                 else "não será oferecida a ninguém."))
+        except (panel.PanelError, ValueError) as e:
             messages.error(request, str(e))
-        anchor = {"decide": "#aprovacoes", "check": "#sorteio"}.get(a, "")
+        anchor = {"decide": "#aprovacoes", "check": "#sorteio", "campaign": "#aprovacoes"}.get(a, "")
         return redirect(reverse("g_panel") + anchor)
     ctx = panel.overview(ag)
-    ctx.update({"nav": "panel", "decisions": dict(C.ApprovalRequest.DECISIONS), "results_choices": C.SentCheck.RESULTS[1:]})
+    ctx.update({"nav": "panel", "decisions": dict(C.ApprovalRequest.DECISIONS), "results_choices": C.SentCheck.RESULTS[1:],
+                "campaign_mechanics": M.Campaign.MECHANICS})
     return render(request, "gestao/panel.html", ctx)
 
 
@@ -1258,6 +1270,10 @@ def _campaign_edit(request):
     P = request.POST
     camp = get_object_or_404(M.Campaign, pk=_int(P.get("id")), agency=request.agency)
     a = P.get("a")
+    if camp.blocked:  # passo 4.5: quem decide antes são as sócias, no painel
+        messages.error(request, f"“{camp.name}” " + ("espera a aprovação das sócias." if camp.waiting_approval
+                                                       else "foi marcada pelas sócias para não ser oferecida."))
+        return
     if a == "focus":
         camp.featured = not camp.featured
         if camp.featured:
@@ -1304,12 +1320,18 @@ def campaigns(request):
     others = [c for c in items if not c.read_at]
     covered = set()
     for c in items:
-        if c.active and not c.do_not_offer:
+        if c.active and not c.do_not_offer and not c.blocked:
             covered |= set(int(t) for t in c.audience_tiers) if c.audience_tiers else set(range(1, 11))
     last_read = max((c.read_at for c in read), default=None)
+    from engage.campaigns import NEAR_PRIZE_POSITIONS, follow_lists
+
     return render(request, "gestao/campaigns.html", {
         "nav": "camp", "read": read, "others": others, "today": today, "can_edit": can_edit, "last_read": last_read,
-        "mechanics": M.Campaign.MECHANICS, "uncovered": [t for t in range(1, 11) if t not in covered]})
+        "mechanics": M.Campaign.MECHANICS, "uncovered": [t for t in range(1, 11) if t not in covered],
+        "lists": follow_lists(request.agency, mine, today),
+        "follow_titles": [("inscricao", "Pode se inscrever e não se inscreveu", "Envie o link e o resumo da regra antes de a campanha fechar."),
+                          ("premio", "Perto de prêmio", f"Na faixa premiada ou até {NEAR_PRIZE_POSITIONS} posições depois dela."),
+                          ("queda", "Pode perder posição", "Caiu na classificação desde a leitura do dia anterior. Avise sem citar quem passou.")]})
 
 
 @staff_required()

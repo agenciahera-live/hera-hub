@@ -69,9 +69,27 @@ class Campaign(AudienceMixin):
                                        help_text="O prêmio não compensa ou não combina com a Hera: some do app e da sugestão para todos.")
     read_at = models.DateTimeField("última leitura", null=True, blank=True)
 
+    # Aprovação das sócias (passo 4.5, decisão da Mariana de 22/11/2026): campanha nova da plataforma lida do Backstage
+    # chega "aguardando" e só aparece (app, ficha, fila, sugestão) depois que uma sócia confere a mecânica, até que posição
+    # premia, os prêmios e o nível recomendado e aprova. As dirigidas pela Agência e as antigas não passam por aqui ("").
+    APPROVALS = [("", "Não precisa"), ("aguardando", "Aguardando as sócias"), ("aprovada", "Aprovada pelas sócias"),
+                 ("recusada", "Não oferecer (sócias)")]
+    approval = models.CharField("aprovação das sócias", max_length=12, choices=APPROVALS, blank=True, default="")
+    approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    approved_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["-start"]
         verbose_name = "campanha"
+
+    @property
+    def waiting_approval(self):
+        return self.approval == "aguardando"
+
+    @property
+    def blocked(self):
+        """Ainda não aprovada ou recusada pelas sócias: não aparece em lugar nenhum fora da gestão."""
+        return self.approval in ("aguardando", "recusada")
 
     def __str__(self):
         return self.name
@@ -101,6 +119,25 @@ class CampaignParticipant(models.Model):
     from_backstage = models.BooleanField("veio da leitura", default=False)
     added_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("campaign", "creator")]
+
+
+class CampaignPosition(models.Model):
+    """Posição do criador na tabela de classificação de uma campanha, pela leitura diária (passo 4.5, decisão da
+    Mariana de 22/11/2026: a gestora vê a posição de cada criador, uma frase por criador, nunca uma tabela ordenada).
+
+    Só a gestão lê (RLS em web/migrations/0013); o criador nunca: no app dele não existe posição nem ranking.
+    Só a leitura (sistema) grava. `prev_position` = a posição do dia anterior de leitura, para "pode perder posição"."""
+
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name="positions")
+    creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="campaign_positions")
+    position = models.PositiveIntegerField("posição")
+    points = models.BigIntegerField("pontos", null=True, blank=True)
+    to_next = models.BigIntegerField("pontos para subir uma posição", null=True, blank=True)
+    prev_position = models.PositiveIntegerField("posição na leitura do dia anterior", null=True, blank=True)
+    read_at = models.DateTimeField("leitura")
 
     class Meta:
         unique_together = [("campaign", "creator")]

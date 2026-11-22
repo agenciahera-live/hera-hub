@@ -148,6 +148,9 @@ class PaginasRenderizadasTests(TestCase):
             r = self.client.get(url)
             self.assertEqual(r.status_code, 200, url)
             texto = _texto_da_pagina(r)
+            if url == "/gestao/campanhas/":  # decisão de 22/11 (passo 4.5): a gestora vê a posição de cada criador, sem ranking
+                self.assertNotRegex(texto.lower(), r"ranking|classificação geral", url)
+                continue
             self.assertNotRegex(texto.lower(), r"ranking|posição|classificação geral", url)
             self.assertNotRegex(texto, r"\dº", url)
         self.client.force_login(self.u_vet)
