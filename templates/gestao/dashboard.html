@@ -27,8 +27,8 @@
   <p><small><b>{{ b.manager }} avisou que não trabalha hoje.</b> {% if b.mine %}Você cobre.{% else %}Cobre: <b>{{ b.cover|default:"as sócias" }}</b>.{% endif %}
     Aqui fica só o que não pode esperar: D10, D12, D14, encerramento, batalha oficial e restrição.
     {% if b.waiting %}Os outros {{ b.waiting }} ite{{ b.waiting|pluralize:"m,ns" }} da carteira passa{{ b.waiting|pluralize:",m" }} para amanhã, na mesma ordem.{% endif %}
-    Quem cobre envia a mensagem, marca <b>Enviei</b> e pode registrar a resposta e uma nota na ficha.</small></p>
-  <div class="table-wrap"><table class="t"><tbody>
+    Quem cobre envia a mensagem, clica em <b>Marcar como enviada</b> e pode registrar a resposta e uma nota na ficha.</small></p>
+  <div class="table-wrap"><table class="t queue"><tbody>
     {% for i in b.items %}{% include "gestao/_queue_row.html" with i=i p=p n=forloop.counter can_defer=False %}
     {% empty %}<tr><td class="empty">Nada que não possa esperar hoje. 🎉</td></tr>{% endfor %}
   </tbody></table></div>
@@ -46,10 +46,10 @@
       {% if urgent_count %}{{ urgent_count }} que não pode{{ urgent_count|pluralize:",m" }} esperar est{{ urgent_count|pluralize:"á,ão" }} com <b>{{ cover_name|default:"as sócias" }}</b>.{% else %}Hoje nenhum item precisa de cobertura.{% endif %}
       <form method="post" action="{% url 'g_absence' %}" style="display:inline;margin-left:8px">{% csrf_token %}<input type="hidden" name="a" value="cancel"><button class="btn btn-sm">Voltei: vou trabalhar hoje</button></form></li></ul>
     {% else %}
-    <p><small>Em ordem: suporte, o que tem data, o que vem do dado e o rodízio. Uma mensagem por dia por criador. Copie a mensagem, abra o grupo, envie e marque <b>Enviei</b>: só o “Enviei” registra o contato e tira o item da fila. Primeiro cai a LIVE, depois o diamante: veja a frequência antes de falar de resultado.</small></p>
+    <p><small>Em ordem: suporte, o que tem data, o que vem do dado e o rodízio. Uma mensagem por dia por criador. Clique em <b>Enviar no WhatsApp</b> (ou copie a mensagem e abra o grupo), envie e clique em <b>Marcar como enviada</b>: só esse botão registra o contato e tira o item da fila. Primeiro cai a LIVE, depois o diamante: veja a frequência antes de falar de resultado.</small></p>
     {% if q.sunday %}<ul class="messages"><li>Domingo: a fila não traz envios. Ficam só os pedidos e as dúvidas.</li></ul>{% endif %}
     {% if q.overflow or q.deferred %}<p><small>{% if q.overflow %}<b>{{ q.overflow }}</b> mensage{{ q.overflow|pluralize:"m,ns" }} fica{{ q.overflow|pluralize:",m" }} para amanhã (teto de {{ cap }} por gestora por dia). {% endif %}{% if q.deferred %}<b>{{ q.deferred }}</b> espera{{ q.deferred|pluralize:",m" }} o próximo dia livre do criador (uma mensagem por dia).{% endif %}</small></p>{% endif %}
-    <div class="table-wrap"><table class="t">
+    <div class="table-wrap"><table class="t queue">
       <tbody>
       {% for i in queue %}
       {% ifchanged i.block %}<tr><td colspan="3"><b>{{ i.block }}. {{ i.block_label }}</b></td></tr>{% endifchanged %}

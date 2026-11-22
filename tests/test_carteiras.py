@@ -218,7 +218,7 @@ class AusenciaTests(CarteirasBase):
         self.client.force_login(self.rec)
         painel = self.client.get("/gestao/")
         for texto in ["Cobertura de hoje · carteira de Anna", "Você cobre.", "@anna.um", "Restrição na conta: dia 1", "@novato.demo",
-                      "nunca abriu LIVE: encerramento até o D14", "Os outros 2 itens da carteira passam para amanhã", "Enviei"]:
+                      "Nunca abriu LIVE: encerramento até o D14", "Os outros 2 itens da carteira passam para amanhã", "Marcar como enviada"]:
             self.assertContains(painel, texto)
         for texto in ["Retorno prometido sobre a agenda", "Como faço para sacar?", "@bia.um", "Adiar com motivo"]:
             self.assertNotContains(painel, texto)
@@ -238,7 +238,7 @@ class AusenciaTests(CarteirasBase):
             self.assertIsNotNone(contato.responded_at)
             self.assertEqual(Reply.objects.get(creator=self.novato).author_id, self.rec.pk)
             self.assertEqual(Note.objects.get(creator=self.novato).author_id, self.rec.pk)
-        self.assertNotContains(self.client.get("/gestao/"), "nunca abriu LIVE: encerramento")  # enviado: saiu da cobertura
+        self.assertNotContains(self.client.get("/gestao/"), "Nunca abriu LIVE: encerramento")  # enviado: saiu da cobertura
         self.assertEqual(self.client.get(ficha_novato).status_code, 200)  # e ela ainda consegue registrar a resposta
         # o que quem cobre NÃO faz
         proibidos = [

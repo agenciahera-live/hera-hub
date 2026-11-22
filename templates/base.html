@@ -18,7 +18,8 @@
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {})); }
 function heraCopy(btn, id) {
   const el = document.getElementById(id);
-  navigator.clipboard.writeText(el.innerText).then(() => { const t = btn.innerText; btn.innerText = 'Copiado ✓'; setTimeout(() => btn.innerText = t, 1500); });
+  // guarda o conteúdo do botão (pode ser só um ícone) e mostra o "copiado" por 1,5 s
+  navigator.clipboard.writeText(el.innerText).then(() => { const t = btn.innerHTML; btn.innerHTML = btn.classList.contains('qicon') ? '✓' : 'Copiado ✓'; setTimeout(() => btn.innerHTML = t, 1500); });
 }
 </script>
 </body>

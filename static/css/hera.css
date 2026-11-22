@@ -1,4 +1,4 @@
-/* Hera Creator Hub — identidade: roxo #5c019b, rosa #fb4fa5, ciano #5de9f3, dourado #f4af55/#ecbb58 */
+﻿/* Hera Creator Hub — identidade: roxo #5c019b, rosa #fb4fa5, ciano #5de9f3, dourado #f4af55/#ecbb58 */
 :root {
   --purple: #5c019b; --purple-600: #4a017d; --purple-100: #f1e6f8;
   --pink: #fb4fa5; --pink-600: #e03a8f; --cyan: #5de9f3; --cyan-ink: #0b7c86;
@@ -246,3 +246,47 @@ details.ask summary { font-weight: 700; color: var(--purple); }
 .month-summary { border-left: 4px solid var(--gold); }
 .summary-list { margin: 0; padding-left: 18px; }
 .summary-list li { margin: 4px 0; }
+
+/* ---------- Fila do dia: cada item é um card (layout de 19/11) ----------
+   cabeçalho (@, etiquetas, ações em ícone) · motivo · mensagem em largura total · rodapé com os botões principais */
+table.t.queue, table.t.queue tbody, table.t.queue tr, table.t.queue tr > td { display: block; }
+table.t.queue tr > td { border-bottom: 0; padding: 6px 2px; }
+table.t.queue tr:hover > td { background: none; }
+table.t.queue tr.qcard { background: var(--surface); border: 1px solid var(--border); border-left-width: 4px;
+  border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 0 0 12px; }
+table.t.queue tr.qcard.prio-1 { border-left-color: var(--bad); }
+table.t.queue tr.qcard.prio-2 { border-left-color: var(--warn); }
+table.t.queue tr.qcard.prio-3 { border-left-color: var(--cyan); }
+table.t.queue tr.qcard > td { padding: 0; }
+.qhead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.qname { font-weight: 700; color: var(--purple); font-size: 15px; margin-right: 2px; }
+@media (prefers-color-scheme: dark) { .qname { color: #d9b8f5; } }
+.qtag { font-size: 12px; line-height: 1.4; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
+.qtag.red { background: #fcebeb; color: #791f1f; }
+.qtag.green { background: #e6f6ec; color: #1b6b3a; }
+.qtag.amber { background: #fdf1dc; color: #8a5a12; }
+.qicons { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.qicon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.qicon:hover { background: var(--surface-2); }
+.qicon svg, .qfoot svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+details.qmore { position: relative; }
+details.qmore > summary { list-style: none; }
+details.qmore > summary::-webkit-details-marker { display: none; }
+.qpop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; width: 260px; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; box-shadow: var(--shadow); }
+.qpop textarea { min-height: 60px; }
+.qreason { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+pre.qmsg { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.6; background: var(--surface-2);
+  border-radius: 8px; padding: 10px 12px; margin: 10px 0 12px; width: 100%; box-sizing: border-box; color: var(--text); }
+.qfoot { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.qmain { display: inline-flex; gap: 8px; align-items: center; }
+.qfoot .btn { font-size: 14px; padding: 8px 16px; }
+.qfoot .qsent { background: var(--surface); border: 1px solid var(--border); }
+.qfoot .qwa { font-weight: 700; }
+@media (max-width: 600px) {
+  .qicons { margin-left: 0; }
+  .qfoot, .qmain { flex-direction: column; align-items: stretch; width: 100%; }
+  .qfoot .btn, .qfoot details.qmore, .qfoot details.qmore > summary { width: 100%; }
+  .qpop { left: 0; right: auto; width: 100%; box-sizing: border-box; }
+}

@@ -1,6 +1,7 @@
 """Montagem das telas: resumo do streamer e fila de ação da gestão."""
 import datetime as dt
 import hashlib
+import re
 from dataclasses import dataclass, field
 
 from django.db.models import Max, Sum
@@ -214,6 +215,16 @@ class QueueItem:
     def block_label(self):
         return BLOCKS[self.block]
 
+    # só para a tela (card da fila, 19/11): o título "D7 · motivo" vira a etiqueta "D7" e a linha do motivo
+    @property
+    def day_tag(self):
+        m = re.match(r"^(D\d+)\s*·\s*", self.title or "")
+        return m.group(1) if m else ""
+
+    @property
+    def reason(self):
+        return re.sub(r"^D\d+\s*·\s*", "", self.title or "")
+
 
 class Queue(list):
     """Lista de itens da fila, com o que ficou de fora hoje."""
@@ -233,17 +244,23 @@ def fill_queue_messages(items, agency, **extra):
     `extra` são variáveis que só a tela conhece (ex.: link_app, o endereço do app)."""
     from engage.services import pick_variant, render_message, templates_by_code
 
+    from engage.services import whatsapp_link
+
     tpls = templates_by_code(agency)
-    groups = dict(CreatorPrivate.objects.filter(creator_id__in={i.creator.pk for i in items})
-                  .values_list("creator_id", "whatsapp_group_url"))
+    private = {cid: (group, phone) for cid, group, phone in CreatorPrivate.objects.filter(creator_id__in={i.creator.pk for i in items})
+               .values_list("creator_id", "whatsapp_group_url", "whatsapp")}
     for i in items:
-        i.group_url = groups.get(i.creator.pk, "")
+        i.group_url, phone = private.get(i.creator.pk, ("", ""))
         t = pick_variant(tpls.get(i.template, []), i.creator)  # variação da trilha e do "faz batalha" do criador
         if t is not None:
             replace = i.vars.get("_replace", {})  # trechos entre colchetes que o item já conhece (ex.: "@[oponente]")
             i.text = render_message(t.body, i.creator, **{**extra, **{k: v for k, v in i.vars.items() if k != "_replace"}})
             for old, new in replace.items():
                 i.text = i.text.replace(old, new)
+            # pedido da Mariana de 19/11: com o número do criador, "Enviar no WhatsApp" já abre a conversa com a mensagem
+            # escrita (wa.me). Sem número, continua o caminho de antes (grupo individual ou WhatsApp sem número).
+            # Abrir não registra contato: só "Marcar como enviada" registra.
+            i.wa_url = whatsapp_link(phone, i.text) if (phone or "").strip() and re.sub(r"\D", "", phone) else ""
     return items
 
 

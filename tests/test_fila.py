@@ -113,3 +113,34 @@ class EnvieiTiraDaFilaTests(TestCase):
         item = next(i for i in itens if i.code == "regua_4")
         self.assertTrue(item.text)
         self.assertEqual(item.group_url, "")
+
+    def test_enviar_no_whatsapp_com_numero_abre_a_conversa_com_a_mensagem(self):
+        """Card novo de 19/11: com o número do criador, o botão abre wa.me com a mensagem escrita; sem número, o caminho
+        de antes (g_open: grupo individual ou WhatsApp sem número). Abrir não registra contato."""
+        from urllib.parse import quote
+
+        from crm.models import CreatorPrivate
+
+        with system_context():
+            itens = _fila(self.ag, self.c, today=dt.date(2026, 9, 14))
+            S.fill_queue_messages(itens, self.ag)
+        sem = next(i for i in itens if i.code == "regua_4")
+        self.assertEqual(getattr(sem, "wa_url", ""), "")
+        with system_context():
+            CreatorPrivate.objects.update_or_create(creator=self.c, defaults={"whatsapp": "(11) 98888-7777"})
+            itens = _fila(self.ag, self.c, today=dt.date(2026, 9, 14))
+            S.fill_queue_messages(itens, self.ag)
+        com = next(i for i in itens if i.code == "regua_4")
+        self.assertTrue(com.wa_url.startswith("https://wa.me/5511988887777?text="))
+        self.assertIn(quote(com.text), com.wa_url)
+        # o card do Dashboard (montado direto, para não depender do dia da semana: domingo a fila não traz envios)
+        from django.template.loader import render_to_string
+
+        html = render_to_string("gestao/_queue_row.html", {"i": com, "p": "q", "n": 1, "can_defer": True})
+        for texto in ['class="qmsg"', 'aria-label="Copiar mensagem"', 'aria-label="Ficha"', 'aria-label="Adiar"',
+                      "Marcar como enviada", "Enviar no WhatsApp", 'href="https://wa.me/5511988887777?text=']:
+            self.assertIn(texto, html)
+        self.assertNotIn("ver mensagem", html)
+        self.assertNotIn("{#", html)  # nenhuma anotação interna aparece como texto
+        sem_html = render_to_string("gestao/_queue_row.html", {"i": sem, "p": "q", "n": 2, "can_defer": True})
+        self.assertIn(reverse("g_open", args=[self.c.pk, "REG-04"]), sem_html)  # sem número: o caminho de antes
