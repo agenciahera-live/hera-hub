@@ -636,9 +636,44 @@ class ReferralBonus(models.Model):
     amount = models.DecimalField("bônus (R$)", max_digits=8, decimal_places=2, default=0)
     reason = models.CharField("por que não gerou bônus", max_length=200, blank=True)
     computed_at = models.DateTimeField(default=timezone.now)
-    paid_at = models.DateField("pago em", null=True, blank=True)  # parte 2 (Pix e pagamento)
+    paid_at = models.DateField("pago em", null=True, blank=True)
     paid_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    receipt_at = models.DateField("recibo assinado recebido em", null=True, blank=True)
+    receipt_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
     class Meta:
         unique_together = [("referral", "kind")]
         ordering = ["month", "kind"]
+
+
+class PixInfo(models.Model):
+    """Dados para receber por Pix (Indique e ganhe, passo 4.7; premiações, passo 4.6). Decisão da Mariana de 22/11/2026:
+    ficam no app. Só o próprio criador grava; só ele, as sócias e o financeiro leem (RLS em web/migrations/0015).
+    A gestora não vê. Apagados na anonimização (LGPD)."""
+
+    KEY_TYPES = [("cpf", "CPF"), ("email", "E-mail"), ("telefone", "Celular"), ("aleatoria", "Chave aleatória")]
+    creator = models.OneToOneField(Creator, on_delete=models.CASCADE, related_name="pix")
+    full_name = models.CharField("nome completo (como no CPF)", max_length=160)
+    cpf = models.CharField("CPF (só números)", max_length=11)
+    key_type = models.CharField("tipo de chave Pix", max_length=10, choices=KEY_TYPES)
+    key = models.CharField("chave Pix", max_length=140)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def cpf_masked(self):
+        return f"***.{self.cpf[3:6]}.***-{self.cpf[-2:]}" if len(self.cpf) == 11 else "***"
+
+    @property
+    def cpf_display(self):
+        c = self.cpf
+        return f"{c[:3]}.{c[3:6]}.{c[6:9]}-{c[9:]}" if len(c) == 11 else c
+
+    @property
+    def key_masked(self):
+        k = self.key
+        if self.key_type == "cpf":
+            return self.cpf_masked
+        if self.key_type == "email" and "@" in k:
+            user, dom = k.split("@", 1)
+            return f"{user[:2]}***@{dom}"
+        return f"***{k[-4:]}" if len(k) > 4 else "***"

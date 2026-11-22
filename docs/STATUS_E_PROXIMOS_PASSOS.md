@@ -691,7 +691,7 @@ Pedido da Mariana de 22/11, antes do 4.6, com o regulamento de novembro (`HERA\c
 
 **Como testar:** `tests/test_indique_e_ganhe.py` (8 testes). **Conferência (22/11):** 315 testes passando e 2 pulados (os mesmos). Migrações aplicadas no banco local. Não aberto no navegador.
 
-**Parte 2 (a fazer, com aprovação):** cadastro do Pix (CPF e chave) no app, "Pago em" pelo financeiro, recibo preenchido e "recibo recebido".
+**Parte 2 (aprovada em 22/11, em andamento):** feito só a base: tabela `PixInfo` (nome, CPF, tipo e chave; só o próprio criador grava; leem ele, sócias e financeiro; RLS em `web/migrations/0015_rls_pix.py`), campos `receipt_at`/`receipt_by` no bônus, razão social e CNPJ em Configurações da agência (`core/0015`), e o Pix apagado na anonimização. **Falta:** formulário do Pix na tela Indique e ganhe (com validação do CPF e dados parcialmente escondidos), "Pago em" e "Recibo recebido" na tela Indicações (com aviso ao criador), página do recibo preenchido para imprimir, testes (inclusive isolamento do Pix) e conferência. Ainda não rodei os testes com essa base.
 
 **Decisões pequenas do 4.7 (parte 1):**
 

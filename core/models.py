@@ -80,6 +80,8 @@ class AgencySettings(models.Model):
         help_text="Se a pessoa indicada entrar depois deste dia, o Mês 1 passa a ser o mês seguinte.")
     referral_m2_min_diamonds = models.PositiveIntegerField("Indique e ganhe: diamantes mínimos no Mês 2", default=10_000)
     referral_m3_min_diamonds = models.PositiveIntegerField("Indique e ganhe: diamantes mínimos no Mês 3", default=25_000)
+    legal_name = models.CharField("razão social (recibos)", max_length=160, blank=True, default="HERA AGÊNCIA E MARKETING DIGITAL")
+    cnpj = models.CharField("CNPJ (recibos)", max_length=20, blank=True)
     referral_graduation_bonus = models.DecimalField(
         "Indique e ganhe: bônus único de graduação (R$)", max_digits=8, decimal_places=2, default=50,
         help_text="A pessoa indicada graduou (a mesma regra da graduação acima).")

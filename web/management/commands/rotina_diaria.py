@@ -44,7 +44,10 @@ class Command(BaseCommand):
                     c.status = CreatorStatus.ANONIMIZADO
                     c.user = None
                     c.save()
-                    CreatorPrivate.objects.filter(creator=c).update(whatsapp="", email="")
+                    CreatorPrivate.objects.filter(creator=c).update(whatsapp="", email="", referral_link="")
+                    from crm.models import PixInfo
+
+                    PixInfo.objects.filter(creator=c).delete()  # dados do Pix (passo 4.7) saem na anonimização
                     c.notes.all().delete()
                     plan_rules.forget(c)  # Meu plano: dias e objetivos escritos pelo criador
                     AuditLog.objects.create(agency=ag, action="anonimizacao_lgpd", target=f"creator {c.pk}")
