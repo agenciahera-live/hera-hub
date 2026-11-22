@@ -257,10 +257,11 @@ def fill_queue_messages(items, agency, **extra):
             i.text = render_message(t.body, i.creator, **{**extra, **{k: v for k, v in i.vars.items() if k != "_replace"}})
             for old, new in replace.items():
                 i.text = i.text.replace(old, new)
-            # pedido da Mariana de 19/11: com o número do criador, "Enviar no WhatsApp" já abre a conversa com a mensagem
-            # escrita (wa.me). Sem número, continua o caminho de antes (grupo individual ou WhatsApp sem número).
-            # Abrir não registra contato: só "Marcar como enviada" registra.
-            i.wa_url = whatsapp_link(phone, i.text) if (phone or "").strip() and re.sub(r"\D", "", phone) else ""
+            # "Enviar no WhatsApp" (decisão da Mariana de 22/11): o grupo individual vem primeiro. Sem link do grupo e com o
+            # número do criador, abre a conversa privada com a mensagem escrita (wa.me). Sem os dois, o caminho de antes
+            # (g_open: WhatsApp com a mensagem, sem número). Abrir não registra contato: só "Marcar como enviada" registra.
+            has_phone = bool(re.sub(r"\D", "", phone or ""))
+            i.wa_url = whatsapp_link(phone, i.text) if has_phone and not i.group_url else ""
     return items
 
 

@@ -144,3 +144,13 @@ class EnvieiTiraDaFilaTests(TestCase):
         self.assertNotIn("{#", html)  # nenhuma anotação interna aparece como texto
         sem_html = render_to_string("gestao/_queue_row.html", {"i": sem, "p": "q", "n": 2, "can_defer": True})
         self.assertIn(reverse("g_open", args=[self.c.pk, "REG-04"]), sem_html)  # sem número: o caminho de antes
+        # decisão de 22/11: com o link do grupo cadastrado, o grupo vem primeiro, mesmo havendo número
+        with system_context():
+            CreatorPrivate.objects.filter(creator=self.c).update(whatsapp_group_url="https://chat.whatsapp.com/grupo-demo")
+            itens = _fila(self.ag, self.c, today=dt.date(2026, 9, 14))
+            S.fill_queue_messages(itens, self.ag)
+        grupo = next(i for i in itens if i.code == "regua_4")
+        self.assertEqual(grupo.wa_url, "")
+        grupo_html = render_to_string("gestao/_queue_row.html", {"i": grupo, "p": "q", "n": 3, "can_defer": True})
+        self.assertIn(reverse("g_open", args=[self.c.pk, "REG-04"]), grupo_html)  # g_open leva ao grupo individual
+        self.assertNotIn("wa.me/5511988887777", grupo_html)
