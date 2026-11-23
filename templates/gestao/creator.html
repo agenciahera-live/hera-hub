@@ -196,6 +196,27 @@
       <button class="btn btn-sm btn-purple">Marcar sinal</button></form>{% endif %}
     <p style="margin-top:6px"><small>Playbook: um sinal, anotar e observar. Dois ou mais, conversa em até 48 horas e aviso às sócias (a fila e o sininho fazem isso sozinhos).</small></p>
   </section>{% endif %}
+  <section class="card" id="premios"><h2>Prêmios <small>premiações de campanha</small></h2>
+    <ul class="list">{% for a in awards %}<li><b>{{ a.title }}</b> · {{ a.where }} · {{ a.prize_label }}
+      <span class="pill {% if a.status == 'entregue' %}cyan{% elif a.status == 'a_entregar' %}gold{% elif a.status == 'recusada' %}gray{% else %}pink{% endif %}">{{ a.status_label }}</span>
+      <br><small class="muted">Ganhou em {{ a.won_on|date:"d/m/Y" }}{% if a.delivered_on %} · {% if a.kind == 'pix' %}Pix pago em{% else %}entregue na LIVE de{% endif %} {{ a.delivered_on|date:"d/m/Y" }}{% endif %}{% if a.approval.decision_note %} · sócias: “{{ a.approval.decision_note }}”{% endif %}{% if a.note %} · {{ a.note }}{% endif %}</small>
+      {% if can_edit and a.kind == 'diamantes' and a.status == 'a_entregar' %}<form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:6px;margin-top:4px">{% csrf_token %}<input type="hidden" name="a" value="award_delivered"><input type="hidden" name="award" value="{{ a.pk }}">
+        <label style="margin:0"><small>Entregue na LIVE de</small></label><input type="date" name="on" value="{{ today|date:'Y-m-d' }}"><button class="btn btn-sm btn-purple">Entregue</button></form>{% endif %}
+      {% if a.kind == 'pix' and a.status == 'a_entregar' %}<br><small>O financeiro paga e marca em Premiações.</small>{% endif %}
+    </li>{% empty %}<li class="empty">Nenhum prêmio registrado.</li>{% endfor %}</ul>
+    {% if can_edit %}<details style="margin-top:8px"><summary><small>Registrar prêmio que o criador ganhou</small></summary>
+      <form method="post" action="{% url 'g_creator_action' c.pk %}" style="margin-top:6px" x-data="{k: 'diamantes'}">{% csrf_token %}<input type="hidden" name="a" value="award_add">
+        <label>Campanha</label><select name="campaign"><option value="">— outra (escreva abaixo) —</option>{% for cp in award_campaigns %}<option value="{{ cp.pk }}">{{ cp.name }} ({{ cp.start|date:"d/m" }}–{{ cp.end|date:"d/m" }})</option>{% endfor %}</select>
+        <input type="text" name="campaign_name" maxlength="120" placeholder="Nome da campanha, se não está na lista" style="margin-top:4px">
+        <label>O que ganhou</label><input type="text" name="title" maxlength="160" placeholder="Ex.: 1º lugar">
+        <label>Tipo</label><select name="kind" x-model="k">{% for v, l in award_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+        <div x-show="k === 'diamantes'"><label>Diamantes</label><input type="number" name="diamonds" min="1"></div>
+        <div x-show="k === 'pix'" x-cloak><label>Valor do Pix (R$)</label><input type="text" name="value" inputmode="decimal" placeholder="200,00"></div>
+        <label>Ganhou em</label><input type="date" name="won_on" value="{{ today|date:'Y-m-d' }}">
+        <label>Observação (opcional)</label><input type="text" name="note" maxlength="240">
+        <button class="btn btn-sm btn-purple" style="margin-top:6px">Registrar e pedir aprovação das sócias</button></form></details>{% endif %}
+    <p style="margin-top:6px"><small>Todo prêmio passa pelas sócias. Diamantes: entregue na LIVE e marque aqui. Pix: o financeiro paga e marca em Premiações; sem Pix cadastrado no app, a fila traz a mensagem com o formulário da Hera.</small></p>
+  </section>
   {% with p=creator_plan %}<section class="card"><h2>Meu plano <small>escolhido pelo criador</small></h2>
     {% if p.has_plan %}
     <p style="margin:0 0 6px">Dias de LIVE: {% if p.days_label %}<b>{{ p.days_label }}</b>{% else %}<small>não escolheu</small>{% endif %}</p>

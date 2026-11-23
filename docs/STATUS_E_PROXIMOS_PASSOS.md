@@ -562,7 +562,7 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.3 Itens do mês na fila | Resumo do mês, "Quase lá", nível novo, módulo concluído, sinais de risco dos Diamante | ✅ 19/11, aguardando aprovação; textos provisórios em revisão pela Mariana (detalhes abaixo) |
 | 4.4 Batalhas | Agenda, sugestão de oponente por regra, mural de vagas, rodada do dia 8 | Decisão da Mariana de 19/11: **fica como está** (passo 3.3). Só mudou o pedido: o criador não escolhe mais se o oponente é da Hera ou de outra agência (campo `other_agency_ok` fica vazio; quem escolhe o oponente é a gestão) |
 | 4.5 Campanhas | Posição na leitura (só gestão), 3 listas, acompanhamento na fila, aprovação das sócias das campanhas novas da plataforma | ✅ 22/11, aprovado e enviado ao GitHub (commit `16ec373`; detalhes abaixo) |
-| 4.6 Premiações | "Solicitar premiação", Pix só para o financeiro, aprovação das sócias | A fazer (Pix e arquivos: decisão de armazenamento) |
+| 4.6 Premiações | Registro na ficha, aprovação das sócias, entrega (diamantes na LIVE ou Pix com recibo) e fila | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
 | 4.7 Indique e ganhe | Link, indicações, quanto ganhou | ✅ 22/11, partes 1 (registro, validação, cálculo e telas) e 2 (Pix, "pago" e recibo), aguardando aprovação (detalhes abaixo) |
 
 ### Passo 4.1, o que mudou (Painel das sócias)
@@ -677,6 +677,30 @@ Decisões da Mariana de 22/11: **1A** a gestora vê a posição do criador (só 
 | Quem ganhou não recebe item no fim | A mensagem de parabéns já pede o Pix: entra no passo 4.6 |
 | "Duas olhadas por semana" das campanhas com ranking diário ficou de fora | A leitura não diz qual campanha tem ranking diário; a queda de posição cobre o meio do caminho |
 
+### Passo 4.6, o que mudou (Premiações)
+
+Decisões da Mariana de 23/11: **o criador não pede prêmio** ("a gente envia quando ela ganha"; saiu o botão "Solicitar premiação" da visão); **a gestora ou uma sócia registra na ficha** os prêmios e as datas; **1A** sem Pix no app, a gestora manda a PIX-01 com o formulário Google, como hoje; **2A** todo prêmio passa pelas sócias; **3B** prêmio em Pix tem recibo preenchido (texto provisório); **4** a PIX-01 fica como está. Regras em `crm/awards.py`.
+
+- **Ficha › Prêmios:** "Registrar prêmio que o criador ganhou" (campanha da lista ou escrita, o que ganhou, diamantes na LIVE ou Pix, quantidade ou valor, data e observação). O registro vira um pedido "Premiação" no **Painel das sócias › Aprovações** (aviso no sininho das sócias) e uma nota na linha do tempo. A lista mostra cada prêmio com a situação (aguardando as sócias, não aprovada, a entregar, entregue) e, para diamantes aprovados, "Entregue na LIVE de [data]".
+- **Gestão › 🏅 Premiações** (`/gestao/premiacoes/`): esperando as sócias, a entregar, entregues e o custo por campanha (Pix em R$, diamantes em quantidade, sem converter em reais). **Só sócias e financeiro:** os dados do Pix (do app, ou "dados no formulário Google"), "Pago" com a data, "Recibo para imprimir" e "Recibo recebido".
+- **Recibo do prêmio em Pix** (`/gestao/premiacoes/<id>/recibo/`): mesmo formato do recibo do Indique e ganhe, com "referente à premiação da campanha" e a declaração de prêmio de campanha eventual. **Texto provisório** até a revisão da Mariana.
+- **Fila do dia** (tipo `premiacao`, bloco 2): PIX-01 quando o Pix foi aprovado e o criador não tem Pix no app (prêmio e campanha preenchidos); "Entregar prêmio" (tarefa) para diamantes aprovados; PIX-02 até 7 dias depois do pagamento, com o valor e a campanha. Cada um sai com o "Enviei" ou com a entrega.
+- **Painel das sócias › Premiações e indicações:** esperando aprovação, a entregar e o custo por campanha desde o mês passado.
+- O criador não vê nada disso no app (as "Conquistas e prêmios" do app são da etapa 5).
+
+**Segurança:** `crm_award` (lê a gestão que enxerga o criador, inclusive o financeiro; o criador nunca; registra quem edita o criador; atualiza quem edita e o financeiro; apaga só as sócias; a aprovação é o pedido às sócias, que só elas decidem). Migração `web/0016_rls_premiacoes.py`. **Corrigido na conferência:** o "aguardando as sócias" da fila (itens de encerramento) passou a olhar só os pedidos de manter ou encerrar, senão um prêmio pendente aparecia ali.
+
+**Como testar:** `tests/test_premiacoes.py` (6 testes). **Conferência (23/11):** 324 testes passando e 1 pulado (Playwright não instalado). Migrações aplicadas no banco local. Não aberto no navegador.
+
+**Decisões pequenas do 4.6:**
+
+| Decisão | Motivo |
+| --- | --- |
+| Com Pix no app, a fila não traz a PIX-01 | A PIX-01 pede os dados pelo formulário; quem já tem o Pix no app não precisa. A PIX-02 vem depois do pagamento do mesmo jeito |
+| Diamantes não têm recibo | O prêmio é entregue na LIVE; o recibo da decisão 3B é do Pix |
+| A nota "Pix pago" na linha do tempo é gravada pelo sistema, com o nome de quem marcou | O financeiro paga, mas não edita a ficha do criador |
+| A campanha pode ser escrita à mão | Campanha antiga ou que não está no app (ex.: campanha interna de outro mês) |
+
 ### Passo 4.7, parte 1, o que mudou (Indique e ganhe)
 
 Pedido da Mariana de 22/11, antes do 4.6, com o regulamento de novembro (`HERA\creator-hub\Regulamento - Indique e ganhe hera - Nov.pdf`). Decisões de 22/11: **1A** a indicação vem do "indicado por" da ficha, preenchido no dia da entrada; **2A** o Pix fica no app, visível só para o financeiro e as sócias (parte 2, vale também para o 4.6); **3A** o app gera o recibo preenchido, o criador assina fora e o financeiro marca "recibo recebido" (parte 2); **4 ok** nas interpretações: horas **e** dias da faixa; "indicada ativa" = ainda na Hera; graduação = a mesma regra do app; meses que fecharam antes da saída continuam devidos; as tabelas aparecem no app como "regra do programa". Regras em `crm/referrals.py`.
@@ -755,6 +779,7 @@ Três proteções: os dois comandos se recusam a rodar em produção; o app não
   3. Cadência depois do D15 com a versão para quem já é da casa: NR-24H-CASA, NR-2D-CASA e NR-3D-CASA (a fila escolhe sozinha pela fase; o +5 dias é o mesmo para todos).
   4. Mural de batalhas continua sem o bloco de destaques.
 - [x] **Decisão 5 (dúvidas frequentes do roteiro), 18/11:** entram **nas duas**. Na biblioteca de mensagens já entraram 23 respostas (códigos DUV-*, etapa "Dúvidas frequentes", migração `engage/0020`), com os textos revisados; a graduação saiu e "O que é uma batalha oficial?" é a própria BAT-PEDIDO. O quadro de graduação do Meu progresso **fica** para os testes iniciais.
+- [ ] **Recibo do prêmio em Pix (passo 4.6):** texto provisório na página do recibo (`templates/gestao/award_receipt.html`): "referente à premiação da campanha" e "Declaro que esse valor é um prêmio de campanha, eventual e ligado ao resultado da campanha, e que não constitui salário nem gera vínculo de emprego com a Hera". Revisar (e, se quiser, passar pela revisão jurídica). Preencher o CNPJ em Configurações da agência.
 - [ ] **Dicas do resumo do mês no app:** 13 dicas com regra, em `HERA\creator-hub\Dicas do resumo do mes no app (para revisar).txt`, com 3 perguntas.
 - [ ] **Mensagens do passo 4.3 (itens do mês):** 6 textos provisórios em `HERA\creator-hub\Mensagens do passo 4.3 - itens do mes (para revisar).txt`, com 2 perguntas (textos e o número de diamantes no "Quase lá").
 - [ ] **Roteiro do teste do app (passo 3.7):** `HERA\creator-hub\Roteiro do teste do app - passo 3.7 (para revisar).txt`, com 4 perguntas.

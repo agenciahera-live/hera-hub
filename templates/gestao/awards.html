@@ -1,0 +1,35 @@
+{% extends "gestao/base.html" %}{% load hera %}
+{% block content %}
+<h1>Premiações</h1>
+<p><small>O criador não pede prêmio: a Hera envia quando ele ganha. A gestora ou uma sócia registra na ficha do criador (quadro Prêmios), as sócias aprovam no Painel e depois vem a entrega: diamantes na LIVE (marcada na ficha) ou Pix (o financeiro paga e marca aqui, com o recibo).</small></p>
+
+<section class="card"><h2>Esperando as sócias <span class="pill {% if waiting %}pink{% endif %}">{{ waiting|length }}</span></h2>
+  <ul class="list">{% for a in waiting %}<li><a href="{% url 'g_creator' a.creator.pk %}#premios"><b>@{{ a.creator.username }}</b></a> · {{ a.title }} · {{ a.where }} · {{ a.prize_label }}<br><small class="muted">Ganhou em {{ a.won_on|date:"d/m" }} · registrado em {{ a.registered_at|sp:"%d/%m" }}</small></li>{% empty %}<li class="empty">Nada esperando.</li>{% endfor %}</ul>
+  <p><small>As sócias decidem em Painel das sócias › Aprovações.</small></p>
+</section>
+
+<section class="card" id="entregar"><h2>A entregar <span class="pill {% if to_deliver %}gold{% endif %}">{{ to_deliver|length }}</span></h2>
+  {% if to_deliver %}<div class="table-wrap"><table class="t"><thead><tr><th>Criador</th><th>Prêmio</th>{% if sees_money %}<th>Pix</th>{% endif %}<th>Entrega</th></tr></thead><tbody>
+  {% for a in to_deliver %}<tr id="a{{ a.pk }}"><td><a href="{% url 'g_creator' a.creator.pk %}#premios"><b>@{{ a.creator.username }}</b></a></td>
+    <td>{{ a.prize_label }}<br><small class="muted">{{ a.title }} · {{ a.where }} · ganhou em {{ a.won_on|date:"d/m" }}</small></td>
+    {% if sees_money %}<td><small>{% if a.kind == 'pix' %}{% if a.pix %}{{ a.pix.full_name }}<br>CPF {{ a.pix.cpf_display }}<br>{{ a.pix.get_key_type_display }}: <span class="num">{{ a.pix.key }}</span>{% else %}<span class="pill gold">dados no formulário Google</span>{% endif %}{% else %}—{% endif %}</small></td>{% endif %}
+    <td><small>{% if a.kind == 'pix' %}{% if sees_money %}<form method="post" class="row" style="gap:4px">{% csrf_token %}<input type="hidden" name="a" value="paid"><input type="hidden" name="award" value="{{ a.pk }}"><input type="date" name="on" value="{{ today|date:'Y-m-d' }}"><button class="btn btn-sm btn-purple">Pago</button></form>{% else %}O financeiro paga e marca aqui.{% endif %}
+      {% else %}Entregue na LIVE e marque na <a href="{% url 'g_creator' a.creator.pk %}#premios">ficha</a>.{% endif %}</small></td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty">Nada a entregar.</p>{% endif %}
+</section>
+
+<section class="card"><h2>Entregues e não aprovados <small>últimos</small></h2>
+  <ul class="list">{% for a in done %}<li id="a{{ a.pk }}"><b>@{{ a.creator.username }}</b> · {{ a.prize_label }} · {{ a.where }} <span class="pill {% if a.status == 'entregue' %}cyan{% else %}gray{% endif %}">{{ a.status_label }}</span>
+    <br><small class="muted">{% if a.delivered_on %}{% if a.kind == 'pix' %}Pix pago em{% else %}LIVE de{% endif %} {{ a.delivered_on|date:"d/m/Y" }}{% endif %}{% if a.approval.decision_note %} · sócias: “{{ a.approval.decision_note }}”{% endif %}</small>
+    {% if sees_money and a.kind == 'pix' and a.status == 'entregue' %}<br><small><a href="{% url 'g_award_receipt' a.pk %}" target="_blank" rel="noopener">Recibo para imprimir ↗</a>
+      {% if a.receipt_at %} · ✅ recibo recebido em {{ a.receipt_at|date:"d/m" }}{% else %}<form method="post" class="row" style="gap:4px;display:inline-flex;margin-left:6px">{% csrf_token %}<input type="hidden" name="a" value="receipt"><input type="hidden" name="award" value="{{ a.pk }}"><input type="date" name="on" value="{{ today|date:'Y-m-d' }}"><button class="btn btn-sm">Recibo recebido</button></form>{% endif %}</small>{% endif %}
+  </li>{% empty %}<li class="empty">Nenhum.</li>{% endfor %}</ul>
+</section>
+
+<section class="card"><h2>Custo por campanha <small>prêmios aprovados desde {{ costs_since|date:"d/m/Y" }}</small></h2>
+  {% if costs %}<div class="table-wrap"><table class="t"><thead><tr><th>Campanha</th><th>Prêmios</th><th>Pix</th><th>Diamantes na LIVE</th></tr></thead><tbody>
+  {% for x in costs %}<tr><td>{{ x.name }}</td><td>{{ x.n }}</td><td>R$ {{ x.pix|floatformat:"-2" }}</td><td>{{ x.diamonds|intbr }} 💎</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty">Nenhum prêmio aprovado no período.</p>{% endif %}
+  <p><small>Diamantes ficam em quantidade: a compra de moedas está fora do app (decisão de 19/11).</small></p>
+</section>
+{% endblock %}

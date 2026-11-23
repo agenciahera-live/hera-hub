@@ -184,6 +184,9 @@
   <p><b>Indique e ganhe:</b> {{ referrals.pending }} indicaç{{ referrals.pending|pluralize:"ão,ões" }} para validar · {{ referrals.valid }} válida{{ referrals.valid|pluralize }} ·
     bônus de {{ referrals.month|date:"m/Y" }}: <b>R$ {{ referrals.total|floatformat:"-2" }}</b> para {{ referrals.people }} pessoa{{ referrals.people|pluralize }}.
     <a href="{% url 'g_referrals' %}">Abrir Indicações ›</a></p>
-  <p class="empty">Premiações entram no passo 4.6.</p>
+  <p><b>Premiações:</b> {{ prizes.waiting }} esperando aprovação · {{ prizes.to_deliver }} a entregar.
+    <a href="{% url 'g_awards' %}">Abrir Premiações ›</a></p>
+  {% if prizes.costs %}<div class="table-wrap"><table class="t"><thead><tr><th>Campanha (desde {{ prizes.since|date:"d/m" }})</th><th>Prêmios</th><th>Pix</th><th>Diamantes na LIVE</th></tr></thead><tbody>
+    {% for x in prizes.costs %}<tr><td>{{ x.name }}</td><td>{{ x.n }}</td><td>R$ {{ x.pix|floatformat:"-2" }}</td><td>{{ x.diamonds|intbr }} 💎</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 </section>
 {% endblock %}

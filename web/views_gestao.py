@@ -297,6 +297,10 @@ def creator_detail(request, pk):
 
         ctx["risk"] = month_items.risk_for(c, ctx["week"], ctx["tier"], diamond_min_tier(c.agency), snaps)
         ctx["risk_kinds"] = C.RiskSignal.KINDS
+        # premiações (passo 4.6): o que ganhou, a aprovação das sócias e a entrega
+        ctx["awards"] = list(c.awards.select_related("approval", "campaign", "delivered_by"))
+        ctx["award_kinds"] = C.Award.KINDS
+        ctx["award_campaigns"] = M.Campaign.objects.filter(agency=c.agency, end__gte=today - dt.timedelta(days=60)).order_by("-end")[:40]
         # resumo do mês no app: o que o criador vê e a dica da Hera escrita pela gestora
         from . import month_summary
 
@@ -578,6 +582,25 @@ def creator_action(request, pk):
             messages.success(request, f"Sinal registrado: {dict(C.RiskSignal.KINDS)[kind].lower()}. Ele vale por {C.RiskSignal.VALID_DAYS} dias.")
         else:
             messages.error(request, "Escolha o sinal na lista.")
+    elif a in ("award_add", "award_delivered"):  # premiações (passo 4.6; regras em crm/awards.py)
+        from crm import awards
+
+        P = request.POST
+        try:
+            if a == "award_add":
+                camp = M.Campaign.objects.filter(agency=c.agency, pk=_int(P.get("campaign")) or 0).first()
+                aw = awards.register(c, request.user, P.get("title", ""), P.get("kind", ""), _date(P.get("won_on")), campaign=camp,
+                                     campaign_name=P.get("campaign_name", ""), diamonds=_int(P.get("diamonds")), value=P.get("value", ""),
+                                     note=P.get("note", ""))
+                C.Note.objects.create(creator=c, author=request.user, body=f"Premiação registrada: {aw.title} · {aw.where} · {aw.prize_label}. Esperando as sócias.")
+                messages.success(request, "Prêmio registrado. Ele vai para a aprovação das sócias no painel.")
+            else:
+                aw = get_object_or_404(C.Award, pk=_int(P.get("award")) or 0, creator=c, kind="diamantes")
+                awards.deliver(aw, request.user, _date(P.get("on")))
+                messages.success(request, "Entrega registrada.")
+        except awards.AwardError as e:
+            messages.error(request, str(e))
+        back = reverse("g_creator", args=[c.pk]) + "#premios"
     elif a == "reminder_add":
         due, text = _date(request.POST.get("due_date")), request.POST.get("text", "").strip()[:240]
         if due and text:
@@ -1420,6 +1443,55 @@ def referral_receipt(request, referrer, month):
     except referrals.ReferralError:
         raise Http404 from None
     return render(request, "gestao/referral_receipt.html", ctx)
+
+
+# ================================================================== premiações (passo 4.6)
+@staff_required()
+def awards_view(request):
+    """Premiações: o que espera as sócias, o que falta entregar, o que foi entregue e o custo por campanha. O Pix (dados,
+    "pago", recibo) é das sócias e do financeiro (regras em crm/awards.py)."""
+    from crm import awards
+
+    ag = request.agency
+    roles = staff_roles(request.user)
+    sees_money = bool(roles & {Role.ADMIN, Role.FINANCEIRO})
+    if request.method == "POST":
+        if not sees_money:
+            raise PermissionDenied
+        aw = get_object_or_404(C.Award, pk=_int(request.POST.get("award")) or 0, agency=ag, kind="pix")
+        on = _date(request.POST.get("on")) or timezone.localdate()
+        try:
+            if request.POST.get("a") == "paid":
+                awards.deliver(aw, request.user, on)
+                messages.success(request, "Pix registrado. A fila da gestora traz a mensagem de prêmio enviado.")
+            else:
+                awards.mark_receipt(aw, request.user, on)
+                messages.success(request, "Recibo assinado registrado.")
+            AuditLog.objects.create(agency=ag, actor=request.user, action=f"premiacao_{request.POST.get('a')}", target=str(aw.pk))
+        except awards.AwardError as e:
+            messages.error(request, str(e))
+        return redirect(reverse("g_awards") + f"#a{aw.pk}")
+    rows = list(C.Award.objects.filter(agency=ag).select_related("creator", "approval", "campaign")[:300])
+    pix = {}
+    if sees_money:
+        pix = {p.creator_id: p for p in C.PixInfo.objects.filter(creator_id__in={a.creator_id for a in rows if a.kind == "pix"})}
+    for a in rows:
+        a.pix = pix.get(a.creator_id)
+    since = E.month_start(timezone.localdate())
+    return render(request, "gestao/awards.html", {
+        "nav": "awards", "sees_money": sees_money, "today": timezone.localdate(),
+        "waiting": [a for a in rows if a.status == "aguardando"], "to_deliver": [a for a in rows if a.status == "a_entregar"],
+        "done": [a for a in rows if a.status in ("entregue", "recusada")][:60],
+        "costs": awards.cost_by_campaign(ag, E.prev_month(since)), "costs_since": E.prev_month(since)})
+
+
+@staff_required(Role.ADMIN, Role.FINANCEIRO)
+def award_receipt(request, pk):
+    """Recibo do prêmio em Pix, preenchido para imprimir e mandar assinar (texto provisório)."""
+    from crm import awards
+
+    aw = get_object_or_404(C.Award, pk=pk, agency=request.agency, kind="pix")
+    return render(request, "gestao/award_receipt.html", awards.receipt(aw))
 
 
 # ================================================================== conteúdos

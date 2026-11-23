@@ -403,7 +403,8 @@ def decide(ap, user, decision, note=""):
 
 def pending_by_creator(creator_ids):
     """Pedidos em aberto por criador, para a fila mostrar "aguardando as sócias"."""
-    return {a.creator_id: a for a in ApprovalRequest.objects.filter(creator_id__in=creator_ids, decided_at__isnull=True)}
+    return {a.creator_id: a for a in ApprovalRequest.objects.filter(creator_id__in=creator_ids, decided_at__isnull=True,
+                                                                    kind="manter_encerrar")}  # premiação tem a própria tela
 
 
 # ------------------------------------------------------------------ sorteio semanal
@@ -477,7 +478,19 @@ def overview(agency, today=None):
         "risks": _risks(agency, today),
         "campaigns_waiting": _campaigns_waiting(agency),
         "referrals": _referrals(agency, today),
+        "prizes": _prizes(agency, today),
     }
+
+
+def _prizes(agency, today):
+    """Premiações (passo 4.6): esperando as sócias, a entregar e o custo por campanha desde o mês passado."""
+    from crm import awards
+    from crm.models import Award
+
+    rows = list(Award.objects.filter(agency=agency).select_related("approval"))
+    since = E.prev_month(today)
+    return {"waiting": sum(1 for a in rows if a.status == "aguardando"), "to_deliver": sum(1 for a in rows if a.status == "a_entregar"),
+            "costs": awards.cost_by_campaign(agency, since), "since": since}
 
 
 def _referrals(agency, today):

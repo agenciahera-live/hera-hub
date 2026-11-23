@@ -501,7 +501,8 @@ class ApprovalRequest(models.Model):
     entram nos passos 4.5 e 4.6 (por isso o criador pode ficar vazio). Só as sócias decidem; nada é apagado."""
 
     KINDS = [("manter_encerrar", "Manter ou encerrar"), ("campanha", "Campanha nova"), ("premiacao", "Premiação")]
-    DECISIONS = {"manter_encerrar": [("manter", "Manter"), ("encerrar", "Encerrar")]}
+    DECISIONS = {"manter_encerrar": [("manter", "Manter"), ("encerrar", "Encerrar")],
+                 "premiacao": [("aprovar", "Aprovar"), ("recusar", "Não aprovar")]}
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="approvals")
     creator = models.ForeignKey(Creator, null=True, blank=True, on_delete=models.CASCADE, related_name="approvals")
     kind = models.CharField(max_length=20, choices=KINDS, default="manter_encerrar")
@@ -644,6 +645,64 @@ class ReferralBonus(models.Model):
     class Meta:
         unique_together = [("referral", "kind")]
         ordering = ["month", "kind"]
+
+
+class Award(models.Model):
+    """Premiação de campanha (passo 4.6; decisões da Mariana de 23/11/2026).
+
+    O criador não pede prêmio: a Hera envia quando ele ganha. A gestora ou uma sócia registra na ficha o que ganhou,
+    o tipo (diamantes na LIVE ou Pix), o valor e a data; as sócias aprovam todo prêmio (pedido `ApprovalRequest`
+    "premiacao", que só elas decidem, também no banco); depois a entrega: diamantes na LIVE (gestora ou sócia marca a
+    data) ou Pix (financeiro ou sócia marca "pago em", com recibo preenchido e "recibo recebido").
+    O criador não lê esta tabela (RLS em web/migrations/0016)."""
+
+    KINDS = [("diamantes", "Diamantes na LIVE"), ("pix", "Pix")]
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="awards")
+    creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="awards")
+    campaign = models.ForeignKey("engage.Campaign", null=True, blank=True, on_delete=models.SET_NULL, related_name="awards")
+    campaign_name = models.CharField("campanha (texto)", max_length=120, blank=True,
+                                     help_text="Preenchido com o nome da campanha escolhida, ou escrito quando ela não está no app.")
+    title = models.CharField("o que ganhou", max_length=160, help_text="Ex.: 1º lugar, faixa de 50 mil diamantes")
+    kind = models.CharField("tipo", max_length=10, choices=KINDS)
+    diamonds = models.PositiveIntegerField("diamantes", null=True, blank=True)
+    value = models.DecimalField("valor (R$)", max_digits=10, decimal_places=2, null=True, blank=True)
+    won_on = models.DateField("ganhou em")
+    note = models.CharField("observação", max_length=240, blank=True)
+    registered_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    registered_at = models.DateTimeField(default=timezone.now)
+    approval = models.OneToOneField(ApprovalRequest, null=True, blank=True, on_delete=models.SET_NULL, related_name="award")
+    delivered_on = models.DateField("entregue em (LIVE ou Pix)", null=True, blank=True)
+    delivered_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    receipt_at = models.DateField("recibo assinado recebido em", null=True, blank=True)
+    receipt_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        ordering = ["-won_on", "-registered_at"]
+
+    @property
+    def status(self):
+        ap = self.approval
+        if ap is None or not ap.decided_at:
+            return "aguardando"
+        if ap.decision != "aprovar":
+            return "recusada"
+        return "entregue" if self.delivered_on else "a_entregar"
+
+    STATUS_LABELS = {"aguardando": "Aguardando as sócias", "recusada": "Não aprovada", "a_entregar": "A entregar", "entregue": "Entregue"}
+
+    @property
+    def status_label(self):
+        return self.STATUS_LABELS[self.status]
+
+    @property
+    def prize_label(self):
+        if self.kind == "pix":
+            return f"Pix de R$ {self.value:.2f}".replace(".", ",") if self.value is not None else "Pix"
+        return f"{self.diamonds:,} diamantes na LIVE".replace(",", ".") if self.diamonds else "Diamantes na LIVE"
+
+    @property
+    def where(self):
+        return self.campaign.name if self.campaign_id else self.campaign_name
 
 
 class PixInfo(models.Model):

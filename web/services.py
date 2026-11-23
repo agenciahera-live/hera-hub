@@ -144,6 +144,7 @@ ITEM_TYPES = {
     "plano_vencido": (2, "Plano de ação vencido"),
     "campanha": (2, "Acompanhamento de campanha: inscrição, perto de prêmio e chegou perto (passo 4.5)"),
     "rodada_batalhas": (2, "Rodada de batalhas oficiais do dia 8: a construir (módulo de batalhas)"),
+    "premiacao": (2, "Premiação aprovada: PIX-01, entregar os diamantes e PIX-02 (passo 4.6)"),
     "resumo_mes": (2, "Resumo do mês, dias 1 a 7 (passo 4.3)"),
     # bloco 3: o que vem do dado
     "queda": (3, "Queda na semana"),
@@ -570,6 +571,13 @@ def _campaign_items(ctx):
     return queue_items(ctx)
 
 
+def _award_items(ctx):
+    """Premiações (passo 4.6): regras em crm/awards.py:queue_items."""
+    from crm.awards import queue_items
+
+    return queue_items(ctx)
+
+
 def _to_build(_ctx):
     """Tipo já declarado em ITEM_TYPES que ainda não gera itens (depende de módulo que não existe)."""
     return []
@@ -583,6 +591,7 @@ COLLECTORS = {
     "visita": _visit_items,
     "1a1_mes": _monthly_1a1_items,
     "campanha": _campaign_items,    # dia seguinte à abertura, metade, véspera do fechamento, dia seguinte ao fim
+    "premiacao": _award_items,      # prêmio aprovado pelas sócias: pedir o Pix, entregar os diamantes, avisar o Pix enviado
     "rodada_batalhas": _to_build,   # dia 8: batalhas oficiais do mês seguinte para Ouro e Diamante
     "resumo_mes": _month_items("summary_items"),   # dias 1 a 7: primeiro quem foi menos constante (e o nível novo)
     "quase_la": _month_items("almost_items"),      # última semana: perto do próximo nível ou da graduação (prêmio de campanha: "campanha", prioridade 1)

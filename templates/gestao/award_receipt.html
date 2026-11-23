@@ -1,0 +1,23 @@
+{% load hera %}<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recibo — Premiação de campanha Hera</title>
+<style>
+  body{font-family:Georgia,"Times New Roman",serif;color:#111;background:#fff;max-width:760px;margin:32px auto;padding:0 24px;line-height:1.6}
+  h1{font-weight:400;font-size:2rem;margin:0 0 16px}
+  table{border-collapse:collapse;width:100%;margin:18px 0;font-family:Arial,sans-serif;font-size:.95rem}
+  th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}th{background:#f4f1ea;font-weight:400}
+  .sign{margin-top:48px}.line{display:inline-block;min-width:280px;border-bottom:1px solid #111}
+  .noprint{font-family:Arial,sans-serif;font-size:.85rem;background:#f4f1ea;padding:8px 12px;margin-bottom:20px}
+  @media print{.noprint{display:none}body{margin:0}}
+</style></head><body>
+<p class="noprint">Texto provisório, até a revisão da Mariana. Confira os dados, imprima ou salve em PDF (Ctrl+P) e envie para assinar. <button onclick="window.print()">Imprimir</button></p>
+<h1>Recibo — Premiação de campanha Hera</h1>
+<p>Eu, <b>{% if pix %}{{ pix.full_name }}{% else %}<span class="line"></span>{% endif %}</b>, CPF <b>{% if pix %}{{ pix.cpf_display }}{% else %}<span class="line" style="min-width:140px"></span>{% endif %}</b>, perfil <b>@{{ a.creator.username }}</b>,
+declaro que recebi da <b>{{ st.legal_name|default:"HERA AGÊNCIA E MARKETING DIGITAL" }}</b>, CNPJ <b>{% if st.cnpj %}{{ st.cnpj }}{% else %}<span class="line" style="min-width:160px"></span>{% endif %}</b>,
+a quantia de <b>R$ {{ a.value|floatformat:2 }}</b>, paga via Pix em <b>{% if a.delivered_on %}{{ a.delivered_on|date:"d/m/Y" }}{% else %}___/___/_____{% endif %}</b>, referente à premiação da campanha <b>{{ a.where }}</b>.</p>
+<table><thead><tr><th>Campanha</th><th>O que ganhou</th><th>Ganhou em</th><th>Valor (R$)</th></tr></thead><tbody>
+<tr><td>{{ a.where }}</td><td>{{ a.title }}</td><td>{{ a.won_on|date:"d/m/Y" }}</td><td>{{ a.value|floatformat:2 }}</td></tr></tbody></table>
+<p>Declaro que esse valor é um prêmio de campanha, eventual e ligado ao resultado da campanha, e que não constitui salário nem gera vínculo de emprego com a Hera. Dou quitação do valor acima.</p>
+<p class="sign"><span class="line"></span>, ___/___/_____</p>
+<p class="sign"><span class="line"></span><br>Assinatura</p>
+</body></html>
