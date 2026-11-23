@@ -21,6 +21,7 @@ urlpatterns = [
     path("meu-plano/", V.my_plan, name="my_plan"),
     path("meu-mes/<int:year>/<int:month>/", V.my_month, name="my_month"),
     path("indique-e-ganhe/", V.referral, name="referral"),
+    path("primeira-live/", V.first_live_answer, name="first_live_answer"),
     path("notificacoes/", V.notifications, name="notifications"),
     path("avisos/", V.announcements, name="announcements"),
     path("duvidas/", V.faq, name="faq"),

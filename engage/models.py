@@ -623,3 +623,43 @@ class MonthTip(models.Model):
 
     class Meta:
         unique_together = [("creator", "month")]
+
+
+class FirstLiveCheckin(models.Model):
+    """Marco da primeira LIVE (etapa 5, passo 5.1; visão, "Marco da primeira LIVE"; textos aprovados como provisórios
+    pela Mariana em 23/11/2026). As três perguntas opcionais, de um toque, que o criador responde no cartão do Meu
+    progresso. Só o criador grava; a gestão lê (ficha e fila). Regras em engage/first_live.py."""
+
+    HARDEST = [("o_que_falar", "Saber o que falar"), ("vergonha", "Vergonha"), ("tecnica", "Parte técnica"),
+               ("pouca_gente", "Pouca gente"), ("nada", "Nada")]
+    FEELING = [("gostei", "Gostei 😊"), ("mais_ou_menos", "Mais ou menos 😐"), ("dificil", "Foi difícil 😣")]
+    HELP = [("o_que_falar", "O que falar na LIVE"), ("tecnica", "Parte técnica"), ("publico", "Como atrair público"),
+            ("batalhas", "Batalhas"), ("nada", "Nada por enquanto")]
+
+    creator = models.OneToOneField(Creator, on_delete=models.CASCADE, related_name="first_live_checkin")
+    live_date = models.DateField("dia da 1ª LIVE")
+    hardest = models.CharField("o que foi mais difícil", max_length=16, choices=HARDEST, blank=True)
+    feeling = models.CharField("como se sentiu", max_length=16, choices=FEELING, blank=True)
+    help = models.CharField("com o que quer ajuda agora", max_length=16, choices=HELP, blank=True)
+    answered_at = models.DateTimeField("última resposta", null=True, blank=True)
+    closed_at = models.DateTimeField("fechou o cartão", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def answered(self):
+        return bool(self.hardest or self.feeling or self.help)
+
+    @property
+    def complete(self):
+        return bool(self.hardest and self.feeling and self.help)
+
+    def summary(self):
+        """Uma linha para a gestão: "mais difícil: vergonha · sentiu: mais ou menos · ajuda: o que falar na LIVE"."""
+        parts = []
+        if self.hardest:
+            parts.append(f"mais difícil: {self.get_hardest_display().lower()}")
+        if self.feeling:
+            parts.append(f"sentiu: {self.get_feeling_display().rsplit(' ', 1)[0].lower()}")
+        if self.help:
+            parts.append(f"quer ajuda: {self.get_help_display().lower()}")
+        return " · ".join(parts)

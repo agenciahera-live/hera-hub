@@ -296,6 +296,7 @@
 <section class="card">
   {% if ob %}<h2>Dia {{ ob.day }} de casa · meta {{ ob.valid_days }}/5 dias e {{ ob.hours|hours }}/15h até {{ ob.end|date:"d/m" }} {% if ob.met %}<span class="pill cyan">cumprida</span>{% elif ob.at_risk %}<span class="pill pink">em risco</span>{% endif %}</h2>{% endif %}
   <p><small>Itens em azul foram marcados automaticamente pelos dados do Backstage. “Dia do desafio” conta a partir da 1ª LIVE{% if c.first_live_at %} ({{ c.first_live_at|date:"d/m" }}){% endif %}.</small></p>
+  {% if first_live_checkin %}<p class="card" style="padding:10px;margin:8px 0"><b>🎉 1ª LIVE: o que contou no app</b>{% if first_live_checkin.answered %}<br>{{ first_live_checkin.summary|capfirst }}<br><small class="muted">respondido em {{ first_live_checkin.answered_at|sp:"%d/%m às %H:%M" }}. O retorno continua no grupo individual.</small>{% else %}<br><small class="muted">Fechou o cartão sem responder.</small>{% endif %}</p>{% endif %}
   <table class="t ob-grid"><thead><tr><th>Etapa</th><th>Relógio</th><th>Feito</th></tr></thead><tbody>
   {% for co in items %}<tr><td>D{{ co.item.day }} · {{ co.item.label }}</td><td><small>{{ co.item.get_anchor_display }}</small></td>
   <td class="{% if co.done and co.auto %}auto{% elif co.done %}on{% else %}off{% endif %}">

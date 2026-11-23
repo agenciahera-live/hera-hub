@@ -330,6 +330,7 @@ def creator_detail(request, pk):
         ctx["ob"] = E.onboarding_status(c, snaps, settings_)
         E.update_onboarding(c, snaps, settings_) if ctx["can_edit"] else None
         ctx["items"] = C.CreatorOnboarding.objects.filter(creator=c).select_related("item").order_by("item__order")
+        ctx["first_live_checkin"] = M.FirstLiveCheckin.objects.filter(creator=c).first()  # marco da 1ª LIVE (passo 5.1)
     elif tab == "mensagens":
         # um modelo por código: a variação que vale para a trilha e o "faz batalha" deste criador
         groups = {}

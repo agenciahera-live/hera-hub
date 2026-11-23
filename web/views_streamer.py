@@ -71,6 +71,28 @@ def home(request):
     return render(request, "streamer/home.html", ctx)
 
 
+@require_POST
+@streamer_required
+def first_live_answer(request):
+    """Marco da primeira LIVE (passo 5.1): um toque por pergunta, ou "Fechar". As respostas vão para a ficha."""
+    from engage import first_live
+
+    c = request.creator
+    try:
+        ck, first = first_live.answer(c, request.POST.get("q", ""), request.POST.get("v", ""))
+    except first_live.CheckinError:
+        return redirect("home") if not request.headers.get("HX-Request") else HttpResponse("")
+    if first:
+        first_live.notify_manager(c, ck)
+    if not request.headers.get("HX-Request"):
+        return redirect("home")
+    if ck.closed_at:
+        return HttpResponse("")
+    if ck.complete:
+        return render(request, "streamer/_first_live.html", {"thanks": True})
+    return render(request, "streamer/_first_live.html", {"fl": first_live.card(c)})
+
+
 @streamer_required
 def my_level(request):
     """Meu nível e próximo nível, com a faixa de diamantes de cada nível e os grupos."""

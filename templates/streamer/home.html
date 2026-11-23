@@ -6,6 +6,9 @@
   <span class="freshness {% if not data_until %}stale{% endif %}" style="margin:0"><span class="dot"></span>{% if data_until %}dados até {{ data_until|date:"d/m" }}{% if updated_at %} · atualizado {{ updated_at|sp:"%d/%m às %H:%M" }}{% endif %}{% else %}sem dados ainda{% endif %}</span>
 </div>
 
+{# Marco da primeira LIVE (passo 5.1): na manhã seguinte à leitura, até 7 dias, até responder ou fechar #}
+{% if first_live %}{% include "streamer/_first_live.html" with fl=first_live %}{% endif %}
+
 {# Resumo do mês que fechou: no topo do dia 1 ao 10 (depois, em "Meses desde a entrada") #}
 {% if month_summary %}{% with s=month_summary %}{% include "streamer/_month_summary.html" %}{% endwith %}{% endif %}
 

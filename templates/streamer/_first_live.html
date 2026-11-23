@@ -1,0 +1,17 @@
+{# Marco da primeira LIVE (passo 5.1; engage/first_live.py). Recebe: fl (o cartão) ou thanks (depois de responder tudo). #}
+<section class="card month-summary" id="primeira-live">
+{% if thanks %}
+  <p style="margin:0"><b>Valeu por contar! 💜</b> A Hera vai ver suas respostas e te chama no grupo.</p>
+{% else %}
+  <h2 style="margin:0 0 6px">Sua primeira LIVE 🎉</h2>
+  <p style="margin:0 0 6px"><b>{{ fl.headline }}</b></p>
+  <p style="margin:0 0 10px"><small class="muted">Se quiser, conte como foi. É opcional, um toque em cada pergunta.</small></p>
+  {% for q in fl.questions %}
+  <p style="margin:8px 0 4px"><b>{{ q.title }}</b></p>
+  <div class="chips">{% for v, l in q.options %}
+    <button type="button" class="btn btn-sm{% if q.value == v %} btn-primary{% endif %}" aria-pressed="{% if q.value == v %}true{% else %}false{% endif %}"
+      hx-post="{% url 'first_live_answer' %}" hx-vals='{"q": "{{ q.key }}", "v": "{{ v }}"}' hx-target="#primeira-live" hx-swap="outerHTML">{{ l }}</button>{% endfor %}</div>
+  {% endfor %}
+  <div style="margin-top:12px;text-align:right"><button type="button" class="btn btn-sm" hx-post="{% url 'first_live_answer' %}" hx-vals='{"q": "close"}' hx-target="#primeira-live" hx-swap="outerHTML">Fechar</button></div>
+{% endif %}
+</section>

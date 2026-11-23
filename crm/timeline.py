@@ -90,6 +90,11 @@ def timeline(creator, limit=60):
         out.append(Entry(x.created_at, "🔑", "Código de acesso ao app gerado", "", x.created_by))
         if x.used_at:
             out.append(Entry(x.used_at, "📱", "Entrou no app com o código"))
+    from engage.models import FirstLiveCheckin  # marco da 1ª LIVE (passo 5.1): o que o criador contou no app
+
+    ck = FirstLiveCheckin.objects.filter(creator=creator).first()
+    if ck and ck.answered and ck.answered_at:
+        out.append(Entry(ck.answered_at, "🎉", "1ª LIVE: o criador contou no app como foi", ck.summary()))
     for e in out:
         e.author_name = _name(e.author)
     out.sort(key=lambda e: e.when, reverse=True)

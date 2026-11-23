@@ -205,7 +205,10 @@ def my_progress(creator):
     from . import month_summary
 
     summary = month_summary.current(creator, today, {**month_summary.extra_for(creator, today), "has_campaign": bool(campaign)})
+    from engage import first_live
+
     return {
+        "first_live": first_live.card(creator, snaps, today),  # marco da primeira LIVE (passo 5.1)
         "month_summary": summary,
         "creator": creator, "today": today, "month_label": month_name(today), "snap": snap, "settings": settings_,
         "phase": phase, "counting": counting, "onboarding": ob, "ever_live": ever_live,

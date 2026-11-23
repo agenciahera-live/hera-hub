@@ -449,9 +449,12 @@ def _onboarding_items(ctx):
 
     Os 14 dias contam do aceite no Backstage. Aparece só o passo mais adiantado que ainda não foi enviado.
     A trava da não-resposta fica em _cadence_items."""
+    from engage import first_live
+
     today, st = ctx["today"], ctx["settings"]
     window = st.onboarding_window_days
     out = []
+    told = first_live.for_queue(ctx["ids"], today)  # marco da 1ª LIVE (passo 5.1): o que o criador contou no app
     for pk, d in ctx["info"].items():
         day = d["day"]
         if day is None or day > window + 7:  # o D15 fica na fila por uma semana
@@ -464,6 +467,8 @@ def _onboarding_items(ctx):
             return any(x.template_code == code and timezone.localtime(x.sent_at).date() >= date for x in contacts)
 
         def add(code, prio, title, detail, template="", urgent=False):
+            if told.get(pk):
+                detail = f"{detail} No app, sobre a 1ª LIVE: {told[pk]}."
             out.append(QueueItem(c, code, prio, f"D{day} · {title}", detail, template, urgent=urgent))
 
         socias ="Só com a aprovação das sócias: remova no Backstage, registre o motivo na ficha e então envie a mensagem de encerramento."

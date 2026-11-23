@@ -30,7 +30,7 @@ A especificação é `docs/hera-app-visao.md`. A versão de 11/11 foi arquivada 
 | 2. Base e fila do dia | Em andamento: passos 1 a 3 de 11/11 feitos; correções e decisões de 14/11 feitas; passos 2.1 a 2.7 feitos (aguardando aprovação) |
 | 3. App do criador (Meu progresso como tela inicial, página educacional, pedir batalha, campanha do momento; teste com ~10 criadores) | Em andamento desde 15/11: passos 3.1 e 3.2 feitos (plano dos passos abaixo, em "Etapa 3") |
 | 4. Gestão completa (batalhas com agenda, campanhas com aprovação, 1:1 com template novo, premiações, Indique e ganhe, painel das sócias) | Em andamento desde 19/11: passo 4.1 feito (plano dos passos abaixo, em "Etapa 4") |
-| 5. Crescimento do criador (conquistas, marco da 1ª LIVE, calculadora "Onde posso chegar", cursos extras, IA nos rascunhos) | A fazer |
+| 5. Crescimento do criador (conquistas, marco da 1ª LIVE, calculadora "Onde posso chegar", cursos extras, IA nos rascunhos) | Em andamento desde 23/11: passo 5.1 feito (plano dos passos abaixo, em "Etapa 5") |
 | 6. Login para as gestoras de Lunow e Impulse | A fazer |
 
 ### Correções feitas em 14/11 (erros encontrados no mapeamento)
@@ -565,6 +565,30 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.6 Premiações | Registro na ficha, aprovação das sócias, entrega (diamantes na LIVE ou Pix com recibo) e fila | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
 | 4.7 Indique e ganhe | Link, indicações, quanto ganhou | ✅ 22/11, partes 1 (registro, validação, cálculo e telas) e 2 (Pix, "pago" e recibo), aguardando aprovação (detalhes abaixo) |
 | Ajustes de 23/11 | Mensagem editada antes de enviar; campanha nova avaliada pela gestora no Dashboard | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
+
+### Etapa 5: crescimento do criador (plano dos passos)
+
+Pedida pela Mariana em 23/11. Decisões de 23/11: **1A** ordem 5.1 → 5.5 (o que o criador vê fica pronto para quando o teste do app começar); **2A** na tela Conquistas, o prêmio aparece como foi aprovado (diamantes ou valor do Pix) e a situação da entrega; **3A** cursos extras liberados para vários de uma vez (por nível, grupo ou trilha), com seção "Cursos extras" na Hera Academy; **4A** IA construída com dados mínimos (só @, números e anotações; nunca telefone, CPF, Pix ou nome completo) e desligada até a Mariana colocar a chave da Anthropic no Railway; **5** textos do marco da 1ª LIVE aprovados como provisórios.
+
+Lembrete: quase tudo aparece no app do criador, e o teste do app (passo 3.7) ainda não começou; até lá, só a gestão vê (com os dados de demonstração).
+
+| Passo | O que entra | Situação |
+| --- | --- | --- |
+| 5.1 Marco da primeira LIVE | Cartão no Meu progresso (duração e dia válido), 3 perguntas de um toque, respostas na ficha e na fila, aviso à gestora | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
+| 5.2 Calculadora "Onde posso chegar" | Dias escolhidos pelo criador, faixa de diamantes e nível, 3 referências fixas | A fazer |
+| 5.3 Conquistas e prêmios | Marcos (1ª LIVE, 5 dias, 14 dias, nível novo, graduação, 1 e 3 meses) e prêmios aprovados | A fazer |
+| 5.4 Cursos extras | Liberação para vários de uma vez e seção na Hera Academy | A fazer |
+| 5.5 IA nos rascunhos | Trecho da mensagem, resumo antes do 1:1, anotações em plano de ação; só na gestão, nunca envia | A fazer |
+
+### Passo 5.1, o que mudou (Marco da primeira LIVE)
+
+- **Meu progresso:** no topo, o cartão "Sua primeira LIVE 🎉" com "Sua primeira LIVE com a Hera durou 1h20 e contou (ou ainda não contou) como dia válido, pela regra do TikTok". Sai da leitura diária (o primeiro intervalo com LIVE, `data.engine.intervals`); com leitura de vários dias juntos, o cartão comemora sem número. Regras em `engage/first_live.py`.
+- **Três perguntas opcionais, de um toque:** o que foi mais difícil (saber o que falar, vergonha, parte técnica, pouca gente, nada); como se sentiu (Gostei 😊, Mais ou menos 😐, Foi difícil 😣); com o que quer ajuda agora (o que falar na LIVE, parte técnica, como atrair público, batalhas, nada por enquanto). Textos provisórios. Depois das três: "Valeu por contar! 💜 A Hera vai ver suas respostas e te chama no grupo." Botão "Fechar".
+- **Quando aparece:** até 7 dias depois da 1ª LIVE, até responder as três ou fechar; só para quem fez a 1ª LIVE até 30 dias depois da entrada (a base antiga não recebe).
+- **Gestão:** aviso no sininho na primeira resposta; respostas na aba Onboarding da ficha e na linha do tempo; nos cards do novato na fila, por duas semanas: "No app, sobre a 1ª LIVE: mais difícil: … · sentiu: … · quer ajuda: …". O retorno continua no grupo individual.
+- **Segurança:** tabela `engage_firstlivecheckin` (só o criador grava; a gestão que vê o criador lê; `web/migrations/0017`). Sai na anonimização da LGPD (rotina diária).
+
+**Como testar:** `tests/test_marco_primeira_live.py` (7 testes). Conferência de 23/11: 341 testes passando e 1 pulado (o mesmo de antes).
 
 ### Ajustes de 23/11: mensagem editada e campanha nova avaliada pela gestora
 

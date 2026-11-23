@@ -50,6 +50,9 @@ class Command(BaseCommand):
                     PixInfo.objects.filter(creator=c).delete()  # dados do Pix (passo 4.7) saem na anonimização
                     c.notes.all().delete()
                     plan_rules.forget(c)  # Meu plano: dias e objetivos escritos pelo criador
+                    from engage.models import FirstLiveCheckin
+
+                    FirstLiveCheckin.objects.filter(creator=c).delete()  # respostas sobre a 1ª LIVE (passo 5.1)
                     AuditLog.objects.create(agency=ag, action="anonimizacao_lgpd", target=f"creator {c.pk}")
                 # entrou e ainda não abriu LIVE: no D5 avisa quem recrutou; no D10 avisa as sócias (visão, "Regras de contato")
                 for c in Creator.objects.filter(agency=ag, first_live_at__isnull=True, joined_at__isnull=False,
