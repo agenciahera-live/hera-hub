@@ -1,0 +1,18 @@
+{% load hera %}{% comment %}Caixa de edição da mensagem pronta (decisão da Mariana de 23/11: a gestora pode editar antes de enviar; o envio
+fica marcado "editada", com o original, e o motivo é opcional). Recebe: p e n (ids), text (texto pronto), username (@ do
+criador, para o aviso de "cita outro criador"). Ids: {p}m{n} texto mostrado, {p}e{n} caixa, {p}t{n} texto que vai no
+"Marcar como enviada", {p}o{n} original, {p}r{n} motivo, {p}x{n} detalhe, {p}w{n} aviso, {p}l{n} link do WhatsApp,
+{p}k{n} etiqueta "editada". O JavaScript está em base.html (heraEdit e heraEdited).{% endcomment %}
+<textarea name="text" id="{{ p }}t{{ n }}" hidden>{{ text }}</textarea><textarea name="original" id="{{ p }}o{{ n }}" hidden>{{ text }}</textarea>
+<div class="qedit" id="{{ p }}e{{ n }}" hidden>
+  <textarea name="text" rows="8" aria-label="Mensagem editada" oninput="heraEdited('{{ p }}','{{ n }}')"
+    hx-post="{% url 'g_tone_check' %}" hx-trigger="input changed delay:700ms" hx-target="#{{ p }}w{{ n }}" hx-include="#{{ p }}o{{ n }}"
+    hx-vals='{"u": "{{ username|escapejs }}"}'>{{ text }}</textarea>
+  <div id="{{ p }}w{{ n }}" aria-live="polite"></div>
+  <div class="qedit-why" hidden>{% edit_reasons as reasons %}
+    <select name="edit_reason" id="{{ p }}r{{ n }}" aria-label="Motivo da edição"><option value="">Motivo da edição (opcional)</option>{% for v, l in reasons %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+    <input type="text" name="edit_note" id="{{ p }}x{{ n }}" maxlength="240" placeholder="Detalhe (opcional)" aria-label="Detalhe do motivo">
+  </div>
+  <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button type="button" class="btn btn-sm" onclick="heraEdited('{{ p }}','{{ n }}',true)">Voltar ao texto pronto</button>
+    <small class="muted">Copiar e Enviar no WhatsApp já usam o texto editado. O envio fica marcado como “editada”.</small></div>
+</div>

@@ -16,7 +16,7 @@ import random
 import statistics
 
 from django.contrib.auth import get_user_model
-from django.db.models import Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from core.models import AgencySettings, Membership, PartnerGroup, Role
@@ -477,6 +477,8 @@ def overview(agency, today=None):
         "draw_from": week_start(local) - dt.timedelta(days=7), "draw_to": week_start(local) - dt.timedelta(days=1),
         "risks": _risks(agency, today),
         "campaigns_waiting": _campaigns_waiting(agency),
+        "campaigns_decided": _campaigns_decided(agency),
+        "edited": edited_messages(agency, local),
         "referrals": _referrals(agency, today),
         "prizes": _prizes(agency, today),
     }
@@ -506,7 +508,57 @@ def _referrals(agency, today):
 
 
 def _campaigns_waiting(agency):
-    """Campanhas novas do TikTok esperando a aprovação das sócias (passo 4.5)."""
+    """Campanhas novas do TikTok esperando avaliação (passo 4.5; desde 23/11, a gestora ou uma sócia)."""
     from engage.campaigns import waiting_approval
 
     return waiting_approval(agency)
+
+
+def _campaigns_decided(agency):
+    """As avaliadas nos últimos 14 dias, com quem avaliou: a sócia confere e pode reabrir (decisão de 23/11, 2-A)."""
+    from engage.campaigns import recently_decided
+
+    return recently_decided(agency)
+
+
+# ------------------------------------------------------------------ mensagens editadas (decisão da Mariana de 23/11, 1-B)
+EDITED_DAYS = 7  # a lista da semana
+EDITED_TOP_DAYS = 30  # "mais editadas": janela maior, para ver o padrão
+
+
+def tone_flags(text, username=""):
+    """O que o texto editado tem e o texto pronto não teria: as palavras vetadas nas mensagens (verificador de tom),
+    "ranking" e o @ de outro criador. Vale para o aviso na hora de editar e para a lista do Painel."""
+    import re
+
+    from engage.tom import verificar_tom_mensagem
+
+    flags = verificar_tom_mensagem(text)
+    if re.search(r"(?<![\w-])rankings?(?![\w-])", text or "", re.IGNORECASE):
+        flags.append("ranking (o app não fala de ranking)")
+    others = {h.lower().rstrip(".") for h in re.findall(r"(?<![\w@])@([\w.]{2,})", text or "")} - {(username or "").lower()}
+    if others:
+        flags.append("cita outro criador (" + ", ".join("@" + h for h in sorted(others)) + ")")
+    return flags
+
+
+def new_flags(text, original="", username=""):
+    """Só o que a edição trouxe: o que já estava no texto pronto não vira aviso."""
+    before = set(tone_flags(original, username))
+    return [f for f in tone_flags(text, username) if f not in before]
+
+
+def edited_messages(agency, today=None):
+    """Os envios editados da semana (antes e depois, motivo, quem) e as mensagens mais editadas nos últimos 30 dias,
+    comparadas com o total de envios de cada uma: mensagem editada toda hora pede texto padrão novo."""
+    today = today or timezone.localdate()
+    since = timezone.make_aware(dt.datetime.combine(today - dt.timedelta(days=EDITED_DAYS - 1), dt.time.min))
+    rows = list(Contact.objects.filter(creator__agency=agency, edited=True, sent_at__gte=since)
+                .select_related("creator", "user").order_by("-sent_at"))
+    for x in rows:
+        x.flags = new_flags(x.body, x.original_body, x.creator.username)
+    since_top = timezone.make_aware(dt.datetime.combine(today - dt.timedelta(days=EDITED_TOP_DAYS - 1), dt.time.min))
+    top = (Contact.objects.filter(creator__agency=agency, sent_at__gte=since_top).exclude(template_code="")
+           .values("template_code").annotate(n=Count("id"), edited_n=Count("id", filter=Q(edited=True)))
+           .filter(edited_n__gt=0).order_by("-edited_n", "template_code")[:8])
+    return {"rows": rows, "days": EDITED_DAYS, "top": list(top), "top_days": EDITED_TOP_DAYS}

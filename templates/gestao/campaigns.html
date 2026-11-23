@@ -2,13 +2,13 @@
 {% block content %}
 <div class="row between"><h1>Campanhas</h1>{% if user.is_staff %}<a class="btn btn-sm" href="/gestao/admin/engage/campaign/add/">Campanha só do app</a>{% endif %}</div>
 <p><small>As campanhas do TikTok chegam sozinhas: o Claude lê no Backstage (Operações › Campanhas), junto com a leitura diária, as campanhas da plataforma e as dirigidas pela Agência, a situação de cada criador e o link de “Compartilhar”. <b>Não é preciso cadastrar aqui.</b>
-As campanhas novas da plataforma passam antes pela <b>aprovação das sócias</b> (Painel das sócias). Depois, marque como <b>Foco</b> as que a Hera quer oferecer: elas aparecem no app só para quem se qualifica, está inscrito ou já participa. <b>Não oferecer</b> tira a campanha do app e da sugestão para todos. Na ficha de cada criador, dá para escolher a campanha do momento dele.</small></p>
+As campanhas novas da plataforma passam antes por uma <b>avaliação</b>: da gestora, no Dashboard (quadro “Campanhas novas para avaliar”), ou de uma sócia, no Painel; vale quem avaliar primeiro. Depois, marque como <b>Foco</b> as que a Hera quer oferecer: elas aparecem no app só para quem se qualifica, está inscrito ou já participa. <b>Não oferecer</b> tira a campanha do app e da sugestão para todos. Na ficha de cada criador, dá para escolher a campanha do momento dele.</small></p>
 {% if last_read %}<p><small>Última leitura: {{ last_read|sp:"%d/%m %H:%M" }}. O Backstage avisa que os dados de campanha podem atrasar de 2 a 3 horas.</small></p>
 {% else %}<ul class="messages"><li>Nenhuma leitura de campanhas chegou ainda. Ela vem pela mesma porta da leitura diária (ver Importar dados → Leitura automática).</li></ul>{% endif %}
 {% if uncovered %}<ul class="messages"><li>Tiers sem campanha ativa agora: {{ uncovered|join:", " }}.</li></ul>{% endif %}
 
 <h2>Acompanhamento da sua carteira</h2>
-<p><small>Pela última leitura do Backstage, só das campanhas aprovadas pelas sócias. A posição é só para a gestão e não aparece no app do criador. Na mensagem, nunca cite outro criador. Ordem: a campanha que fecha primeiro.</small></p>
+<p><small>Pela última leitura do Backstage, só das campanhas já aprovadas. A posição é só para a gestão e não aparece no app do criador. Na mensagem, nunca cite outro criador. Ordem: a campanha que fecha primeiro.</small></p>
 <div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
 {% for key, title, hint in follow_titles %}
 <section class="card" id="lista-{{ key }}"><h3>{{ title }} <span class="pill">{{ lists|get:key|length }}</span></h3><p><small class="muted">{{ hint }}</small></p>
@@ -18,14 +18,14 @@ As campanhas novas da plataforma passam antes pela <b>aprovação das sócias</b
 
 <h2>Lidas do Backstage <span class="pill">{{ read|length }}</span></h2>
 <div class="card table-wrap" style="padding:0"><table class="t"><thead><tr><th>Campanha</th><th>Período</th><th>Leitura</th><th>Sua carteira</th><th>No app</th></tr></thead><tbody>
-{% for c in read %}<tr id="c{{ c.pk }}"><td><b>{{ c.name }}</b>{% if c.waiting_approval %} <span class="pill pink">aguardando as sócias</span>{% elif c.approval == 'recusada' %} <span class="pill gray">não oferecer (sócias)</span>{% elif c.featured %} <span class="pill gold">⭐ foco</span>{% elif c.do_not_offer %} <span class="pill gray">não oferecer</span>{% endif %}
+{% for c in read %}<tr id="c{{ c.pk }}"><td><b>{{ c.name }}</b>{% if c.waiting_approval %} <span class="pill pink">aguardando avaliação</span>{% elif c.approval == 'recusada' %} <span class="pill gray">não oferecer{% if c.approved_by %} ({{ c.approved_by.first_name|default:c.approved_by.email }}){% endif %}</span>{% elif c.featured %} <span class="pill gold">⭐ foco</span>{% elif c.do_not_offer %} <span class="pill gray">não oferecer</span>{% endif %}
   <br><small>{{ c.get_backstage_tab_display|default:"Backstage" }}{% if c.tiktok_kind %} · {{ c.get_tiktok_kind_display }}{% endif %}{% if c.recommended_level %} · {{ c.recommended_level }}{% endif %}{% if c.mechanic %} · mecânica: {{ c.get_mechanic_display }}{% else %} · <span class="pill gold">sem mecânica</span>{% endif %}{% if c.prize_until %} · premia até o {{ c.prize_until }}º{% endif %}</small>
   {% if c.what_to_do %}<br><small class="muted">🎯 {{ c.what_to_do|truncatechars:120 }}</small>{% endif %}</td>
 <td>{{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }} {% if c.active %}<span class="pill cyan">ativa</span>{% else %}<span class="pill gray">encerrada</span>{% endif %}</td>
 <td><small>{% if c.participants_n is not None %}{{ c.participants_n }}{% if c.eligible_n is not None %} / {{ c.eligible_n }}{% endif %} participantes{% endif %}{% if c.total_diamonds %}<br>{{ c.total_diamonds|intbr }} 💎{% endif %}</small></td>
 <td><small>{% if c.mine.qualifica %}{{ c.mine.qualifica }} pode{{ c.mine.qualifica|pluralize:"m" }} se inscrever<br>{% endif %}{% if c.mine.inscrito %}{{ c.mine.inscrito }} inscrito{{ c.mine.inscrito|pluralize }}<br>{% endif %}{% if c.mine.andamento %}{{ c.mine.andamento }} participando{% endif %}{% if not c.mine %}—{% endif %}</small></td>
 <td style="white-space:nowrap">{% if c.tiktok_url %}<a href="{{ c.tiktok_url }}" target="_blank" rel="noopener"><small>link ↗</small></a>{% else %}<span class="pill gold">sem link</span>{% endif %}
-  {% if c.blocked %}<br><small class="muted">{% if c.waiting_approval %}As sócias aprovam no Painel antes de virar foco.{% else %}Decisão das sócias.{% endif %}</small>
+  {% if c.blocked %}<br><small class="muted">{% if c.waiting_approval %}{% if can_edit %}<a href="{% url 'g_dashboard' %}#campanhas-novas">Avaliar no Dashboard</a> antes de virar foco.{% else %}Espera a avaliação da gestão.{% endif %}{% else %}Avaliada como “não oferecer”. Só as sócias reabrem, no Painel.{% endif %}</small>
   {% elif can_edit %}<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="id" value="{{ c.pk }}"><input type="hidden" name="a" value="focus"><button class="btn btn-sm {% if not c.featured %}btn-purple{% endif %}">{% if c.featured %}Tirar do foco{% else %}Foco{% endif %}</button></form>
   <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="id" value="{{ c.pk }}"><input type="hidden" name="a" value="do_not_offer"><button class="btn btn-sm">{% if c.do_not_offer %}Voltar a oferecer{% else %}Não oferecer{% endif %}</button></form>
   <details style="white-space:normal;margin-top:6px"><summary><small>Conferir os dados</small></summary>

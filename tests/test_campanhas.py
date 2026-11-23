@@ -226,9 +226,9 @@ class CampanhasTests(TestCase):
         duelo = self._camp("Duelo Teste")
         self.client.force_login(self.gx)
         tela = self.client.get(reverse("g_campaigns"))
-        self.assertContains(tela, "aguardando as sócias")
+        self.assertContains(tela, "aguardando avaliação")
         self.client.post(reverse("g_campaigns"), {"id": duelo.pk, "a": "focus"})
-        self.assertFalse(self._camp("Duelo Teste").featured)  # passo 4.5: antes da aprovação, a gestora não marca foco
+        self.assertFalse(self._camp("Duelo Teste").featured)  # passo 4.5: antes da avaliação, o botão Foco não vale
         self._aprovar("Duelo Teste")
         tela = self.client.get(reverse("g_campaigns"))
         for trecho in ["Lidas do Backstage", "Duelo Teste", "Desafio de batalha", "3 / 16 participantes", "1 inscrito", "1 pode se inscrever",

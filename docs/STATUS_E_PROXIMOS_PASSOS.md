@@ -564,6 +564,25 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.5 Campanhas | Posição na leitura (só gestão), 3 listas, acompanhamento na fila, aprovação das sócias das campanhas novas da plataforma | ✅ 22/11, aprovado e enviado ao GitHub (commit `16ec373`; detalhes abaixo) |
 | 4.6 Premiações | Registro na ficha, aprovação das sócias, entrega (diamantes na LIVE ou Pix com recibo) e fila | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
 | 4.7 Indique e ganhe | Link, indicações, quanto ganhou | ✅ 22/11, partes 1 (registro, validação, cálculo e telas) e 2 (Pix, "pago" e recibo), aguardando aprovação (detalhes abaixo) |
+| Ajustes de 23/11 | Mensagem editada antes de enviar; campanha nova avaliada pela gestora no Dashboard | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
+
+### Ajustes de 23/11: mensagem editada e campanha nova avaliada pela gestora
+
+Decisões da Mariana de 23/11: **1-B** a gestora pode editar a mensagem pronta antes de enviar; o envio fica marcado "editada" e o **motivo é opcional**; **2-A** a campanha nova da plataforma é avaliada **pela gestora (Dashboard, leitura da manhã) ou por uma sócia (Painel)**, vale quem avaliar primeiro (muda a decisão 2B de 22/11, em que só as sócias aprovavam).
+
+**Mensagem editada:**
+- **Card da fila do dia:** ícone de lápis ao lado do copiar. A mensagem vira uma caixa de texto; "Copiar" e "Enviar no WhatsApp" passam a usar o texto editado (com grupo, o link continua sem texto e a gestora copia). Aparecem o motivo (lista: corrigir uma informação, ajustar o tom, situação específica deste criador, outro) e um detalhe, os dois opcionais, e o botão "Voltar ao texto pronto". Na **aba Mensagens da ficha**, o mesmo, pelo botão "Editar".
+- **Aviso enquanto edita** (`/gestao/mensagens/verificar-tom/`): o que a edição trouxe de palavra vetada nas mensagens (verificador de tom), "ranking" ou @ de outro criador. Só avisa; o que já estava no texto pronto não vira aviso.
+- **"Marcar como enviada":** compara com o texto pronto (ignora espaço no fim das linhas). Se mudou, grava `Contact.edited`, `original_body`, `edit_reason` e `edit_note` (migração `crm/0018`). A resposta mostra "Enviei ✓ registrado (editada)".
+- **Ficha (linha do tempo):** "Enviei: CÓDIGO · editada (motivo)", com "ver o texto pronto (antes da edição)".
+- **Painel das sócias › Mensagens editadas** (`web/panel.py:edited_messages`): os envios editados dos últimos 7 dias (criador, quem enviou, antes e depois, motivo, ⚠️ quando a edição trouxe palavra vetada, ranking ou @ de outro criador) e as **mais editadas** dos últimos 30 dias ("editada X de Y envios"). No sorteio da semana, a etiqueta "editada".
+
+**Campanha nova avaliada pela gestora:**
+- **Dashboard:** quadro "Campanhas novas para avaliar" no topo (gestora e sócias; só aparece quando há campanha esperando), com os campos que o Claude propôs, quantos da carteira dela estão na leitura e os botões **Aprovar e pôr no foco**, **Aprovar sem foco** e **Não oferecer** (`/gestao/campanhas/avaliar/`; financeiro e conteúdo não avaliam).
+- **Painel das sócias:** os mesmos três botões; e "Avaliadas nos últimos 14 dias", com quem avaliou e o botão **Reabrir** (a campanha volta para "aguardando", sai do app e do foco). Regras em `engage/campaigns.py` (`approve(..., focus=)`, `recently_decided`, `reopen`); rótulos da avaliação sem "sócias" (migração `engage/0029`).
+- O aviso do sininho da leitura de campanhas aponta para o quadro do Dashboard.
+
+**Como testar:** `tests/test_editada_e_avaliacao.py` (10 testes). Conferência de 23/11: 334 testes passando e 1 pulado (o mesmo de antes).
 
 ### Passo 4.1, o que mudou (Painel das sócias)
 

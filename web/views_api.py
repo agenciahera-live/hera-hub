@@ -82,12 +82,12 @@ def import_campaigns(request):
             if counts["campanhas_novas"]:
                 n, w = counts["campanhas_novas"], counts["para_aprovar"]
                 body = f"{n} campanha{'s' if n > 1 else ''} nova{'s' if n > 1 else ''}."
-                if w:  # passo 4.5: as da plataforma esperam a aprovação das sócias antes de aparecer
-                    body += (f" {w} espera{'m' if w > 1 else ''} a aprovação das sócias (Painel das sócias › Aprovações)"
-                             " antes de poder ser foco.")
+                if w:  # passo 4.5: as da plataforma esperam avaliação (desde 23/11, a gestora no Dashboard ou uma sócia)
+                    body += (f" {w} espera{'m' if w > 1 else ''} avaliação: no Dashboard (quadro “Campanhas novas para avaliar”)"
+                             " ou no Painel das sócias.")
                 else:
                     body += " Escolha quais são foco em Campanhas."
-                port._notify(key.agency, "Campanhas novas lidas do Backstage", body, "/gestao/campanhas/")
+                port._notify(key.agency, "Campanhas novas lidas do Backstage", body, "/gestao/#campanhas-novas" if w else "/gestao/campanhas/")
     except campaigns.ReadingError as e:
         return _fail(422, str(e))
     except Exception:

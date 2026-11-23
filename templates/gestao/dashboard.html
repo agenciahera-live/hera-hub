@@ -21,6 +21,14 @@
   <div class="kpi"><b class="num">{{ n.new }}</b><span>novos no mês</span></div>
   <div class="kpi"><b class="num">{{ n.diamonds|intbr }}</b><span>diamantes no mês {% if n.diamonds_change is not None %}<b class="{% if n.diamonds_change >= 0 %}up{% else %}down{% endif %}" style="display:inline;font-size:.85rem">{{ n.diamonds_change|signed_pct }}</b> vs. mesmo ponto do mês passado{% endif %}</span></div>
 </div>
+{% if campaigns_waiting %}
+<section class="card" id="campanhas-novas" style="border-left:4px solid var(--gold, #c9a227)">
+  <h2>Campanhas novas para avaliar <span class="pill pink">{{ campaigns_waiting|length }}</span></h2>
+  <p><small>Chegaram pela leitura do Backstage. Confira o que o Claude propôs (mecânica, até que posição premia, prêmios e nível) e decida. Vale a decisão de quem avaliar primeiro: você ou uma sócia. As sócias acompanham pelo Painel e podem reabrir. Até a avaliação, a campanha não aparece no app, na ficha, na sugestão nem na fila.</small></p>
+  {% url 'g_campaign_decide' as decide_url %}
+  {% for c in campaigns_waiting %}{% include "gestao/_new_campaign.html" with c=c action=decide_url mechanics=campaign_mechanics show_mine=True %}{% endfor %}
+</section>
+{% endif %}
 {% for b in coverage %}{% with bn=forloop.counter|stringformat:"s" %}{% with p="c"|add:bn|add:"x" %}
 <section class="card" style="border-left:4px solid var(--pink)">
   <h2>Cobertura de hoje · carteira de {{ b.manager }} <span class="pill pink">{{ b.items|length }}</span></h2>

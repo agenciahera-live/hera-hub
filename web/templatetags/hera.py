@@ -6,6 +6,14 @@ register = template.Library()
 SP = ZoneInfo("America/Sao_Paulo")
 
 
+@register.simple_tag
+def edit_reasons():
+    """Motivos da mensagem editada (decisão de 23/11, 1-B: opcional), para a caixa de edição."""
+    from crm.models import Contact
+
+    return Contact.EDIT_REASONS
+
+
 @register.filter
 def intbr(v):
     try:

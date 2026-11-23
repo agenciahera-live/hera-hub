@@ -279,6 +279,13 @@ details.qmore > summary::-webkit-details-marker { display: none; }
 .qreason { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 pre.qmsg { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.6; background: var(--surface-2);
   border-radius: 8px; padding: 10px 12px; margin: 10px 0 12px; width: 100%; box-sizing: border-box; color: var(--text); }
+.qedit { margin: 10px 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.qedit[hidden], .qedit-why[hidden] { display: none; }
+.qedit textarea { width: 100%; box-sizing: border-box; font-size: 14px; line-height: 1.6; }
+.qedit-why { display: flex; gap: 6px; flex-wrap: wrap; }
+.qedit-why select, .qedit-why input { flex: 1; min-width: 180px; }
+.qwarn { margin: 0; color: #8a5a12; }
+@media (prefers-color-scheme: dark) { .qwarn { color: #f0c27a; } }
 .qfoot { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 .qmain { display: inline-flex; gap: 8px; align-items: center; }
 .qfoot .btn { font-size: 14px; padding: 8px 16px; }

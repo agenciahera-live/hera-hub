@@ -123,6 +123,15 @@ def dashboard(request):
     if is_manager:
         ctx["urgent_count"] = sum(1 for i in queue if i.urgent)
         ctx["cover_name"] = absence.name_of(away.cover if away else absence.default_cover(request.agency, request.user))
+    if is_manager or is_admin:  # campanhas novas para avaliar na leitura da manhã (decisão da Mariana de 23/11, 2-A)
+        waiting = campaign_rules.waiting_approval(request.agency)
+        counts = {}
+        for p in M.CampaignParticipant.objects.filter(campaign__in=waiting, creator__in=creators).values("campaign_id", "status"):
+            d = counts.setdefault(p["campaign_id"], {})
+            d[p["status"]] = d.get(p["status"], 0) + 1
+        for c in waiting:
+            c.mine = counts.get(c.pk, {})
+        ctx.update({"campaigns_waiting": waiting, "campaign_mechanics": M.Campaign.MECHANICS})
     return render(request, "gestao/dashboard.html", ctx)
 
 
@@ -702,6 +711,9 @@ def open_chat(request, pk, code):
     group = _group_url(c)
     if group:
         return redirect(group)  # link de grupo não leva texto: a gestora copia antes ("Copiar mensagem")
+    edited = request.GET.get("texto", "").strip()
+    if edited:  # mensagem editada no card (23/11): vai como a gestora deixou
+        return redirect(whatsapp_link(_phone(c), edited[:4000]))
     body = t.body
     if code == "BAT-CONF" and request.GET.get("batalha", "").isdigit():  # confirmação já preenchida com a batalha
         b = get_object_or_404(M.BattleRequest, pk=int(request.GET["batalha"]), creator=c)
@@ -719,8 +731,16 @@ def mark_sent(request, pk, code):
     t = template_for(c.agency, code, c)
     if t is None:
         raise Http404
-    text = request.POST.get("text") or _msg(request, t.body, c)
-    C.Contact.objects.create(creator=c, user=request.user, template_code=code, body=text[:4000])
+    P = request.POST
+    text = P.get("text") or _msg(request, t.body, c)
+    # mensagem editada antes de enviar (decisão da Mariana de 23/11, 1-B): o card manda o texto pronto em "original"
+    original = P.get("original")
+    edited = original is not None and _same_text(original) != _same_text(text)
+    C.Contact.objects.create(
+        creator=c, user=request.user, template_code=code, body=text[:4000], edited=edited,
+        original_body=original[:4000] if edited else "",
+        edit_reason=P.get("edit_reason", "") if edited and P.get("edit_reason", "") in dict(C.Contact.EDIT_REASONS) else "",
+        edit_note=P.get("edit_note", "").strip()[:240] if edited else "")
     if code.startswith("NR-") and code != "NR-5D":
         cs = getattr(c, "cadence", None)
         if cs and cs.resolved_at is None:
@@ -729,9 +749,31 @@ def mark_sent(request, pk, code):
                 cs.step = step + 1
                 cs.save()
     if request.headers.get("HX-Request"):
-        return HttpResponse('<span class="pill cyan">Enviei ✓ registrado</span>')
-    messages.success(request, "Envio registrado.")
+        return HttpResponse('<span class="pill cyan">Enviei ✓ registrado' + (" (editada)" if edited else "") + "</span>")
+    messages.success(request, "Envio registrado" + (" como mensagem editada." if edited else "."))
     return redirect(request.POST.get("next") or reverse("g_creator", args=[c.pk]) + "?tab=mensagens")
+
+
+def _same_text(s):
+    """Para comparar o texto pronto com o enviado: ignora espaços no fim das linhas, quebras de linha do Windows e
+    espaço sobrando no começo e no fim."""
+    return "\n".join(line.rstrip() for line in (s or "").replace("\r\n", "\n").replace("\r", "\n").strip().split("\n"))
+
+
+@require_POST
+@staff_required()
+def tone_check(request):
+    """Aviso enquanto a gestora edita uma mensagem: o que a edição trouxe de palavra vetada, "ranking" ou @ de outro
+    criador. Só avisa; quem decide é a gestora (decisão da Mariana de 23/11)."""
+    from .panel import new_flags
+
+    P = request.POST
+    flags = new_flags(P.get("text", ""), P.get("original", ""), P.get("u", ""))
+    if not flags:
+        return HttpResponse("")
+    from django.utils.html import escape
+
+    return HttpResponse('<p class="qwarn"><small>⚠️ Confira antes de enviar: ' + escape("; ".join(flags)) + ".</small></p>")
 
 
 @staff_required()
@@ -867,6 +909,38 @@ def _move_creators(request, managers):
                               f"{('a carteira de ' + absence.name_of(mgr)) if mgr else 'a lista “sem gestora”'}. O histórico foi junto.")
 
 
+def _decide_new_campaign(request):
+    """Avaliação da campanha nova do TikTok (passo 4.5; desde 23/11, decisão 2-A: a gestora no Dashboard ou uma sócia no
+    Painel, quem avaliar primeiro). Botões: "aprovar_foco" (aprova e já põe no foco), "aprovar" e "recusar"."""
+    P = request.POST
+    camp = get_object_or_404(M.Campaign, pk=_int(P.get("campaign")) or 0, agency=request.agency)
+    decision = P.get("decision", "")
+    focus = decision == "aprovar_foco"
+    campaign_rules.approve(camp, request.user, "aprovar" if focus else decision, mechanic=P.get("mechanic", ""),
+                           prize_until=_int(P.get("prize_until")), prizes=P.get("prizes", ""),
+                           recommended_level=P.get("recommended_level", ""), what_to_do=P.get("what_to_do", ""), focus=focus)
+    AuditLog.objects.create(agency=request.agency, actor=request.user, action=f"campanha_{camp.approval}" + ("_foco" if focus else ""),
+                            target=camp.name[:200])
+    if camp.approval == "recusada":
+        messages.success(request, f"“{camp.name}”: não será oferecida a ninguém.")
+    elif focus:
+        messages.success(request, f"“{camp.name}”: aprovada e já no foco. Aparece no app para quem participa.")
+    else:
+        messages.success(request, f"“{camp.name}”: aprovada. Para oferecer no app, marque Foco em Campanhas.")
+    return camp
+
+
+@require_POST
+@staff_required(Role.ADMIN, Role.GESTORA)
+def campaign_decide(request):
+    """A gestora avalia a campanha nova no Dashboard, na leitura da manhã (decisão da Mariana de 23/11, 2-A)."""
+    try:
+        _decide_new_campaign(request)
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect(reverse("g_dashboard") + "#campanhas-novas")
+
+
 @staff_required(Role.ADMIN)
 def partners_panel(request):
     """Painel das sócias (passo 4.1): os números da conta, a execução da gestão, as aprovações e o sorteio semanal."""
@@ -885,19 +959,15 @@ def partners_panel(request):
                 panel.check_sent(sc, request.user, request.POST.get("result", ""), request.POST.get("note", "").strip())
                 messages.success(request, "Conferência registrada.")
             elif a == "campaign":  # passo 4.5: campanha nova do TikTok
-                from engage import campaigns as campaign_rules
-
-                P = request.POST
-                camp = get_object_or_404(M.Campaign, pk=_int(P.get("campaign")) or 0, agency=ag)
-                campaign_rules.approve(camp, request.user, P.get("decision", ""), mechanic=P.get("mechanic", ""),
-                                       prize_until=_int(P.get("prize_until")), prizes=P.get("prizes", ""),
-                                       recommended_level=P.get("recommended_level", ""), what_to_do=P.get("what_to_do", ""))
-                AuditLog.objects.create(agency=ag, actor=request.user, action=f"campanha_{camp.approval}", target=camp.name[:200])
-                messages.success(request, f"“{camp.name}”: " + ("aprovada. A gestão já pode escolher como foco." if camp.approval == "aprovada"
-                                                                 else "não será oferecida a ninguém."))
+                _decide_new_campaign(request)
+            elif a == "campaign_reopen":  # 23/11: a sócia reabre o que a gestora (ou outra sócia) avaliou
+                camp = get_object_or_404(M.Campaign, pk=_int(request.POST.get("campaign")) or 0, agency=ag)
+                campaign_rules.reopen(camp)
+                AuditLog.objects.create(agency=ag, actor=request.user, action="campanha_reaberta", target=camp.name[:200])
+                messages.success(request, f"“{camp.name}” voltou para avaliação. Até lá, não aparece no app nem no foco.")
         except (panel.PanelError, ValueError) as e:
             messages.error(request, str(e))
-        anchor = {"decide": "#aprovacoes", "check": "#sorteio", "campaign": "#aprovacoes"}.get(a, "")
+        anchor = {"decide": "#aprovacoes", "check": "#sorteio", "campaign": "#aprovacoes", "campaign_reopen": "#aprovacoes"}.get(a, "")
         return redirect(reverse("g_panel") + anchor)
     ctx = panel.overview(ag)
     ctx.update({"nav": "panel", "decisions": dict(C.ApprovalRequest.DECISIONS), "results_choices": C.SentCheck.RESULTS[1:],
@@ -1298,9 +1368,9 @@ def _campaign_edit(request):
     P = request.POST
     camp = get_object_or_404(M.Campaign, pk=_int(P.get("id")), agency=request.agency)
     a = P.get("a")
-    if camp.blocked:  # passo 4.5: quem decide antes são as sócias, no painel
-        messages.error(request, f"“{camp.name}” " + ("espera a aprovação das sócias." if camp.waiting_approval
-                                                       else "foi marcada pelas sócias para não ser oferecida."))
+    if camp.blocked:  # passo 4.5: antes vem a avaliação (gestora no Dashboard ou sócia no Painel)
+        messages.error(request, f"“{camp.name}” " + ("espera avaliação: use o quadro “Campanhas novas para avaliar” no Dashboard."
+                                                       if camp.waiting_approval else "foi avaliada para não ser oferecida. Só as sócias reabrem, no Painel."))
         return
     if a == "focus":
         camp.featured = not camp.featured

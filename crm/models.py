@@ -266,7 +266,14 @@ class ActionItem(models.Model):
 
 
 class Contact(models.Model):
-    """Cada mensagem que a gestora marcou como enviada ("Enviei")."""
+    """Cada mensagem que a gestora marcou como enviada ("Enviei").
+
+    Mensagem editada (decisão da Mariana de 23/11/2026, 1-B): a gestora pode mudar o texto pronto antes de enviar. O envio
+    fica marcado como "editada", com o texto original ao lado do enviado e o motivo (opcional), para as sócias analisarem
+    no Painel e no grupo. `body` é sempre o texto que saiu."""
+
+    EDIT_REASONS = [("info", "Corrigir uma informação"), ("tom", "Ajustar o tom"), ("situacao", "Situação específica deste criador"),
+                    ("outro", "Outro")]
 
     creator = models.ForeignKey(Creator, on_delete=models.CASCADE, related_name="contacts")
     user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
@@ -275,6 +282,10 @@ class Contact(models.Model):
     body = models.TextField(blank=True)
     sent_at = models.DateTimeField(default=timezone.now)
     responded_at = models.DateTimeField(null=True, blank=True)
+    edited = models.BooleanField("enviada editada", default=False)
+    original_body = models.TextField("texto original (antes da edição)", blank=True)
+    edit_reason = models.CharField("motivo da edição", max_length=12, choices=EDIT_REASONS, blank=True)
+    edit_note = models.CharField("detalhe do motivo", max_length=240, blank=True)
 
     class Meta:
         ordering = ["-sent_at"]

@@ -69,12 +69,14 @@ class Campaign(AudienceMixin):
                                        help_text="O prêmio não compensa ou não combina com a Hera: some do app e da sugestão para todos.")
     read_at = models.DateTimeField("última leitura", null=True, blank=True)
 
-    # Aprovação das sócias (passo 4.5, decisão da Mariana de 22/11/2026): campanha nova da plataforma lida do Backstage
-    # chega "aguardando" e só aparece (app, ficha, fila, sugestão) depois que uma sócia confere a mecânica, até que posição
-    # premia, os prêmios e o nível recomendado e aprova. As dirigidas pela Agência e as antigas não passam por aqui ("").
-    APPROVALS = [("", "Não precisa"), ("aguardando", "Aguardando as sócias"), ("aprovada", "Aprovada pelas sócias"),
-                 ("recusada", "Não oferecer (sócias)")]
-    approval = models.CharField("aprovação das sócias", max_length=12, choices=APPROVALS, blank=True, default="")
+    # Avaliação da campanha nova (passo 4.5, decisão da Mariana de 22/11/2026; ampliada em 23/11, 2-A): campanha nova da
+    # plataforma lida do Backstage chega "aguardando" e só aparece (app, ficha, fila, sugestão) depois que alguém confere a
+    # mecânica, até que posição premia, os prêmios e o nível recomendado e aprova. Desde 23/11 decide a gestora (no
+    # Dashboard, na leitura da manhã) ou uma sócia (no Painel), quem avaliar primeiro; `approved_by` guarda quem foi e as
+    # sócias podem reabrir. As dirigidas pela Agência e as antigas não passam por aqui ("").
+    APPROVALS = [("", "Não precisa"), ("aguardando", "Aguardando avaliação"), ("aprovada", "Aprovada"),
+                 ("recusada", "Não oferecer")]
+    approval = models.CharField("avaliação da campanha nova", max_length=12, choices=APPROVALS, blank=True, default="")
     approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     approved_at = models.DateTimeField(null=True, blank=True)
 
@@ -88,7 +90,7 @@ class Campaign(AudienceMixin):
 
     @property
     def blocked(self):
-        """Ainda não aprovada ou recusada pelas sócias: não aparece em lugar nenhum fora da gestão."""
+        """Ainda não avaliada, ou avaliada como "não oferecer": não aparece em lugar nenhum fora da gestão."""
         return self.approval in ("aguardando", "recusada")
 
     def __str__(self):

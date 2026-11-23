@@ -19,7 +19,28 @@ if ('serviceWorker' in navigator) { window.addEventListener('load', () => naviga
 function heraCopy(btn, id) {
   const el = document.getElementById(id);
   // guarda o conteúdo do botão (pode ser só um ícone) e mostra o "copiado" por 1,5 s
-  navigator.clipboard.writeText(el.innerText).then(() => { const t = btn.innerHTML; btn.innerHTML = btn.classList.contains('qicon') ? '✓' : 'Copiado ✓'; setTimeout(() => btn.innerHTML = t, 1500); });
+  navigator.clipboard.writeText(el.innerText || el.textContent).then(() => { const t = btn.innerHTML; btn.innerHTML = btn.classList.contains('qicon') ? '✓' : 'Copiado ✓'; setTimeout(() => btn.innerHTML = t, 1500); });
+}
+// mensagem editada antes de enviar (23/11): ids em templates/gestao/_msg_edit.html
+function heraEdit(p, n) {
+  const g = k => document.getElementById(p + k + n), box = g('e');
+  box.hidden = !box.hidden; g('m').hidden = !box.hidden;
+  if (!box.hidden) box.querySelector('textarea').focus();
+}
+function heraEdited(p, n, reset) {
+  const g = k => document.getElementById(p + k + n), ta = g('e').querySelector('textarea'), orig = g('o').value;
+  if (reset) { ta.value = orig; g('w').innerHTML = ''; }
+  const txt = ta.value, changed = txt.trim() !== orig.trim();
+  g('t').value = txt; g('m').textContent = txt;
+  g('e').querySelector('.qedit-why').hidden = !changed;
+  if (g('k')) g('k').hidden = !changed;
+  const a = g('l');
+  if (a) {  // o WhatsApp abre com o texto editado; com grupo, o link não leva texto (a gestora copia)
+    if (!a.dataset.href) a.dataset.href = a.getAttribute('href');
+    const u = new URL(a.dataset.href, location.href);
+    if (u.hostname === 'wa.me') a.href = u.origin + u.pathname + '?text=' + encodeURIComponent(txt);
+    else { if (changed) u.searchParams.set('texto', txt); a.href = u.toString(); }
+  }
 }
 </script>
 </body>

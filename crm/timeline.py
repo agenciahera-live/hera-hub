@@ -16,6 +16,7 @@ class Entry:
     title: str
     detail: str = ""
     author: object = None
+    original: str = ""  # mensagem editada: o texto pronto, antes da edição (23/11)
 
 
 def _at(d):
@@ -32,7 +33,12 @@ def _name(user):
 def timeline(creator, limit=60):
     out = []
     for x in creator.contacts.select_related("user")[:limit]:
-        out.append(Entry(x.sent_at, "📤", f"Enviei: {x.template_code or 'mensagem livre'}", x.body, x.user))
+        if x.edited:  # enviada editada (decisão da Mariana de 23/11): o motivo no título, o original guardado ao lado
+            why = " · ".join(p for p in [x.get_edit_reason_display() if x.edit_reason else "", x.edit_note] if p)
+            out.append(Entry(x.sent_at, "📤", f"Enviei: {x.template_code or 'mensagem livre'} · editada" + (f" ({why})" if why else ""),
+                             x.body, x.user, original=x.original_body))
+        else:
+            out.append(Entry(x.sent_at, "📤", f"Enviei: {x.template_code or 'mensagem livre'}", x.body, x.user))
     for x in creator.replies.select_related("author")[:limit]:
         out.append(Entry(x.created_at, "💬", x.get_kind_display(), x.note, x.author))
     for x in creator.notes.select_related("author")[:limit]:

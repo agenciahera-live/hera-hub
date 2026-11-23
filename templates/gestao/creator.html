@@ -60,7 +60,7 @@
     <form method="post" action="{% url 'g_creator_action' c.pk %}">{% csrf_token %}<input type="hidden" name="a" value="note"><textarea name="body" placeholder="Nota interna" required></textarea><button class="btn btn-sm btn-purple" style="margin-top:6px">Salvar nota</button></form>
     <form method="post" action="{% url 'g_creator_action' c.pk %}" class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">{% csrf_token %}<input type="hidden" name="a" value="wrote"><input type="text" name="note" placeholder="O que o criador escreveu (resumo, opcional)" style="flex:1;min-width:220px"><button class="btn btn-sm">O criador me escreveu</button></form>
     {% endif %}
-    <ul class="list" style="margin-top:10px">{% for e in timeline %}<li>{{ e.icon }} <b>{{ e.title }}</b>{% if e.detail %}<br><small>{{ e.detail|truncatechars:300|linebreaksbr }}</small>{% endif %}<br><small class="muted">{{ e.when|sp }}{% if e.author_name %} · {{ e.author_name }}{% endif %}</small></li>{% empty %}<li class="empty">Nada registrado ainda.</li>{% endfor %}</ul>
+    <ul class="list" style="margin-top:10px">{% for e in timeline %}<li>{{ e.icon }} <b>{{ e.title }}</b>{% if e.detail %}<br><small>{{ e.detail|truncatechars:300|linebreaksbr }}</small>{% endif %}{% if e.original %}<details><summary><small>ver o texto pronto (antes da edição)</small></summary><small>{{ e.original|linebreaksbr }}</small></details>{% endif %}<br><small class="muted">{{ e.when|sp }}{% if e.author_name %} · {{ e.author_name }}{% endif %}</small></li>{% empty %}<li class="empty">Nada registrado ainda.</li>{% endfor %}</ul>
   </section>
 </div>
 <div>
@@ -354,10 +354,12 @@
 <section class="card"><h2>{{ stage }}</h2>
   {% for x in list %}
   <details style="padding:6px 0;border-top:1px solid var(--border)"><summary>{{ x.t.title }} <small class="muted">{{ x.t.code }}</small>{% if x.t.variant %} <span class="pill">versão: {{ x.t.variant }}</span>{% endif %}{% if x.outside %} <span class="pill gray">outra trilha</span>{% endif %}{% if x.t.provisional %} <span class="pill gold">provisório</span>{% endif %}</summary>
-    <pre class="msg" id="m{{ x.t.pk }}">{{ x.text }}</pre>
-    <div class="row" style="gap:8px"><button type="button" class="btn btn-sm" onclick="heraCopy(this,'m{{ x.t.pk }}')">Copiar mensagem</button>
-    {% if can_contact %}<a class="btn btn-sm btn-wa" href="{% url 'g_open' c.pk x.t.code %}" target="_blank" rel="noopener">{% if group_url %}Abrir grupo{% else %}Abrir WhatsApp{% endif %}</a>
-    <span id="s{{ x.t.pk }}"><button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' c.pk x.t.code %}" hx-target="#s{{ x.t.pk }}" hx-swap="innerHTML">Enviei</button></span>{% endif %}</div>
+    <pre class="msg" id="fm{{ x.t.pk }}">{{ x.text }}</pre>
+    {% if can_contact %}{% include "gestao/_msg_edit.html" with p="f" n=x.t.pk text=x.text username=c.username %}{% endif %}
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="heraCopy(this,'fm{{ x.t.pk }}')">Copiar mensagem</button>
+    {% if can_contact %}<button type="button" class="btn btn-sm" onclick="heraEdit('f','{{ x.t.pk }}')">Editar</button> <span class="qtag amber" id="fk{{ x.t.pk }}" hidden>editada</span>
+    <a class="btn btn-sm btn-wa" id="fl{{ x.t.pk }}" href="{% url 'g_open' c.pk x.t.code %}" target="_blank" rel="noopener">{% if group_url %}Abrir grupo{% else %}Abrir WhatsApp{% endif %}</a>
+    <span id="s{{ x.t.pk }}"><button class="btn btn-sm btn-purple" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' c.pk x.t.code %}" hx-include="#ft{{ x.t.pk }}, #fo{{ x.t.pk }}, #fr{{ x.t.pk }}, #fx{{ x.t.pk }}" hx-target="#s{{ x.t.pk }}" hx-swap="innerHTML">Enviei</button></span>{% endif %}</div>
   </details>
   {% endfor %}
 </section>

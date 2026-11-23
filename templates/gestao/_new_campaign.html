@@ -1,0 +1,14 @@
+{% comment %}Campanha nova do TikTok esperando avaliação (passo 4.5; desde 23/11 a gestora avalia no Dashboard ou uma sócia no
+Painel, quem avaliar primeiro). Recebe: c (campanha), action (URL do POST; vazio = a própria página), mechanics e
+show_mine (mostra c.mine: quantos da carteira de quem vê estão na leitura).{% endcomment %}
+<details class="card" style="margin:8px 0;padding:10px" id="camp{{ c.pk }}"><summary><b>{{ c.name }}</b> · {{ c.start|date:"d/m" }}–{{ c.end|date:"d/m" }}{% if c.tiktok_kind %} · {{ c.get_tiktok_kind_display }}{% endif %}{% if c.participants_n is not None %} · {{ c.participants_n }}{% if c.eligible_n is not None %} / {{ c.eligible_n }}{% endif %} participantes{% endif %}{% if c.tiktok_url %} · <a href="{{ c.tiktok_url }}" target="_blank" rel="noopener">ver no TikTok ↗</a>{% endif %}
+  {% if show_mine %}<br><small>Na sua carteira: {% if c.mine.qualifica %}{{ c.mine.qualifica }} pode{{ c.mine.qualifica|pluralize:"m" }} se inscrever{% endif %}{% if c.mine.inscrito %}{% if c.mine.qualifica %} · {% endif %}{{ c.mine.inscrito }} inscrito{{ c.mine.inscrito|pluralize }}{% endif %}{% if c.mine.andamento %}{% if c.mine.qualifica or c.mine.inscrito %} · {% endif %}{{ c.mine.andamento }} participando{% endif %}{% if not c.mine.qualifica and not c.mine.inscrito and not c.mine.andamento %}ninguém na leitura{% endif %}</small>{% endif %}</summary>
+  <form method="post" {% if action %}action="{{ action }}"{% endif %} style="margin-top:8px;max-width:560px">{% csrf_token %}<input type="hidden" name="a" value="campaign"><input type="hidden" name="campaign" value="{{ c.pk }}">
+    <label>Mecânica principal</label><select name="mechanic"><option value="">—</option>{% for v, l in mechanics %}<option value="{{ v }}" {% if c.mechanic == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <label>Premia até a posição</label><input type="number" name="prize_until" min="1" value="{{ c.prize_until|default_if_none:'' }}">
+    <label>Prêmios</label><textarea name="prizes" rows="2">{{ c.prizes }}</textarea>
+    <label>Nível recomendado</label><input type="text" name="recommended_level" maxlength="60" value="{{ c.recommended_level }}">
+    <label>O que fazer (resumo para o criador)</label><textarea name="what_to_do" rows="3">{{ c.what_to_do }}</textarea>
+    <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn btn-sm btn-purple" name="decision" value="aprovar_foco">Aprovar e pôr no foco</button>
+      <button class="btn btn-sm" name="decision" value="aprovar">Aprovar sem foco</button><button class="btn btn-sm" name="decision" value="recusar">Não oferecer</button></div>
+  </form></details>

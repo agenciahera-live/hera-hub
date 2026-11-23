@@ -7,9 +7,12 @@ Recebe: i (item), p (prefixo dos ids), n (número), can_defer (mostra "Adiar"). 
     {% if i.state %}<span class="qtag {% if i.state.state == 'inativo' or i.state.state == 'sem_live' or i.state.state == 'queda' %}red{% elif i.state.state == 'subindo' %}green{% elif i.state.state == 'irregular' or i.state.state == 'horas_sem_retorno' %}amber{% endif %}">{{ i.state.label }}</span>{% endif %}
     {% if i.day_tag %}<span class="qtag">{{ i.day_tag }}</span>{% endif %}
     {% if i.state %}<span class="qtag">{{ i.state.segment_label }}</span><span class="qtag">P{{ i.state.priority }}</span>{% for s in i.state.signals %}<span class="qtag">{{ s }}</span>{% endfor %}{% endif %}
+    {% if i.text %}<span class="qtag amber" id="{{ p }}k{{ n }}" hidden>editada</span>{% endif %}
     <span class="qicons">
       {% if i.text %}<button type="button" class="qicon" title="Copiar mensagem" aria-label="Copiar mensagem" onclick="heraCopy(this,'{{ p }}m{{ n }}')">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>{% endif %}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+      <button type="button" class="qicon" title="Editar a mensagem antes de enviar" aria-label="Editar a mensagem" onclick="heraEdit('{{ p }}','{{ n }}')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4"/><path d="M14 6l4 4"/></svg></button>{% endif %}
       <a class="qicon" href="{% url 'g_creator' i.creator.pk %}" title="Ficha" aria-label="Ficha">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M7 16h10"/></svg></a>
       {% if can_defer %}<details class="qmore"><summary class="qicon" title="Adiar" aria-label="Adiar">
@@ -23,7 +26,7 @@ Recebe: i (item), p (prefixo dos ids), n (número), can_defer (mostra "Adiar"). 
   </div>
   <p class="qreason">{{ i.reason|capfirst }}</p>
   {% if i.detail %}<p class="qreason">{{ i.detail }}</p>{% endif %}
-  {% if i.text %}<pre class="qmsg" id="{{ p }}m{{ n }}">{{ i.text }}</pre>{% endif %}
+  {% if i.text %}<pre class="qmsg" id="{{ p }}m{{ n }}">{{ i.text }}</pre>{% include "gestao/_msg_edit.html" with p=p n=n text=i.text username=i.creator.username %}{% endif %}
   {% if i.text or i.asks_partners %}<div class="qfoot">
     {% if i.asks_partners %}{% if i.approval %}<span class="pill gold" title="Pedido em {{ i.approval.requested_at|date:'d/m' }}">🗳️ aguardando as sócias</span>
       {% elif can_defer %}<details class="qmore"><summary class="btn btn-sm">Pedir decisão às sócias</summary>
@@ -32,10 +35,10 @@ Recebe: i (item), p (prefixo dos ids), n (número), can_defer (mostra "Adiar"). 
           <textarea name="note" placeholder="O que as sócias precisam saber (opcional)" maxlength="2000"></textarea>
           <button class="btn btn-sm btn-purple">Enviar o pedido</button>
         </form></details>{% endif %}{% endif %}
-    {% if i.text %}<span class="qmain" id="{{ p }}a{{ n }}"><textarea name="text" id="{{ p }}t{{ n }}" hidden>{{ i.text }}</textarea>
-      <button class="btn qsent" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' i.creator.pk i.template %}" hx-include="#{{ p }}t{{ n }}" hx-target="#{{ p }}a{{ n }}" hx-swap="innerHTML">
+    {% if i.text %}<span class="qmain" id="{{ p }}a{{ n }}">
+      <button class="btn qsent" title="Marque depois de enviar no WhatsApp" hx-post="{% url 'g_sent' i.creator.pk i.template %}" hx-include="#{{ p }}t{{ n }}, #{{ p }}o{{ n }}, #{{ p }}r{{ n }}, #{{ p }}x{{ n }}" hx-target="#{{ p }}a{{ n }}" hx-swap="innerHTML">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg> Marcar como enviada</button>
-      <a class="btn btn-wa qwa" href="{% if i.wa_url %}{{ i.wa_url }}{% else %}{% url 'g_open' i.creator.pk i.template %}{% endif %}" target="_blank" rel="noopener" title="{% if i.wa_url %}Abre a conversa com a mensagem escrita{% elif i.group_url %}Abre o grupo individual (copie a mensagem antes){% else %}Abre o WhatsApp com a mensagem escrita{% endif %}">
+      <a class="btn btn-wa qwa" id="{{ p }}l{{ n }}" href="{% if i.wa_url %}{{ i.wa_url }}{% else %}{% url 'g_open' i.creator.pk i.template %}{% endif %}" target="_blank" rel="noopener" title="{% if i.wa_url %}Abre a conversa com a mensagem escrita{% elif i.group_url %}Abre o grupo individual (copie a mensagem antes){% else %}Abre o WhatsApp com a mensagem escrita{% endif %}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg> Enviar no WhatsApp</a>
     </span>{% endif %}
   </div>{% endif %}

@@ -13,7 +13,9 @@ o criador já faz nas últimas semanas (`suggest`), com o motivo em uma frase pa
 sobre elegíveis e até que posição premia) entra quando a leitura traz os números.
 
 Passo 4.5 (decisões da Mariana de 22/11/2026):
-- Campanha nova da plataforma chega "aguardando" e só vale depois da aprovação das sócias no painel (`approve`).
+- Campanha nova da plataforma chega "aguardando" e só vale depois de avaliada (`approve`). Desde 23/11 (decisão 2-A)
+  avalia a gestora, no Dashboard (leitura da manhã), ou uma sócia, no Painel: vale quem avaliar primeiro, fica
+  registrado quem foi e as sócias podem reabrir (`reopen`).
 - A leitura traz a posição e os pontos de cada criador da Hera (`CampaignPosition`), que só a gestão vê, uma frase por
   criador (`position_phrase`). Nunca uma tabela ordenada por posição: o app não tem ranking em nenhuma tela.
 - Três listas para a gestão (`follow_lists`) e o acompanhamento na fila do dia (`queue_items`), na agenda do Playbook.
@@ -337,7 +339,7 @@ def _save_positions(by_key, new_pos, now):
         p.save()
 
 
-# ---------------------------------------------------------------- aprovação das sócias (passo 4.5)
+# ---------------------------------------------------------------- avaliação da campanha nova (passo 4.5; 23/11: gestora ou sócia)
 class ApprovalError(ValueError):
     pass
 
@@ -346,11 +348,19 @@ def waiting_approval(agency):
     return list(Campaign.objects.filter(agency=agency, approval="aguardando").order_by("end", "name"))
 
 
-def approve(campaign, user, decision, mechanic="", prize_until=None, prizes="", recommended_level="", what_to_do=""):
-    """Uma sócia confere os quatro campos da visão (mecânica principal, até que posição premia, prêmios e nível
-    recomendado, mais o resumo para o criador) e aprova, ou decide não oferecer. Quem chama confere que é sócia."""
+def recently_decided(agency, days=14):
+    """As campanhas novas avaliadas nos últimos dias, com quem avaliou: as sócias acompanham pelo Painel."""
+    since = timezone.now() - dt.timedelta(days=days)
+    return list(Campaign.objects.filter(agency=agency, approval__in=("aprovada", "recusada"), approved_at__gte=since)
+                .select_related("approved_by").order_by("-approved_at"))
+
+
+def approve(campaign, user, decision, mechanic="", prize_until=None, prizes="", recommended_level="", what_to_do="", focus=False):
+    """A gestora (no Dashboard) ou uma sócia (no Painel) confere os quatro campos da visão (mecânica principal, até que
+    posição premia, prêmios e nível recomendado, mais o resumo para o criador) e aprova, ou decide não oferecer. Vale a
+    decisão de quem avaliar primeiro. `focus`: aprovar e já pôr no foco. Quem chama confere que é gestora ou sócia."""
     if campaign.approval != "aguardando":
-        raise ApprovalError("Esta campanha já foi decidida.")
+        raise ApprovalError("Esta campanha já foi avaliada.")
     if decision not in ("aprovar", "recusar"):
         raise ApprovalError("Escolha aprovar ou não oferecer.")
     campaign.approved_by, campaign.approved_at = user, timezone.now()
@@ -363,6 +373,18 @@ def approve(campaign, user, decision, mechanic="", prize_until=None, prizes="", 
         campaign.prizes = (prizes or "")[:1000]
         campaign.recommended_level = (recommended_level or "")[:60]
         campaign.what_to_do = (what_to_do or "")[:1000]
+        if focus:
+            campaign.featured, campaign.do_not_offer = True, False
+    campaign.save()
+    return campaign
+
+
+def reopen(campaign):
+    """Uma sócia reabre a avaliação: a campanha volta para "aguardando" (sai do app e do foco até nova avaliação)."""
+    if campaign.approval not in ("aprovada", "recusada"):
+        raise ApprovalError("Esta campanha não tem avaliação para reabrir.")
+    campaign.approval, campaign.approved_by, campaign.approved_at = "aguardando", None, None
+    campaign.featured = campaign.do_not_offer = False
     campaign.save()
     return campaign
 
