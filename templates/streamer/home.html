@@ -55,6 +55,8 @@
   <small class="muted">{{ estimate_note }}</small>
 </section>
 {% endif %}
+{# 4. Calculadora "Onde posso chegar" (passo 5.2) #}
+{% if calc %}{% include "streamer/_calculator.html" %}{% endif %}
 {% if graduation %}
 <section class="card compact-card">
   <div class="row between"><h3 style="margin:0">Graduação</h3><span class="pill gray">regra do TikTok</span></div>

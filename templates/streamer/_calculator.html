@@ -1,0 +1,38 @@
+{% load hera %}{# Calculadora "Onde posso chegar" (passo 5.2; web/calculator.py). Recebe: calc, calc_js, month_label, estimate_note. #}
+{{ calc_js|json_script:"calc-data" }}
+<script>
+function heraCalc(d) {
+  // mesmo arredondamento de web/progress.py:round_estimate ("em torno de X")
+  const r = v => { v = Math.max(v, 0); const s = v < 1000 ? 10 : v < 10000 ? 100 : 1000; return Math.round(v / s) * s; };
+  const lvl = v => { let t = d.tiers.length ? d.tiers[0][0] : 1; for (const [tier, min] of d.tiers) { if (v >= min) t = tier; } return t; };
+  return {
+    days: d.default,
+    get lowRaw() { return d.current + this.days * d.low; },
+    get highRaw() { return d.current + this.days * d.high; },
+    get low() { return r(this.lowRaw); },
+    get high() { return r(this.highRaw); },
+    fmt(v) { return v.toLocaleString('pt-BR'); },
+    get level() { const a = lvl(this.lowRaw), b = lvl(this.highRaw); return a === b ? `no Nível ${a}` : `entre o Nível ${a} e o Nível ${b}`; },
+  };
+}
+</script>
+<section class="card compact-card" id="onde-posso-chegar" x-data="heraCalc(JSON.parse(document.getElementById('calc-data').textContent))">
+  <h3 style="margin:0 0 4px">Onde posso chegar</h3>
+  <p style="margin:0 0 8px"><small class="muted">Você escolhe os dias. A conta usa os seus diamantes por dia de LIVE das últimas 8 semanas.</small></p>
+  <label for="calc-days" style="display:block">Em quantos dos {{ calc.remaining }} dia{{ calc.remaining|pluralize }} que falta{{ calc.remaining|pluralize:"m" }} em {{ month_label }} você pretende fazer LIVE?</label>
+  <div class="row" style="gap:10px;align-items:center;margin:6px 0">
+    <input id="calc-days" type="range" min="0" max="{{ calc.remaining }}" step="1" x-model.number="days" style="flex:1" aria-describedby="calc-result">
+    <b class="num" style="min-width:3.5em;text-align:right"><span x-text="days">{{ calc.default }}</span> dia<span x-show="days !== 1">s</span></b>
+  </div>
+  <p id="calc-result" style="margin:0" aria-live="polite">
+    <span x-cloak x-show="days === 0">Sem mais LIVE em {{ month_label }}, o mês fecha com <b class="num" x-text="fmt(low) + ' 💎'"></b>.</span>
+    <span x-cloak x-show="days > 0 && low === high">Você fecharia {{ month_label }} em torno de <b class="num" x-text="fmt(low) + ' 💎'"></b>, <span x-text="level"></span>.</span>
+    <span x-cloak x-show="days > 0 && low !== high">Você fecharia {{ month_label }} entre <b class="num" x-text="fmt(low)"></b> e <b class="num" x-text="fmt(high) + ' 💎'"></b>, <span x-text="level"></span>.</span>
+  </p>
+  <small class="muted">{{ estimate_note }}</small>
+  <ul class="list" style="margin-top:8px">
+    {% if calc.forecast %}<li><small>No seu ritmo: em torno de <b class="num">{{ calc.forecast|intbr }} 💎</b></small></li>{% endif %}
+    {% if calc.best %}<li><small>Seu melhor mês: {{ calc.best.month|date:"M/y"|lower }}, <b class="num">{{ calc.best.diamonds|intbr }} 💎</b></small></li>{% endif %}
+    {% if calc.next %}<li><small>Próximo nível: Nível {{ calc.next.tier }}, a partir de {{ calc.next.min_diamonds|intbr }} 💎 no mês (faltam {{ calc.missing|intbr }})</small></li>{% endif %}
+  </ul>
+</section>

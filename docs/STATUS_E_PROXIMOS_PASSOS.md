@@ -574,8 +574,8 @@ Lembrete: quase tudo aparece no app do criador, e o teste do app (passo 3.7) ain
 
 | Passo | O que entra | Situação |
 | --- | --- | --- |
-| 5.1 Marco da primeira LIVE | Cartão no Meu progresso (duração e dia válido), 3 perguntas de um toque, respostas na ficha e na fila, aviso à gestora | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
-| 5.2 Calculadora "Onde posso chegar" | Dias escolhidos pelo criador, faixa de diamantes e nível, 3 referências fixas | A fazer |
+| 5.1 Marco da primeira LIVE | Cartão no Meu progresso (duração e dia válido), 3 perguntas de um toque, respostas na ficha e na fila, aviso à gestora | ✅ 23/11, enviado ao GitHub (commit `ac6a5b9`; detalhes abaixo) |
+| 5.2 Calculadora "Onde posso chegar" | Dias escolhidos pelo criador, faixa de diamantes e nível, 3 referências fixas | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
 | 5.3 Conquistas e prêmios | Marcos (1ª LIVE, 5 dias, 14 dias, nível novo, graduação, 1 e 3 meses) e prêmios aprovados | A fazer |
 | 5.4 Cursos extras | Liberação para vários de uma vez e seção na Hera Academy | A fazer |
 | 5.5 IA nos rascunhos | Trecho da mensagem, resumo antes do 1:1, anotações em plano de ação; só na gestão, nunca envia | A fazer |
@@ -589,6 +589,16 @@ Lembrete: quase tudo aparece no app do criador, e o teste do app (passo 3.7) ain
 - **Segurança:** tabela `engage_firstlivecheckin` (só o criador grava; a gestão que vê o criador lê; `web/migrations/0017`). Sai na anonimização da LGPD (rotina diária).
 
 **Como testar:** `tests/test_marco_primeira_live.py` (7 testes). Conferência de 23/11: 341 testes passando e 1 pulado (o mesmo de antes).
+
+### Passo 5.2, o que mudou (Calculadora "Onde posso chegar")
+
+- **Meu progresso**, logo depois de "No seu ritmo": cartão **"Onde posso chegar"**. O criador escolhe, num controle deslizante, em quantos dos dias que faltam no mês pretende fazer LIVE (de 0 até os dias que faltam; começa no ritmo atual dele: os dias válidos do mês até agora, levados até o fim do mês). O app mostra "Você fecharia novembro entre X e Y 💎, no Nível Z" (ou "entre o Nível A e o Nível B"); com 0 dias, "o mês fecha com X 💎". Sempre "Estimativa pelo seu histórico, não é garantia".
+- **A conta** (`web/calculator.py`): diamantes por dia de LIVE do próprio criador nas últimas 8 semanas; a faixa vai do 1º ao 3º quartil (metade dos dias dele cai dentro dela). Leitura de vários dias juntos pesa como os dias válidos do intervalo. Arredondamento igual ao "em torno de" do "No seu ritmo". A conta é refeita no celular quando o controle muda (Alpine), sem mandar nada ao servidor.
+- **Três referências fixas:** no seu ritmo (a mesma projeção do cartão de cima), o melhor mês dele e o próximo nível com quanto falta.
+- **Quando aparece:** com pelo menos 3 semanas de dados e 3 dias de LIVE na base, fora do D1 a D14 (a tela mostra a contagem do TikTok) e enquanto faltam dias no mês com a leitura do mês corrente.
+- Nunca sugere número de dias nem horas; nunca compara com outro criador; nunca em reais.
+
+**Como testar:** `tests/test_calculadora.py` (4 testes). Conferência de 23/11: 345 testes passando e 1 pulado (o mesmo de antes). O controle foi conferido no Chrome com os números do teste (0, 1, 3 e 8 dias); os criadores de demonstração com login não têm leitura do mês corrente, por isso a calculadora não aparece para eles no computador da Hera.
 
 ### Ajustes de 23/11: mensagem editada e campanha nova avaliada pela gestora
 

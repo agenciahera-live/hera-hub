@@ -8,7 +8,7 @@ Regras desta tela:
   horário: mostra fatos e, quando projeta, diz que é estimativa.
 - O que é regra do TikTok (14 dias, graduação) aparece com o selo "regra do TikTok".
 
-O simulador ("Onde posso chegar") e o Indique e ganhe entram nas etapas 5 e 4 da visão.
+A calculadora "Onde posso chegar" (o simulador da visão) fica em web/calculator.py (passo 5.2).
 """
 from django.utils import timezone
 
@@ -207,8 +207,12 @@ def my_progress(creator):
     summary = month_summary.current(creator, today, {**month_summary.extra_for(creator, today), "has_campaign": bool(campaign)})
     from engage import first_live
 
+    from . import calculator
+
+    calc = None if counting else calculator.calculator(creator, snaps, snap, level, forecast, rules, today)  # passo 5.2
     return {
         "first_live": first_live.card(creator, snaps, today),  # marco da primeira LIVE (passo 5.1)
+        "calc": calc, "calc_js": calculator.js_data(calc) if calc else None,
         "month_summary": summary,
         "creator": creator, "today": today, "month_label": month_name(today), "snap": snap, "settings": settings_,
         "phase": phase, "counting": counting, "onboarding": ob, "ever_live": ever_live,
