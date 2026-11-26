@@ -11,7 +11,7 @@ import logging
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from data import port
 
@@ -94,3 +94,22 @@ def import_campaigns(request):
         logger.exception("Porta de campanhas: erro ao gravar a leitura")
         return _fail(500, "Erro interno ao gravar a leitura de campanhas. Nada foi alterado.")
     return _json({"ok": True, "situacao": "gravado", "mensagem": "Leitura de campanhas gravada.", **counts}, 200)
+
+
+@require_GET
+def campaigns_pending(request):
+    """O que falta a leitura de campanhas preencher (pedido de 26/11/2026), para buscar no Backstage só isso.
+
+        GET /api/importacao/campanhas/pendentes/
+        Authorization: Bearer <a mesma chave da leitura diária>
+    """
+    from core.rls import system_context
+    from engage import campaigns
+
+    kind, _, token = request.headers.get("Authorization", "").partition(" ")
+    key = port.key_for_token(token) if kind.lower() == "bearer" else None
+    if key is None:
+        return _fail(401, "Chave inválida ou cancelada. Peça às sócias uma chave nova em Importar dados.")
+    with system_context():
+        data = campaigns.pending(key.agency)
+    return _json({"ok": True, **data}, 200)

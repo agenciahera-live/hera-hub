@@ -141,6 +141,93 @@ class CampanhasTests(TestCase):
             self.assertFalse(CampaignParticipant.objects.filter(campaign=duelo, creator=self.b).exists())
             self.assertTrue(CampaignParticipant.objects.filter(campaign=duelo, creator=self.c, from_backstage=False).exists())
 
+    # ------------------------------------------------------------ ajustes de 26/11: listas, pendentes e envio parcial
+    def _chave_constancia(self):
+        return f"constancia teste|{(self.hoje + dt.timedelta(days=-1)).isoformat()}"
+
+    def test_resposta_diz_quais_campanhas_alem_de_quantas(self):
+        j = self._enviar(self._leitura()).json()
+        constancia = self._chave_constancia()
+        self.assertEqual((j["campanhas_novas"], j["ids_novas"]), (2, ["77001", constancia]))
+        self.assertEqual((j["para_aprovar"], j["ids_para_aprovar"]), (1, ["77001"]))
+        self.assertEqual((j["sem_link"], j["ids_sem_link"]), (1, [constancia]))
+        # Constância não tem prêmios nem "premia até"; o Duelo veio completo
+        self.assertEqual((j["sem_resumo"], j["ids_sem_resumo"]), (1, [constancia]))
+        # a segunda leitura não traz campanha nova
+        j = self._enviar(self._leitura()).json()
+        self.assertEqual((j["ids_novas"], j["ids_para_aprovar"], j["ids_sem_link"]), ([], [], [constancia]))
+
+    def test_pendentes_diz_o_que_falta_em_ordem(self):
+        url = reverse("api_campaigns_pending")
+        self.assertEqual(self.client.get(url, HTTP_AUTHORIZATION="Bearer hera_errada").status_code, 401)
+        d = lambda n: (self.hoje + dt.timedelta(days=n)).isoformat()  # noqa: E731
+        leitura = self._leitura()
+        leitura["campanhas"] += [
+            {"id": "77003", "nome": "Fim Cedo", "aba": "plataforma", "inicio": d(-1), "fim": d(2)},  # espera avaliação
+            {"id": "77004", "nome": "Sem Hera", "aba": "agencia", "inicio": d(-1), "fim": d(1)},  # termina antes, sem criador
+            {"id": "77005", "nome": "Já Acabou", "aba": "agencia", "inicio": d(-5), "fim": d(-2)},  # encerrada: fora
+            {"id": "77006", "nome": "Não Oferecer", "aba": "agencia", "inicio": d(-1), "fim": d(3)},  # a gestão recusou: fora
+        ]
+        self.assertEqual(self._enviar(leitura).status_code, 200)
+        with system_context():
+            Campaign.objects.filter(agency=self.ag, backstage_key="77006").update(do_not_offer=True)
+        r = self.client.get(url, HTTP_AUTHORIZATION=f"Bearer {self.key}")
+        self.assertEqual(r.status_code, 200, r.content)
+        j = r.json()
+        constancia = self._chave_constancia()
+        self.assertEqual([x["id"] for x in j["sem_resumo"]], ["77003", constancia, "77004"])
+        primeira = j["sem_resumo"][0]
+        self.assertEqual((primeira["nome"], primeira["aba"], primeira["fim"], primeira["tem_criador_hera"]),
+                         ("Fim Cedo", "plataforma", d(2), False))
+        self.assertEqual(primeira["falta"], ["resumo", "premios", "mecanica", "premia_ate"])
+        self.assertTrue(j["sem_resumo"][1]["tem_criador_hera"])  # Constância: criadores da Hera em andamento
+        self.assertEqual([x["id"] for x in j["sem_link"]], ["77004", "77003", constancia])
+        self.assertEqual(j["novas_para_aprovar"], [{"id": "77003", "nome": "Fim Cedo"}, {"id": "77001", "nome": "Duelo Teste"}])
+        self.assertEqual(self.client.post(url, HTTP_AUTHORIZATION=f"Bearer {self.key}").status_code, 405)
+
+    def test_envio_parcial_nao_apaga_o_que_ja_existe(self):
+        self._enviar(self._leitura())
+        constancia = self._chave_constancia()
+        with system_context():
+            antes = sorted(CampaignParticipant.objects.filter(campaign__agency=self.ag).values_list("campaign_id", "creator_id", "status"))
+        # só "id" e um campo: o resto fica como estava (campo vazio também não apaga)
+        r = self._enviar({"campanhas": [{"id": "77001", "link": "", "resumo": "", "participantes": None},
+                                        {"id": constancia, "premios": "Diamantes na LIVE", "premia_ate": 5}]})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["ids_sem_resumo"], [])  # Constância ficou completa
+        duelo, const = self._camp("Duelo Teste"), self._camp("Constância Teste")
+        self.assertEqual((duelo.backstage_tab, duelo.tiktok_kind, duelo.recommended_level, duelo.participants_n, duelo.eligible_n,
+                          duelo.total_diamonds, duelo.tiktok_url, duelo.what_to_do, duelo.prize_until, duelo.end),
+                         ("plataforma", "batalha", "nível 1", 3, 16, 3100, "https://www.tiktok.com/t/ZTeste01/",
+                          "Faça batalhas na LIVE durante a campanha.", 10, self.hoje + dt.timedelta(days=10)))
+        self.assertEqual((const.backstage_tab, const.participants_n, const.prizes, const.prize_until, const.mechanic),
+                         ("agencia", 40, "Diamantes na LIVE", 5, "horas"))
+        with system_context():  # sem "criadores", ninguém perde a situação
+            self.assertEqual(sorted(CampaignParticipant.objects.filter(campaign__agency=self.ag)
+                                    .values_list("campaign_id", "creator_id", "status")), antes)
+        # campanha que ainda não existe continua precisando de nome e datas
+        self.assertEqual(self._enviar({"campanhas": [{"id": "99999", "link": "https://www.tiktok.com/t/X/"}]}).status_code, 422)
+
+        # posições: o que não vier fica com a última gravada
+        def criadores(*linhas):
+            return self._enviar({"campanhas": [], "criadores": list(linhas)})
+
+        criadores({"usuario": "@batalhador.demo", "campanha": "77001", "situacao": "inscrito", "posicao": 5, "pontos": 100,
+                   "pontos_para_subir": 10},
+                  {"usuario": "@constante.demo", "campanha": "77001", "situacao": "qualifica-se", "posicao": 9, "pontos": 50})
+        r = criadores({"usuario": "@batalhador.demo", "campanha": "77001", "situacao": "inscrito", "posicao": 4},
+                      {"usuario": "@constante.demo", "campanha": "77001"})  # sem posição e sem situação
+        self.assertEqual(r.status_code, 200, r.content)
+        from engage.models import CampaignPosition
+
+        with system_context():
+            pa = CampaignPosition.objects.get(campaign=duelo, creator=self.a)
+            self.assertEqual((pa.position, pa.points, pa.to_next), (4, 100, 10))
+            self.assertEqual(CampaignPosition.objects.get(campaign=duelo, creator=self.b).position, 9)
+            self.assertEqual(CampaignParticipant.objects.get(campaign=duelo, creator=self.b).status, "qualifica")
+            # a Constância não apareceu em "criadores": a situação de antes continua
+            self.assertEqual(CampaignParticipant.objects.filter(campaign=const, from_backstage=True).count(), 3)
+
     # ------------------------------------------------------------ app do criador
     def test_criador_ve_so_as_de_foco_em_que_participa(self):
         self._enviar(self._leitura())

@@ -62,6 +62,7 @@ urlpatterns = [
     path("gestao/mensagens/<int:pk>/", G.message_detail, name="g_message"),
     path("api/importacao/backstage/", A.import_backstage, name="api_import_backstage"),
     path("api/importacao/campanhas/", A.import_campaigns, name="api_import_campaigns"),
+    path("api/importacao/campanhas/pendentes/", A.campaigns_pending, name="api_campaigns_pending"),
     path("gestao/importar/", G.imports, name="g_imports"),
     path("gestao/importar/chave/", G.import_key, name="g_import_key"),
     path("gestao/importar/<int:pk>/", G.import_preview, name="g_import_preview"),

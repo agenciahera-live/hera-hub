@@ -72,6 +72,14 @@ Formato:
  "criadores": [{"usuario": "@exemplo", "campanha": "ID ou nome da campanha", "situacao": "inscrito",
                 "posicao": 8, "pontos": 15300, "pontos_para_subir": 1200}]}
 Sem a tabela de classificação, deixe "posicao", "pontos" e "pontos_para_subir" de fora (as posições da leitura anterior ficam).
+Envio parcial: para campanha já gravada, basta o "id" e os campos que você leu agora (ex.: só "id" e "link", ou só "id" e
+"resumo"). Campo ausente ou vazio mantém o que já está gravado. Campanha nova precisa de "nome", "inicio" e "fim".
+A resposta traz as listas "ids_novas", "ids_para_aprovar", "ids_sem_link" e "ids_sem_resumo" (aberta e sem resumo,
+prêmios, mecânica ou "premia_ate").
+O que falta preencher (para buscar no Backstage só isso):
+curl.exe -sS -H "Authorization: Bearer {{ key_once }}" {{ api_pending_url }}
+Devolve "sem_resumo" (em ordem: esperando avaliação, com criador da Hera inscrito ou em andamento, que terminam antes;
+"falta" diz os campos), "sem_link" e "novas_para_aprovar". Só campanhas ainda abertas.
 A posição é só para a gestão: o app do criador não mostra posição nem ranking.
 Campanha nova da plataforma só aparece depois da aprovação das sócias: proponha a mecânica, "premia_ate" e os prêmios lendo a imagem das regras.</pre>
     <button type="button" class="btn btn-sm btn-purple" onclick="heraCopy(this,'port-key')">Copiar instruções com a chave</button>

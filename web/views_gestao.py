@@ -1211,6 +1211,7 @@ def imports(request):
            "status": S.import_status(request.agency), "can_backstage": _can_import(request.roles, "backstage"),
            "can_key": Role.ADMIN in request.roles, "api_url": request.build_absolute_uri(reverse("api_import_backstage")),
            "api_campaigns_url": request.build_absolute_uri(reverse("api_import_campaigns")),
+           "api_pending_url": request.build_absolute_uri(reverse("api_campaigns_pending")),
            "key_once": request.session.pop("import_key_once", None) if Role.ADMIN in request.roles else None}
     if request.method == "POST" and request.FILES.get("file"):
         f = request.FILES["file"]

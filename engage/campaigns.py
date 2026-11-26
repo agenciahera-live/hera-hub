@@ -212,17 +212,38 @@ def _link(v):
     return v if re.match(r"^https://(www\.|vm\.|vt\.)?tiktok\.com/", v) else ""
 
 
+def _given(v):
+    """O campo veio preenchido no JSON. Campo ausente, null ou texto vazio = "não mexer" (envio parcial)."""
+    return v is not None and str(v).strip() != ""
+
+
+SUMMARY_FIELDS = (("what_to_do", "resumo"), ("prizes", "premios"), ("mechanic", "mecanica"), ("prize_until", "premia_ate"))
+
+
+def missing_summary(c):
+    """Campos da leitura das regras que ainda faltam (nomes do JSON)."""
+    return [json_name for field, json_name in SUMMARY_FIELDS if getattr(c, field) in (None, "")]
+
+
+def _needs_reading(c, today):
+    """Campanha ainda aberta que vale a pena completar ("não oferecer" fica de fora: a gestão já decidiu)."""
+    return c.end >= today and c.approval != "recusada" and not c.do_not_offer
+
+
 def receive_reading(agency, payload, now=None):
     """Grava a leitura de campanhas (campanhas + situação de cada criador). Devolve o resumo para a resposta da porta.
 
     - Cada campanha é achada pelo "id" do Backstage ou, sem ID, pelo nome com a data de início: reenviar não duplica.
+    - Envio parcial (pedido de 26/11/2026): para campanha já gravada, basta o "id" e os campos que mudaram. Campo
+      ausente ou vazio mantém o valor gravado; nunca vira vazio. Campanha nova continua precisando de nome, início e fim.
     - O que a gestão decide (foco, "não oferecer", mecânica e "premia até" já conferidos) nunca é sobrescrito: a
-      leitura só preenche a mecânica e o "premia até" quando ainda estão vazios.
-    - A situação de cada criador é trocada inteira, campanha por campanha (quem sumiu da leitura deixa de valer).
-      Inclusões manuais da gestão ficam como estão.
+      leitura só preenche link, resumo, prêmios, mecânica e "premia até" quando ainda estão vazios.
+    - A situação de cada criador é trocada inteira, campanha por campanha, só nas campanhas que aparecem em
+      "criadores" (quem sumiu da leitura deixa de valer). Inclusões manuais da gestão ficam como estão.
     - @ que não é da agência é ignorado e contado.
     """
     now = now or timezone.now()
+    today = timezone.localtime(now).date()
     if not isinstance(payload, dict) or not isinstance(payload.get("campanhas"), list):
         raise ReadingError("Envie um JSON com a lista “campanhas” (e, se tiver, “criadores”).")
     camps, rows = payload["campanhas"], payload.get("criadores") or []
@@ -232,26 +253,41 @@ def receive_reading(agency, payload, now=None):
         raise ReadingError("Leitura grande demais para a tela de campanhas do Backstage.")
     counts = {"campanhas_novas": 0, "campanhas_atualizadas": 0, "situacoes": 0, "criadores_desconhecidos": 0, "sem_link": 0,
               "para_aprovar": 0, "posicoes": 0}
+    ids = {"ids_novas": {}, "ids_para_aprovar": {}, "ids_sem_link": {}, "ids_sem_resumo": {}}  # pk -> id (sem repetir)
     with transaction.atomic():
         by_key = {}
         for raw in camps:
-            if not isinstance(raw, dict) or not str(raw.get("nome") or "").strip():
+            if not isinstance(raw, dict):
                 raise ReadingError("Toda campanha precisa de “nome”.")
-            name = str(raw["nome"]).strip()[:120]
-            start, end = _date(raw.get("inicio"), "inicio", name), _date(raw.get("fim"), "fim", name)
+            given_id = str(raw.get("id") or "").strip()[:160]
+            c = Campaign.objects.filter(agency=agency, backstage_key=given_id).first() if given_id else None
+            if c is None:  # campanha nova, ou enviada sem ID: nome, início e fim são obrigatórios, como sempre
+                if not str(raw.get("nome") or "").strip():
+                    raise ReadingError("Toda campanha precisa de “nome”.")
+                name = str(raw["nome"]).strip()[:120]
+                start, end = _date(raw.get("inicio"), "inicio", name), _date(raw.get("fim"), "fim", name)
+                key = (given_id or f"{_norm(name)}|{start.isoformat()}")[:160]
+                c = Campaign.objects.filter(agency=agency, backstage_key=key).first()
+            else:  # já gravada e achada pelo ID: o que não veio fica como está
+                key = given_id
+                name = str(raw.get("nome") or "").strip()[:120] or c.name
+                start = _date(raw["inicio"], "inicio", name) if _given(raw.get("inicio")) else c.start
+                end = _date(raw["fim"], "fim", name) if _given(raw.get("fim")) else c.end
             if end < start:
                 raise ReadingError(f"Campanha “{name}”: o fim vem antes do início.")
-            key = str(raw.get("id") or "").strip() or f"{_norm(name)}|{start.isoformat()}"
-            c = Campaign.objects.filter(agency=agency, backstage_key=key[:160]).first()
-            fields = {
-                "name": name, "start": start, "end": end, "backstage_tab": "agencia" if _norm(raw.get("aba")) == "agencia" else "plataforma",
-                "tiktok_kind": _KIND_IN.get(_norm(raw.get("tipo")), ""), "recommended_level": str(raw.get("nivel_recomendado") or "")[:60],
-                "participants_n": _int(raw.get("participantes")), "eligible_n": _int(raw.get("elegiveis")),
-                "total_diamonds": _int(raw.get("diamantes")), "read_at": now,
-            }
+            fields = {"name": name, "start": start, "end": end, "read_at": now}
+            if _given(raw.get("aba")) or c is None:
+                fields["backstage_tab"] = "agencia" if _norm(raw.get("aba")) == "agencia" else "plataforma"
+            if _KIND_IN.get(_norm(raw.get("tipo"))):
+                fields["tiktok_kind"] = _KIND_IN[_norm(raw.get("tipo"))]
+            if _given(raw.get("nivel_recomendado")):
+                fields["recommended_level"] = str(raw["nivel_recomendado"]).strip()[:60]
+            for json_name, field in (("participantes", "participants_n"), ("elegiveis", "eligible_n"), ("diamantes", "total_diamonds")):
+                if _int(raw.get(json_name)) is not None:
+                    fields[field] = _int(raw.get(json_name))
             link = _link(raw.get("link"))
             if c is None:
-                c = Campaign(agency=agency, backstage_key=key[:160], source="backstage", featured=False, published=True,
+                c = Campaign(agency=agency, backstage_key=key, source="backstage", featured=False, published=True,
                              rules=str(raw.get("regras") or raw.get("resumo") or "")[:4000], **fields)
                 if c.backstage_tab == "plataforma":  # decisão de 22/11: campanha nova do TikTok espera as sócias
                     c.approval = "aguardando"
@@ -262,6 +298,9 @@ def receive_reading(agency, payload, now=None):
                 c.mechanic = _MECH_IN.get(_norm(raw.get("mecanica")), "")
                 c.prize_until = _int(raw.get("premia_ate"))
                 c.save()
+                ids["ids_novas"][c.pk] = key
+                if c.approval == "aguardando":
+                    ids["ids_para_aprovar"][c.pk] = key
                 counts["campanhas_novas"] += 1
             else:
                 for k, v in fields.items():
@@ -276,7 +315,10 @@ def receive_reading(agency, payload, now=None):
                 counts["campanhas_atualizadas"] += 1
             if not c.tiktok_url:
                 counts["sem_link"] += 1
-            by_key[key[:160]] = c
+                ids["ids_sem_link"][c.pk] = c.backstage_key
+            if _needs_reading(c, today) and missing_summary(c):
+                ids["ids_sem_resumo"][c.pk] = c.backstage_key
+            by_key[key] = c
             by_key.setdefault(_norm(name), c)
         # situação de cada criador em cada campanha
         from data.importer import _find_creator_by_username
@@ -284,14 +326,25 @@ def receive_reading(agency, payload, now=None):
         found = {}
         new_rows = {}
         new_pos = {}  # (campanha, criador) -> (posição, pontos, pontos para subir)
+        in_rows = set()  # campanhas que aparecem em "criadores": só nelas a situação é trocada
+        saved = {}  # envio parcial: campanha já gravada, citada em "criadores" só pelo ID
         for r in rows:
             if not isinstance(r, dict):
                 continue
-            camp = by_key.get(str(r.get("campanha") or "").strip()) or by_key.get(_norm(r.get("campanha")))
+            ref = str(r.get("campanha") or "").strip()
+            camp = by_key.get(ref) or by_key.get(_norm(ref))
+            if camp is None and ref:
+                if ref not in saved:
+                    saved[ref] = Campaign.objects.filter(agency=agency, backstage_key=ref[:160]).first()
+                camp = saved[ref]
             status = _STATUS_IN.get(_norm(r.get("situacao")))
             handle = str(r.get("usuario") or "").strip().lstrip("@")
-            if camp is None or status is None or not handle:
+            if camp is not None:
+                in_rows.add(camp.pk)
+            if camp is None or not handle:
                 continue
+            if status is None and _given(r.get("situacao")):
+                continue  # situação que a leitura não reconhece: a linha não vale (como antes)
             if handle not in found:
                 found[handle] = _find_creator_by_username(agency, handle)
             creator = found[handle]
@@ -302,32 +355,37 @@ def receive_reading(agency, payload, now=None):
             pos = _int(re.sub(r"\D", "", str(r.get("posicao") or "")))  # aceita "8", "8º" e "#8"
             if pos:  # posição na tabela de classificação (passo 4.5): só a gestão vê
                 new_pos[(camp.pk, creator.pk)] = (pos, _int(r.get("pontos")), _int(r.get("pontos_para_subir")))
-        _save_positions(by_key, new_pos, now)
+        _save_positions(new_pos, set(new_rows), now)
         counts["posicoes"] = len(new_pos)
-        touched = {c.pk for c in by_key.values()}
-        if rows:  # sem a lista de criadores, a situação de antes continua valendo
-            old = CampaignParticipant.objects.filter(campaign_id__in=touched, from_backstage=True)
+        if in_rows:  # campanha que não aparece em "criadores" fica com a situação de antes (envio parcial)
+            old = CampaignParticipant.objects.filter(campaign_id__in=in_rows, from_backstage=True)
             CampaignParticipant.objects.filter(pk__in=[p.pk for p in old if (p.campaign_id, p.creator_id) not in new_rows]).delete()
             for (cid, crid), status in new_rows.items():
+                if status is None:  # linha sem "situacao" (envio parcial): a situação gravada fica como está
+                    continue
                 obj, created = CampaignParticipant.objects.get_or_create(campaign_id=cid, creator_id=crid,
                                                                          defaults={"status": status, "from_backstage": True})
                 if not created and obj.from_backstage and obj.status != status:
                     obj.status = status
                     obj.save(update_fields=["status", "updated_at"])
                 counts["situacoes"] += 1
+    counts.update({name: list(found_ids.values()) for name, found_ids in ids.items()})
+    counts["sem_resumo"] = len(counts["ids_sem_resumo"])
     return counts
 
 
-def _save_positions(by_key, new_pos, now):
+def _save_positions(new_pos, listed, now):
     """Grava a posição de cada criador, campanha por campanha. Só troca as campanhas que vieram com alguma posição
-    nesta leitura (uma leitura sem a tabela de classificação não apaga as posições de antes). A posição anterior
-    guardada é a do último dia de leitura antes de hoje, para "pode perder posição" (reenviar no mesmo dia não apaga)."""
+    nesta leitura (uma leitura sem a tabela de classificação não apaga as posições de antes). Na campanha trocada,
+    só sai a posição de quem sumiu da leitura; quem veio sem "posicao" (`listed`) fica com a última gravada, e
+    "pontos" ou "pontos_para_subir" ausentes mantêm o valor de antes. A posição anterior guardada é a do último dia
+    de leitura antes de hoje, para "pode perder posição" (reenviar no mesmo dia não apaga)."""
     with_pos = {cid for cid, _ in new_pos}
     if not with_pos:
         return
     today = timezone.localtime(now).date()
     old = {(p.campaign_id, p.creator_id): p for p in CampaignPosition.objects.filter(campaign_id__in=with_pos)}
-    CampaignPosition.objects.filter(pk__in=[p.pk for k, p in old.items() if k not in new_pos]).delete()
+    CampaignPosition.objects.filter(pk__in=[p.pk for k, p in old.items() if k not in new_pos and k not in listed]).delete()
     for (cid, crid), (pos, pts, to_next) in new_pos.items():
         p = old.get((cid, crid))
         if p is None:
@@ -335,8 +393,31 @@ def _save_positions(by_key, new_pos, now):
             continue
         if timezone.localtime(p.read_at).date() < today:
             p.prev_position = p.position
-        p.position, p.points, p.to_next, p.read_at = pos, pts, to_next, now
+        p.position, p.read_at = pos, now
+        p.points = p.points if pts is None else pts
+        p.to_next = p.to_next if to_next is None else to_next
         p.save()
+
+
+def pending(agency, today=None):
+    """O que falta a leitura preencher (GET /api/importacao/campanhas/pendentes/), só de campanhas ainda abertas.
+
+    sem_resumo: primeiro as que esperam avaliação, depois as que têm criador da Hera inscrito ou em andamento, depois as
+    que terminam antes. Campanha marcada "não oferecer" fica de fora: a gestão já decidiu não usar."""
+    today = today or timezone.localdate()
+    camps = [c for c in Campaign.objects.filter(agency=agency, source="backstage", end__gte=today).exclude(backstage_key="")
+             if _needs_reading(c, today)]
+    with_hera = set(CampaignParticipant.objects.filter(campaign__in=[c.pk for c in camps], status__in=("inscrito", "andamento"))
+                    .values_list("campaign_id", flat=True))
+    no_summary = sorted((c for c in camps if missing_summary(c)),
+                        key=lambda c: (c.approval != "aguardando", c.pk not in with_hera, c.end, c.name))
+    by_end = sorted(camps, key=lambda c: (c.end, c.name))
+    return {
+        "sem_resumo": [{"id": c.backstage_key, "nome": c.name, "aba": c.backstage_tab, "fim": c.end.isoformat(),
+                        "tem_criador_hera": c.pk in with_hera, "falta": missing_summary(c)} for c in no_summary],
+        "sem_link": [{"id": c.backstage_key, "nome": c.name} for c in by_end if not c.tiktok_url],
+        "novas_para_aprovar": [{"id": c.backstage_key, "nome": c.name} for c in by_end if c.approval == "aguardando"],
+    }
 
 
 # ---------------------------------------------------------------- avaliação da campanha nova (passo 4.5; 23/11: gestora ou sócia)

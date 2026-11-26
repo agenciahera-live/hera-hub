@@ -566,6 +566,21 @@ Pedida pela Mariana em 19/11, com a ordem abaixo aprovada. Construída em parale
 | 4.7 Indique e ganhe | Link, indicações, quanto ganhou | ✅ 22/11, partes 1 (registro, validação, cálculo e telas) e 2 (Pix, "pago" e recibo), aguardando aprovação (detalhes abaixo) |
 | Ajustes de 23/11 | Mensagem editada antes de enviar; campanha nova avaliada pela gestora no Dashboard | ✅ 23/11, aguardando aprovação (detalhes abaixo) |
 
+### Ajustes de 26/11: leitura de campanhas (pedido da Mariana)
+
+- **Resposta do envio com as listas** (`engage/campaigns.py:receive_reading`): além dos números, `ids_novas`, `ids_para_aprovar`, `ids_sem_link` e `ids_sem_resumo` (e o número `sem_resumo`). "Sem resumo" = campanha aberta, das que vieram no envio, sem resumo, prêmios, mecânica ou "premia até". O ID é o do Backstage; sem ID, o nome com a data de início (o mesmo que a leitura pode mandar de volta como "id").
+- **Consulta nova `GET /api/importacao/campanhas/pendentes/`** (mesma chave; `engage/campaigns.py:pending`, `web/views_api.py:campaigns_pending`): `sem_resumo` (em ordem: esperando avaliação, com criador da Hera inscrito ou em andamento, que terminam antes; cada uma diz o que `falta`), `sem_link` e `novas_para_aprovar`. Só campanhas ainda abertas.
+- **Envio parcial não apaga nada:** campanha já gravada pode vir só com o "id" e o que mudou; campo ausente ou vazio mantém o valor gravado. Na lista de criadores, linha sem posição, pontos ou situação mantém o que estava. Campanha nova continua precisando de nome, início e fim. O formato do envio de antes continua igual.
+- Instruções novas na tela Importar dados › Leitura automática (aparecem ao gerar a chave).
+
+| Decisão pequena | Por quê |
+| --- | --- |
+| A situação dos criadores só é trocada nas campanhas que aparecem em "criadores" | Antes, uma campanha enviada sem nenhuma linha de criador perdia todas as situações; num envio parcial (só o link, por exemplo) isso apagaria quem está inscrito |
+| Campanha marcada "não oferecer" (ou recusada na avaliação) fica fora de "sem resumo", "sem link" e da consulta de pendentes | A gestão já decidiu não usar; a leitura não precisa gastar tempo com ela |
+| Na lista da consulta, "aberta" é a que termina hoje ou depois (data de Brasília) | Mesma data usada na gravação das posições |
+
+**Como testar:** `tests/test_campanhas.py` (3 testes novos: listas na resposta, pendentes em ordem, envio parcial). Conferência de 26/11: 348 testes passando e 1 pulado (o mesmo de antes).
+
 ### Etapa 5: crescimento do criador (plano dos passos)
 
 Pedida pela Mariana em 23/11. Decisões de 23/11: **1A** ordem 5.1 → 5.5 (o que o criador vê fica pronto para quando o teste do app começar); **2A** na tela Conquistas, o prêmio aparece como foi aprovado (diamantes ou valor do Pix) e a situação da entrega; **3A** cursos extras liberados para vários de uma vez (por nível, grupo ou trilha), com seção "Cursos extras" na Hera Academy; **4A** IA construída com dados mínimos (só @, números e anotações; nunca telefone, CPF, Pix ou nome completo) e desligada até a Mariana colocar a chave da Anthropic no Railway; **5** textos do marco da 1ª LIVE aprovados como provisórios.
